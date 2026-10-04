@@ -1,0 +1,12 @@
+# Supabase CLI-konfiguration (bruges af `supabase link` / `supabase db push`).
+project_id = "hjem"
+
+[auth]
+# Indsæt jeres Vercel-URL her, så evt. links i e-mails peger på appen.
+site_url = "http://localhost:5173"
+# Ingen offentlig tilmelding – brugere oprettes manuelt i dashboardet.
+enable_signup = false
+
+[auth.email]
+enable_signup = false
+enable_confirmations = false

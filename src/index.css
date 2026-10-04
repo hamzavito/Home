@@ -1,0 +1,190 @@
+@import 'tailwindcss';
+
+/* -------------------------------------------------------------------------
+   Design-tokens. Lyst tema som standard, mørkt via systemindstilling eller
+   eksplicit valg (data-theme på <html>).
+   ------------------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+  --bg: #f2f2f7;
+  --bg-elevated: #ffffff;
+  --surface: rgb(255 255 255 / 0.78);
+  --surface-strong: #ffffff;
+  --fill: rgb(118 118 128 / 0.12);
+  --fill-strong: rgb(118 118 128 / 0.2);
+  --text: #1c1c1e;
+  --text-secondary: #6e6e73;
+  --text-tertiary: #aeaeb2;
+  --separator: rgb(60 60 67 / 0.12);
+  --accent: #2f7d6d;
+  --accent-soft: rgb(47 125 109 / 0.12);
+  --on-accent: #ffffff;
+  --danger: #d6382c;
+  --warning: #b86e00;
+  --success: #2a8a55;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.06);
+  --nav-glass: rgb(249 249 251 / 0.78);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #000000;
+    --bg-elevated: #1c1c1e;
+    --surface: rgb(28 28 30 / 0.8);
+    --surface-strong: #1c1c1e;
+    --fill: rgb(118 118 128 / 0.24);
+    --fill-strong: rgb(118 118 128 / 0.36);
+    --text: #f5f5f7;
+    --text-secondary: #98989f;
+    --text-tertiary: #5a5a5f;
+    --separator: rgb(84 84 88 / 0.45);
+    --accent: #5cc2a8;
+    --accent-soft: rgb(92 194 168 / 0.16);
+    --on-accent: #00241c;
+    --danger: #ff6b5e;
+    --warning: #ffb340;
+    --success: #4cd38a;
+    --shadow: none;
+    --nav-glass: rgb(22 22 24 / 0.78);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #000000;
+  --bg-elevated: #1c1c1e;
+  --surface: rgb(28 28 30 / 0.8);
+  --surface-strong: #1c1c1e;
+  --fill: rgb(118 118 128 / 0.24);
+  --fill-strong: rgb(118 118 128 / 0.36);
+  --text: #f5f5f7;
+  --text-secondary: #98989f;
+  --text-tertiary: #5a5a5f;
+  --separator: rgb(84 84 88 / 0.45);
+  --accent: #5cc2a8;
+  --accent-soft: rgb(92 194 168 / 0.16);
+  --on-accent: #00241c;
+  --danger: #ff6b5e;
+  --warning: #ffb340;
+  --success: #4cd38a;
+  --shadow: none;
+  --nav-glass: rgb(22 22 24 / 0.78);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-elevated: var(--bg-elevated);
+  --color-surface: var(--surface);
+  --color-surface-strong: var(--surface-strong);
+  --color-fill: var(--fill);
+  --color-fill-strong: var(--fill-strong);
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-separator: var(--separator);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  --radius-card: 1.25rem;
+  --shadow-card: var(--shadow);
+}
+
+/* -------------------------------------------------------------------------
+   Grundlæggende app-adfærd: føles som en app, ikke en hjemmeside
+   ------------------------------------------------------------------------- */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    background: var(--bg);
+  }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-feature-settings: 'tnum' 0;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+  }
+  /* Undgå at iOS zoomer ind på inputfelter (kræver min. 16px) */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  button {
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility glass {
+  background: var(--nav-glass);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility px-safe {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes shimmer {
+  0% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.55;
+  }
+}
