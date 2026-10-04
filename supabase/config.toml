@@ -10,3 +10,7 @@ enable_signup = false
 [auth.email]
 enable_signup = false
 enable_confirmations = false
+
+# Kaldes af Supabase Cron med en delt hemmelighed (x-cleanup-secret), ikke med en brugers JWT.
+[functions.cleanup-receipts]
+verify_jwt = false
