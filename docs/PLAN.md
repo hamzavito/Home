@@ -3,7 +3,30 @@
 Privat PWA til to personer (én husstand): økonomi, budgetter, kvitteringer,
 kommende udgifter, opsparing, indkøb, opgaver og kalender.
 
-Status: **forslag – ikke godkendt endnu.** Ingen app-kode er skrevet.
+Status: **godkendt.** Fase 1 er bygget. Beslutningerne nedenfor har forrang for de detaljer i resten af dokumentet, der siger noget andet.
+
+## Beslutninger (godkendt 4. okt. 2026)
+
+1. **Budget:** Hver kategori har `default_monthly_amount_ore`. `monthly_budgets` er en overstyring for én måned.
+   Effektivt budget = overstyring for måneden, ellers standardbeløbet. Ændres standardbeløbet,
+   gælder det alle måneder uden overstyring.
+   *Teknisk note (fase 2):* Så ældre måneder ikke ændrer sig med tilbagevirkende kraft, når standardbeløbet ændres,
+   gemmes standardbeløbet med gyldighedsdato (`budget_category_defaults(category_id, valid_from, amount_ore)`).
+   Det sikrer, at historikken aldrig ændrer sig.
+2. **Betalt af:** `paid_by_kind in ('member','shared')` + `paid_by_user_id`. Fremmednøglen `(household_id, paid_by_user_id)` peger på
+   `household_members`, og en check-constraint kræver bruger-id, præcis når typen er `member`. Navne kommer fra medlemmerne,
+   så intet er hardcodet.
+3. **Udløbne kvitteringer:** Rækken bevares. Billedfilen slettes fra Storage, `storage_path` sættes til `NULL`, og `image_deleted_at` sættes.
+   Metadata (butik, beløb, købsdato, transaction_id, uploaded_by, created_at, delete_at) bevares. Transaktionen røres aldrig.
+4. **Login:** e-mail + adgangskode, ingen offentlig tilmelding, "Husk mig", korrekt logout.
+   Nulstilling af adgangskode laves med en 6-cifret kode i appen (ikke et link). Afventer godkendelse.
+5. **Oprydning:** Supabase Cron (`pg_cron`) kører dagligt og kalder Edge Function `cleanup-receipts` via `pg_net`.
+   Alt ligger i Supabase. Der bruges ingen GitHub Actions-keep-alive. Funktionen er idempotent.
+6. **Backup (fase 6):** gratis, regelmæssig eksport af databasens data. Kvitteringsbilleder med kort levetid er ikke med.
+7. **OCR** er kun en hjælp: Scan → OCR → vis → ret → vælg budget → *Godkend og gem*. Ingen transaktion før godkendelse.
+8. **Soft delete:** `archived_at` på kategorier, opsparingsmål og andre elementer, som historik afhænger af.
+   Fremmednøgler fra historik bruger `on delete restrict`, så historiske data ikke kan gå i stykker.
+
 
 ---
 
