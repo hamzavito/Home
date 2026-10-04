@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate } from 'react-router'
+import { Link, Navigate } from 'react-router'
 import { Button } from '@/components/ui/Button'
 import { Field, TextInput } from '@/components/ui/Field'
 import { getRememberMe } from '@/lib/session-storage'
@@ -76,6 +76,10 @@ export function LoginPage() {
             Log ind
           </Button>
         </form>
+
+        <Link to="/glemt-adgangskode" className="mt-5 block text-center text-[15px] font-semibold text-accent active:opacity-60">
+          Glemt adgangskode?
+        </Link>
 
         <p className="mt-8 text-center text-[13px] text-text-tertiary">
           Kun for medlemmer af husstanden. Der er ingen offentlig tilmelding.

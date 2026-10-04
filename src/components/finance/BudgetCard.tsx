@@ -47,17 +47,25 @@ export function BudgetRow({ data, pace, to }: { data: BudgetCardData; pace?: num
         <div className="min-w-0 flex-1">
           <p className="truncate text-[16px] font-semibold">{data.name}</p>
           <p className="tabular text-[13px] text-text-secondary">
-            {formatAmount(data.spentOre, { decimals: 'never' })} / {formatAmount(data.budgetOre, { decimals: 'never' })} kr.
+            {data.budgetOre === 0 && data.spentOre === 0
+              ? 'Tryk for at sætte et budget'
+              : `${formatAmount(data.spentOre, { decimals: 'never' })} / ${formatAmount(data.budgetOre, { decimals: 'never' })} kr.`}
           </p>
         </div>
-        <div className="text-right">
-          <Money ore={Math.abs(remaining)} size="md" decimals="never" className={remaining < 0 ? 'text-danger' : undefined} />
-          <p className="text-[12px]" style={{ color: status === 'normal' || status === 'none' ? 'var(--text-tertiary)' : statusColor[status] }}>
-            {remaining < 0 ? 'over' : 'tilbage'}
-          </p>
-        </div>
+        {data.budgetOre === 0 && data.spentOre === 0 ? (
+          <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[12px] font-semibold text-text-secondary">Intet budget</span>
+        ) : (
+          <div className="text-right">
+            <Money ore={Math.abs(remaining)} size="md" decimals="never" className={remaining < 0 ? 'text-danger' : undefined} />
+            <p className="text-[12px]" style={{ color: status === 'normal' || status === 'none' ? 'var(--text-tertiary)' : statusColor[status] }}>
+              {remaining < 0 ? 'over' : 'tilbage'}
+            </p>
+          </div>
+        )}
       </div>
-      <ProgressBar value={data.spentOre} max={data.budgetOre} pace={pace} className="mt-3.5" label={`${data.name}: ${statusLabel[status]}`} />
+      {data.budgetOre > 0 || data.spentOre > 0 ? (
+        <ProgressBar value={data.spentOre} max={data.budgetOre} pace={data.budgetOre > 0 ? pace : undefined} className="mt-3.5" label={`${data.name}: ${statusLabel[status]}`} />
+      ) : null}
     </Card>
   )
 }

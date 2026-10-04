@@ -2,11 +2,13 @@ import type { ButtonHTMLAttributes } from 'react'
 import { cn } from '@/lib/cn'
 import { Spinner } from './Spinner'
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
+type Variant = 'primary' | 'secondary' | 'surface' | 'ghost' | 'danger'
 
 const variants: Record<Variant, string> = {
   primary: 'bg-accent text-on-accent shadow-[0_8px_20px_-8px_var(--accent)]',
   secondary: 'bg-surface-2 text-text',
+  /** Til knapper oven på tonede kort eller baggrunden */
+  surface: 'bg-surface-1 text-text shadow-card',
   ghost: 'bg-transparent text-accent',
   danger: 'bg-danger-soft text-danger',
 }

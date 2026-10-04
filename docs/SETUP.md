@@ -9,8 +9,10 @@ Disse trin kræver din egen konto hos Supabase og Vercel. Alt sker på gratis-pl
 2. **Slå offentlig tilmelding fra:**
    *Authentication → Sign In / Providers → "Allow new users to sign up" = OFF*.
    Lad **Email**-provideren være slået til (bruges til login med adgangskode).
-3. **Kør migrationen:** Åbn *SQL Editor*, indsæt indholdet af
-   `supabase/migrations/20261004000001_household_core.sql` og tryk *Run*.
+3. **Kør migrationerne** i rækkefølge: Åbn *SQL Editor*, indsæt indholdet af hver fil i
+   `supabase/migrations/` (sorteret efter navn) og tryk *Run*:
+   1. `20261004000001_household_core.sql`
+   2. `20261005000001_budgets_transactions.sql`
    (Alternativ med CLI: `npx supabase link --project-ref <ref>` og `npx supabase db push`.)
 4. **Opret jer to brugere:** *Authentication → Users → Add user → Create new user*.
    Udfyld e-mail og adgangskode, og sæt flueben i **Auto Confirm User**.
@@ -21,7 +23,31 @@ Disse trin kræver din egen konto hos Supabase og Vercel. Alt sker på gratis-pl
    - `anon` / publishable key → `VITE_SUPABASE_ANON_KEY`
    - **Brug ikke** `service_role` / secret key i Vercel eller frontend.
 
+7. **Nulstilling af adgangskode med kode (i stedet for link):**
+   *Authentication → Emails → Templates → Reset Password*. Udskift indholdet med fx:
+
+   ```html
+   <h2>Nulstil adgangskode</h2>
+   <p>Skriv denne kode i Hjem-appen:</p>
+   <p style="font-size:28px;font-weight:bold;letter-spacing:4px">{{ .Token }}</p>
+   <p>Koden udløber om lidt. Har du ikke bedt om den, kan du se bort fra mailen.</p>
+   ```
+
+   Emnelinje fx: `Din kode til Hjem`. Linket (`{{ .ConfirmationURL }}`) skal **ikke** med,
+   for det ville åbne Safari i stedet for den installerede app.
+   *Bemærk:* Supabases indbyggede mailafsendelse er kraftigt begrænset (få mails i timen),
+   og på nyere projekter sender den kun til e-mails, der er medlemmer af jeres Supabase-organisation.
+   Inviter derfor også din kones e-mail til organisationen (*Organization → Team*). Gratis.
+   Alternativet er en egen SMTP-udbyder, men det gør vi kun efter aftale.
+
 ## 2. Vercel-projekt
+
+> **Om 403-fejlen:** Den Vercel-forbindelse, Claude har adgang til, må ikke oprette projekter i teamet
+> "Kava's projects". Det er en rettighed, der ikke skal omgås. Den nemmeste løsning er, at du selv
+> opretter projektet (trinene nedenfor). Hvis Claude senere skal kunne læse deploy-status og logs, skal
+> din rolle i teamet være *Owner* eller *Member* (*Team Settings → Members*), og Vercel-forbindelsen
+> til Claude skal godkendes for hele teamet. Ellers kan du blot dele deploy-URL'en.
+
 
 1. Gå til <https://vercel.com/new> og importér GitHub-repoet `hamzavito/home`.
 2. Framework preset: **Vite** (findes automatisk). Build command `npm run build`, output `dist`.

@@ -42,3 +42,21 @@ export function greeting(d: Date = new Date()): string {
   if (h < 18) return 'Goddag'
   return 'God aften'
 }
+
+/** "I dag", "I går" eller "18. okt." */
+export function relativeDay(iso: string, now: Date = new Date()): string {
+  const todayIso = toIsoDate(now)
+  const y = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 12)
+  if (iso === todayIso) return 'I dag'
+  if (iso === toIsoDate(y)) return 'I går'
+  return formatShortDate(fromIsoDate(iso))
+}
+
+/** Overskrift for en dag i en liste: "I dag", "I går" eller "lørdag 3. okt." */
+const dayHeading = new Intl.DateTimeFormat('da-DK', { weekday: 'long', day: 'numeric', month: 'short', timeZone: TZ })
+export function dayLabel(iso: string, now: Date = new Date()): string {
+  const r = relativeDay(iso, now)
+  if (r === 'I dag' || r === 'I går') return r
+  const s = dayHeading.format(fromIsoDate(iso)).replace(',', '')
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}

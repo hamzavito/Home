@@ -1,20 +1,44 @@
-import { CalendarClock, PiggyBank, Receipt, WalletCards } from 'lucide-react'
+import { CalendarClock, PiggyBank, Plus, Receipt, WalletCards } from 'lucide-react'
+import { useNavigate } from 'react-router'
 import { sections } from '@/app/sections'
 import { SpendingChart } from '@/components/charts/SpendingChart'
+import { BudgetCard } from '@/components/finance/BudgetCard'
 import { MoneyCard } from '@/components/finance/MoneyCard'
+import { TransactionRow } from '@/components/finance/TransactionRow'
+import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SectionHeader } from '@/components/ui/SectionHeader'
+import { Skeleton } from '@/components/ui/Spinner'
+import { useBudgetMonth, useCategories, useMonthTransactions, useRecentTransactions } from '@/features/finance/api'
+import { paidByLabel } from '@/features/finance/paidBy'
 import { useHousehold } from '@/features/household/HouseholdProvider'
-import { formatMonth, greeting, monthKey } from '@/lib/dates'
-import { daysInMonth, elapsedDays } from '@/lib/series'
+import { formatMonth, greeting, monthKey, relativeDay } from '@/lib/dates'
+import { cumulativeByDay, daysInMonth, elapsedDays } from '@/lib/series'
 
 export function DashboardPage() {
+  const navigate = useNavigate()
   const { members } = useHousehold()
   const now = new Date()
   const month = monthKey(now)
+  const budget = useBudgetMonth(month)
+  const monthTx = useMonthTransactions(month)
+  const recent = useRecentTransactions(5)
+  const categories = useCategories()
+
   const days = daysInMonth(month)
+  const elapsed = elapsedDays(month)
+  const lines = budget.data ?? []
+  const totalBudget = lines.reduce((s, l) => s + l.budget_ore, 0)
+  const spent = lines.reduce((s, l) => s + l.spent_ore, 0)
+  const series = cumulativeByDay(month, (monthTx.data ?? []).map((t) => ({ date: t.occurred_on, ore: t.amount_ore })), elapsed)
+  const topBudgets = lines
+    .filter((l) => !l.archived && (l.budget_ore > 0 || l.spent_ore > 0))
+    .sort((a, b) => b.budget_ore - a.budget_ore || b.spent_ore - a.spent_ore)
+    .slice(0, 4)
+  const catById = new Map((categories.data ?? []).map((c) => [c.id, c]))
   const names = members.map((m) => m.displayName).join(' & ')
+  const hasCategories = (categories.data ?? []).some((c) => !c.archived_at)
 
   return (
     <>
@@ -23,20 +47,58 @@ export function DashboardPage() {
         <h1 className="text-[28px] font-bold leading-tight tracking-[-0.025em]">{names}</h1>
       </header>
 
-      <MoneyCard eyebrow={formatMonth(now)} budgetOre={0} spentOre={0} pace={elapsedDays(month) / days}>
-        <div className="mt-5">
-          <SpendingChart series={[]} days={days} budgetOre={0} tone="hero" height={72} />
-        </div>
-      </MoneyCard>
+      {budget.isPending ? (
+        <Skeleton className="h-[300px] w-full rounded-card-lg" />
+      ) : (
+        <MoneyCard eyebrow={formatMonth(now)} budgetOre={totalBudget} spentOre={spent} pace={elapsed / days} to="/okonomi">
+          {totalBudget > 0 || spent > 0 ? (
+            <div className="mt-5">
+              <SpendingChart series={series} days={days} budgetOre={totalBudget} tone="hero" height={64} />
+            </div>
+          ) : (
+            <p className="mt-4 text-[14px] text-hero-text-secondary">Opret budgetter for at se, hvor meget I har tilbage.</p>
+          )}
+        </MoneyCard>
+      )}
+
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <Button variant="surface" onClick={() => navigate('/okonomi/ny')}>
+          <Plus className="size-4.5" strokeWidth={2.5} /> Ny udgift
+        </Button>
+        <Button variant="surface" disabled title="Kommer i fase 3">
+          <Receipt className="size-4.5" /> Scan
+        </Button>
+      </div>
 
       <SectionHeader title="Budgetter" to={sections.budgets.path} />
-      <Card variant="tonal">
-        <EmptyState compact icon={WalletCards} title="Ingen budgetter endnu" text={`Budgetter kommer i fase ${sections.budgets.phase}.`} />
-      </Card>
+      {budget.isPending ? (
+        <div className="grid grid-cols-2 gap-3">
+          <Skeleton className="h-40 rounded-card" />
+          <Skeleton className="h-40 rounded-card" />
+        </div>
+      ) : topBudgets.length === 0 ? (
+        <Card variant="tonal">
+          <EmptyState compact icon={WalletCards} title={hasCategories ? 'Ingen budgetter sat' : 'Ingen budgetter endnu'} text="Sæt et månedligt beløb pr. kategori.">
+            <Button size="sm" onClick={() => navigate(sections.budgets.path)}>
+              Kom i gang
+            </Button>
+          </EmptyState>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          {topBudgets.map((l) => (
+            <BudgetCard
+              key={l.category_id}
+              data={{ name: l.name, icon: l.icon, color: l.color, budgetOre: l.budget_ore, spentOre: l.spent_ore }}
+              to={`/okonomi/budgetter/${l.category_id}`}
+            />
+          ))}
+        </div>
+      )}
 
       <SectionHeader title="Kommende" />
       <Card>
-        <EmptyState compact icon={CalendarClock} title="Intet kommende" text="Kommende udgifter og aftaler vises her." />
+        <EmptyState compact icon={CalendarClock} title="Intet kommende" text={`Kommende udgifter kommer i fase ${sections.upcoming.phase}.`} />
       </Card>
 
       <SectionHeader title="Opsparing" />
@@ -44,10 +106,32 @@ export function DashboardPage() {
         <EmptyState compact icon={PiggyBank} title="Ingen opsparingsmål" text={`Opsparing kommer i fase ${sections.savings.phase}.`} />
       </Card>
 
-      <SectionHeader title="Seneste aktivitet" />
-      <Card padded={false}>
-        <EmptyState compact icon={Receipt} title="Ingen udgifter endnu" text="Registrerede udgifter vises her." />
-      </Card>
+      <SectionHeader title="Seneste aktivitet" to="/okonomi" />
+      {recent.isPending ? (
+        <Skeleton className="h-48 rounded-card" />
+      ) : (recent.data ?? []).length === 0 ? (
+        <Card variant="tonal">
+          <EmptyState compact icon={Receipt} title="Ingen udgifter endnu" text="Registrerede udgifter vises her." />
+        </Card>
+      ) : (
+        <Card padded={false} className="divide-y divide-separator">
+          {recent.data!.map((t) => {
+            const c = catById.get(t.category_id)
+            return (
+              <TransactionRow
+                key={t.id}
+                title={t.description}
+                subtitle={`${c?.name ?? ''} · ${paidByLabel(t.paid_by_kind, t.paid_by_user_id, members)}`}
+                amountOre={t.amount_ore}
+                icon={c?.icon ?? null}
+                color={c?.color ?? null}
+                meta={relativeDay(t.occurred_on)}
+                to={`/okonomi/udgift/${t.id}`}
+              />
+            )
+          })}
+        </Card>
+      )}
     </>
   )
 }

@@ -3,7 +3,7 @@
 Privat PWA til to personer (én husstand): økonomi, budgetter, kvitteringer,
 kommende udgifter, opsparing, indkøb, opgaver og kalender.
 
-Status: **godkendt.** Fase 1 er bygget. Beslutningerne nedenfor har forrang for de detaljer i resten af dokumentet, der siger noget andet.
+Status: **godkendt.** Fase 1 og 2 er bygget. Designretning ændret til nordisk fintech (Lunar/Nordnet-inspireret) – se `docs/DESIGN.md`. Beslutningerne nedenfor har forrang for de detaljer i resten af dokumentet, der siger noget andet.
 
 ## Beslutninger (godkendt 4. okt. 2026)
 
@@ -19,7 +19,7 @@ Status: **godkendt.** Fase 1 er bygget. Beslutningerne nedenfor har forrang for 
 3. **Udløbne kvitteringer:** Rækken bevares. Billedfilen slettes fra Storage, `storage_path` sættes til `NULL`, og `image_deleted_at` sættes.
    Metadata (butik, beløb, købsdato, transaction_id, uploaded_by, created_at, delete_at) bevares. Transaktionen røres aldrig.
 4. **Login:** e-mail + adgangskode, ingen offentlig tilmelding, "Husk mig", korrekt logout.
-   Nulstilling af adgangskode laves med en 6-cifret kode i appen (ikke et link). Afventer godkendelse.
+   Nulstilling af adgangskode sker med en engangskode i appen (ikke et link). Bygget i fase 2.
 5. **Oprydning:** Supabase Cron (`pg_cron`) kører dagligt og kalder Edge Function `cleanup-receipts` via `pg_net`.
    Alt ligger i Supabase. Der bruges ingen GitHub Actions-keep-alive. Funktionen er idempotent.
 6. **Backup (fase 6):** gratis, regelmæssig eksport af databasens data. Kvitteringsbilleder med kort levetid er ikke med.
