@@ -9,10 +9,14 @@ import { CategoryNewPage } from '@/features/budgets/CategoryNewPage'
 import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage'
 import { FinancePage } from '@/features/finance/FinancePage'
 import { TransactionFormPage } from '@/features/finance/TransactionFormPage'
+import { ReceiptDetailPage } from '@/features/receipts/ReceiptDetailPage'
+import { ReceiptsPage } from '@/features/receipts/ReceiptsPage'
+import { ScanPage } from '@/features/receipts/ScanPage'
 import { HomeHubPage } from '@/features/home/HomeHubPage'
 import { MorePage } from '@/features/more/MorePage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { AppLayout } from './AppLayout'
+import { FocusLayout } from './FocusLayout'
 import { sections } from './sections'
 
 const soon = (s: (typeof sections)[keyof typeof sections]) => ({ path: s.path, element: <ComingSoon section={s} /> })
@@ -23,6 +27,10 @@ export const router = createBrowserRouter([
   {
     element: <RequireHousehold />,
     children: [
+      {
+        element: <FocusLayout />,
+        children: [{ path: '/kvitteringer/scan', element: <ScanPage /> }],
+      },
       {
         element: <AppLayout />,
         children: [
@@ -37,7 +45,8 @@ export const router = createBrowserRouter([
           { path: '/mere', element: <MorePage /> },
           { path: '/indstillinger', element: <SettingsPage /> },
           soon(sections.upcoming),
-          soon(sections.receipts),
+          { path: '/kvitteringer', element: <ReceiptsPage /> },
+          { path: '/kvitteringer/:id', element: <ReceiptDetailPage /> },
           soon(sections.savings),
           soon(sections.shopping),
           soon(sections.calendar),

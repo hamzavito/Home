@@ -9,6 +9,8 @@ export type HouseholdRole = 'owner' | 'member'
 export type PaidByKind = 'member' | 'shared'
 export type TransactionSource = 'manual' | 'receipt' | 'upcoming'
 export type BudgetSource = 'override' | 'default' | 'none'
+export type ReceiptStatus = 'pending' | 'approved'
+export type ReceiptRetention = '30d' | '3m' | '6m' | '1y' | 'custom' | 'permanent'
 
 export type Database = {
   public: {
@@ -131,6 +133,25 @@ export type Database = {
         }
         Relationships: []
       }
+      receipts: {
+        Row: {
+          id: string
+          household_id: string
+          status: ReceiptStatus
+          storage_path: string | null
+          transaction_id: string | null
+          retention: ReceiptRetention | null
+          delete_at: string | null
+          image_deleted_at: string | null
+          uploaded_by: string
+          approved_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
     }
     Views: { [_ in never]: never }
     Functions: {
@@ -141,6 +162,25 @@ export type Database = {
       }
       set_category_default: { Args: { p_category_id: string; p_valid_from: string; p_amount_ore: number }; Returns: undefined }
       set_monthly_budget: { Args: { p_category_id: string; p_month: string; p_amount_ore: number | null }; Returns: undefined }
+      create_pending_receipt: { Args: Record<PropertyKey, never>; Returns: Array<{ receipt_id: string; storage_path: string }> }
+      approve_receipt: {
+        Args: {
+          p_receipt_id: string
+          p_category_id: string
+          p_amount_ore: number
+          p_occurred_on: string
+          p_description: string
+          p_note: string | null
+          p_paid_by_kind: PaidByKind
+          p_paid_by_user_id: string | null
+          p_retention: ReceiptRetention
+          p_custom_date?: string | null
+        }
+        Returns: string
+      }
+      set_receipt_retention: { Args: { p_receipt_id: string; p_retention: ReceiptRetention; p_custom_date?: string | null }; Returns: string | null }
+      delete_transaction: { Args: { p_transaction_id: string }; Returns: string | null }
+      suggest_category: { Args: { p_merchant: string }; Returns: string | null }
       budget_month_summary: {
         Args: { p_month: string }
         Returns: Array<{

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useHousehold } from '@/features/household/HouseholdProvider'
 import { fromIsoDate, monthKey, toIsoDate } from '@/lib/dates'
+import { deleteTransactionWithReceipt } from '@/features/receipts/api'
 import { supabase } from '@/lib/supabase'
 import type { Database, PaidByKind, Tables } from '@/types/database'
 
@@ -166,10 +167,8 @@ export function useSaveTransaction() {
 export function useDeleteTransaction() {
   const invalidate = useInvalidateFinance()
   return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('transactions').delete().eq('id', id)
-      if (error) throw error
-    },
+    // Via RPC, så en evt. kvittering (og dens billede) slettes sammen med udgiften
+    mutationFn: (id: string) => deleteTransactionWithReceipt(id),
     onSuccess: invalidate,
   })
 }

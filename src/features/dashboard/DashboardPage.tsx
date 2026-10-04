@@ -1,4 +1,4 @@
-import { CalendarClock, PiggyBank, Plus, Receipt, WalletCards } from 'lucide-react'
+import { CalendarClock, Camera, PiggyBank, Plus, Receipt, WalletCards } from 'lucide-react'
 import { useNavigate } from 'react-router'
 import { sections } from '@/app/sections'
 import { SpendingChart } from '@/components/charts/SpendingChart'
@@ -65,8 +65,8 @@ export function DashboardPage() {
         <Button variant="surface" onClick={() => navigate('/okonomi/ny')}>
           <Plus className="size-4.5" strokeWidth={2.5} /> Ny udgift
         </Button>
-        <Button variant="surface" disabled title="Kommer i fase 3">
-          <Receipt className="size-4.5" /> Scan
+        <Button variant="surface" onClick={() => navigate('/kvitteringer/scan')}>
+          <Camera className="size-4.5" /> Scan kvittering
         </Button>
       </div>
 

@@ -57,6 +57,19 @@ export default defineConfig({
         // App-skallen caches, så appen åbner hurtigt og uden hvid skærm.
         // Data fra Supabase caches IKKE af service workeren (det håndterer TanStack Query).
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // OCR-filerne (flere MB) precaches ikke – de hentes første gang der scannes
+        // og gemmes derefter lokalt (CacheFirst), så næste scanning er hurtig.
+        globIgnores: ['ocr/**'],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/ocr/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'ocr-assets',
+              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 90 },
+            },
+          },
+        ],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
       },

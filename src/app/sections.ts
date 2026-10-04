@@ -43,4 +43,4 @@ export const addActions: Array<{ key: string; title: string; icon: LucideIcon; c
 ]
 
 /** Fase der er bygget indtil nu. Hæves når en fase er færdig. */
-export const CURRENT_PHASE = 2
+export const CURRENT_PHASE = 3

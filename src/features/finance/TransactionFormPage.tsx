@@ -1,6 +1,6 @@
-import { Trash2, WalletCards } from 'lucide-react'
+import { ChevronRight, Trash2, WalletCards } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { sections } from '@/app/sections'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
@@ -15,6 +15,9 @@ import { parseKr, toInputValue } from '@/lib/money'
 import { errorMessage, today, useCategories, useDeleteTransaction, useSaveTransaction, useTransaction, type Transaction } from './api'
 import { CategoryPicker } from './CategoryPicker'
 import { decodePaidBy, encodePaidBy, paidByLabel, paidByOptions } from './paidBy'
+import { useReceiptForTransaction, useSignedUrls } from '@/features/receipts/api'
+import { ReceiptThumb } from '@/features/receipts/ReceiptThumb'
+import { retentionBadge } from '@/lib/retention'
 
 export function TransactionFormPage() {
   const { id } = useParams()
@@ -142,6 +145,8 @@ function TransactionForm({ existing, categories }: { existing: Transaction | nul
           <TextArea value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} rows={2} />
         </Field>
 
+        {existing && <LinkedReceipt transactionId={existing.id} />}
+
         {existing && (
           <p className="px-1 text-[13px] text-text-tertiary">
             Registreret af {paidByLabel('member', existing.created_by, members)} · {formatLongDate(new Date(existing.created_at))}
@@ -160,7 +165,9 @@ function TransactionForm({ existing, categories }: { existing: Transaction | nul
       </form>
 
       <BottomSheet open={confirmDelete} onClose={() => setConfirmDelete(false)} title="Slet udgift?">
-        <p className="text-[15px] text-text-secondary">Udgiften fjernes, og budgettet opdateres. Det kan ikke fortrydes.</p>
+        <p className="text-[15px] text-text-secondary">
+          Udgiften fjernes, og budgettet opdateres{existing?.source === 'receipt' ? '. Kvitteringen og dens billede slettes også' : ''}. Det kan ikke fortrydes.
+        </p>
         {del.isError && <p className="mt-3 text-[14px] text-danger">{errorMessage(del.error)}</p>}
         <div className="mt-5 grid grid-cols-2 gap-3">
           <Button variant="secondary" onClick={() => setConfirmDelete(false)}>
@@ -184,5 +191,23 @@ function TransactionForm({ existing, categories }: { existing: Transaction | nul
         </div>
       </BottomSheet>
     </>
+  )
+}
+
+/** Viser den tilknyttede kvittering, hvis udgiften er oprettet fra en scanning. */
+function LinkedReceipt({ transactionId }: { transactionId: string }) {
+  const receipt = useReceiptForTransaction(transactionId)
+  const r = receipt.data
+  const urls = useSignedUrls(r?.storage_path ? [r.storage_path] : [])
+  if (!r) return null
+  return (
+    <Link to={`/kvitteringer/${r.id}`} className="pressable flex items-center gap-3 rounded-card bg-surface-1 p-3 shadow-card">
+      <ReceiptThumb url={r.storage_path ? urls.data?.get(r.storage_path) : undefined} deleted={Boolean(r.image_deleted_at)} />
+      <div className="min-w-0 flex-1">
+        <p className="text-[15px] font-semibold">Kvittering</p>
+        <p className="text-[13px] text-text-secondary">{retentionBadge({ deleteAt: r.delete_at, imageDeletedAt: r.image_deleted_at })}</p>
+      </div>
+      <ChevronRight className="size-5 text-text-tertiary" />
+    </Link>
   )
 }
