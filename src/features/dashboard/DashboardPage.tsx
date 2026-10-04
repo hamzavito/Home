@@ -66,7 +66,7 @@ export function DashboardPage() {
           <Plus className="size-4.5" strokeWidth={2.5} /> Ny udgift
         </Button>
         <Button variant="surface" onClick={() => navigate('/kvitteringer/scan')}>
-          <Camera className="size-4.5" /> Scan kvittering
+          <Camera className="size-4.5" /> Kvittering
         </Button>
       </div>
 
