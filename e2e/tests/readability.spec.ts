@@ -1,0 +1,50 @@
+import { expect, test } from '@playwright/test'
+import { expectReadable } from './helpers'
+
+// Alle centrale sider med demodata: ingen kontrastfejl (WCAG AA) i lyst og mørkt tema.
+const PAGES: Array<[string, string, string?]> = [
+  ['forside', '/', 'Hamza & Sumaya'],
+  ['økonomi-overblik', '/okonomi', 'Månedens plan'],
+  ['budgetter', '/okonomi/budgetter', 'Brugt af variable budgetter'],
+  ['faste-poster', '/okonomi/faste', 'Tilbage efter faste udgifter'],
+  ['transaktioner', '/okonomi/transaktioner', 'udgifter'],
+  ['ny-udgift', '/okonomi/ny', 'Ny udgift'],
+  ['kvitteringer', '/kvitteringer', 'Scan kvittering'],
+  ['scan', '/kvitteringer/scan', 'Tag et billede af kvitteringen'],
+  ['mere', '/mere', 'Mere'],
+  ['indstillinger', '/indstillinger', 'Udseende'],
+  ['login', '/login'],
+  ['glemt-adgangskode', '/glemt-adgangskode', 'Nulstil adgangskode'],
+]
+
+for (const [name, path, waitFor] of PAGES) {
+  test(`læsbar: ${name}`, async ({ page }, info) => {
+    if (path === '/login') {
+      await page.goto('/indstillinger')
+      await page.getByRole('button', { name: 'Log ud' }).click()
+    } else {
+      await page.goto(path)
+    }
+    if (waitFor) await expect(page.getByText(waitFor).first()).toBeVisible()
+    await expectReadable(page, name)
+    await page.screenshot({ path: info.outputPath(`${name}.png`), fullPage: true })
+  })
+}
+
+test('læsbar: tilføj-ark og bottom sheet', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Tilføj', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Tilføj' })).toBeVisible()
+  await expectReadable(page, 'tilføj-ark')
+})
+
+test('læsbar: kategori-detalje og fast post', async ({ page }) => {
+  await page.goto('/okonomi/budgetter')
+  await page.getByRole('link', { name: /Mad/ }).first().click()
+  await expect(page.getByText('Standard pr. måned')).toBeVisible()
+  await expectReadable(page, 'kategori')
+  await page.goto('/okonomi/faste')
+  await page.getByRole('link', { name: /Clever/ }).click()
+  await expect(page.getByText('Beløb over tid')).toBeVisible()
+  await expectReadable(page, 'fast-post')
+})

@@ -31,7 +31,8 @@ export function Money({ ore, size = 'md', sign, decimals, className }: Props) {
         {prefix}
         {formatAmount(ore, { decimals })}
       </span>
-      <span className={cn(s.unit, big && 'ml-1 opacity-70')}>{big ? 'kr.' : ' kr.'}</span>
+      {/* "kr." arver tekstfarven (ingen gennemsigtighed – det sænker kontrasten på farvede beløb) */}
+      <span className={cn(s.unit, big && 'ml-1')}>{big ? 'kr.' : ' kr.'}</span>
     </span>
   )
 }

@@ -52,7 +52,7 @@ export function TransactionsPage() {
         />
       </div>
 
-      <div className="mb-2 mt-5 flex items-baseline justify-between px-1">
+      <div className={`mb-2 mt-5 flex items-baseline justify-between px-1 ${txs.isPending ? 'invisible' : ''}`}>
         <p className="text-[13px] font-semibold text-secondary">
           {list.length} {list.length === 1 ? 'udgift' : 'udgifter'}
         </p>

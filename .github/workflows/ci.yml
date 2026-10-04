@@ -26,3 +26,18 @@ jobs:
       - uses: actions/checkout@v4
       # Migrations + RLS-tests mod en midlertidig Postgres (forudinstalleret på runneren)
       - run: bash supabase/tests/run-local.sh
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # Appen bygges med den lokale demo-backend og testes i lyst og mørkt tema (inkl. axe-kontrast)
+      - run: npm run test:e2e
+        env:
+          CI: true

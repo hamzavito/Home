@@ -118,6 +118,7 @@ test('udgift: opret, redigér, slet – budgettet følger med', async ({ page })
   await page.getByRole('button', { name: 'Gem ændringer' }).click()
   await page.waitForURL((u) => !u.pathname.includes('/udgift/'))
   await page.goto('/okonomi/transaktioner')
+  await expect(page.getByText('Bilka')).toBeVisible()
   expect(norm(await page.locator('main').textContent())).toContain('700 kr.')
 
   await page.getByRole('link', { name: /Bilka/ }).click()
