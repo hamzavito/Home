@@ -2,7 +2,7 @@ import { forwardRef, type InputHTMLAttributes, type ReactNode, type TextareaHTML
 import { cn } from '@/lib/cn'
 
 const control =
-  'w-full rounded-2xl bg-surface-1 px-4 text-[16px] text-text shadow-card outline-none transition-shadow placeholder:text-text-tertiary focus:ring-2 focus:ring-accent'
+  'w-full rounded-2xl bg-surface-primary px-4 text-[16px] text-primary shadow-card outline-none ring-1 ring-subtle transition-shadow placeholder:text-muted focus:ring-2 focus:ring-accent'
 
 type FieldProps = { label: string; hint?: ReactNode; error?: string | null; hideLabel?: boolean; children: ReactNode }
 
@@ -10,9 +10,9 @@ type FieldProps = { label: string; hint?: ReactNode; error?: string | null; hide
 export function Field({ label, hint, error, hideLabel, children }: FieldProps) {
   return (
     <label className="block">
-      <span className={cn('mb-1.5 block px-1 text-[13px] font-semibold text-text-secondary', hideLabel && 'sr-only')}>{label}</span>
+      <span className={cn('mb-1.5 block px-1 text-[13px] font-semibold text-secondary', hideLabel && 'sr-only')}>{label}</span>
       {children}
-      {error ? <span className="mt-1 block px-1 text-[13px] text-danger">{error}</span> : hint ? <span className="mt-1 block px-1 text-[13px] text-text-tertiary">{hint}</span> : null}
+      {error ? <span className="mt-1 block px-1 text-[13px] text-danger">{error}</span> : hint ? <span className="mt-1 block px-1 text-[13px] text-muted">{hint}</span> : null}
     </label>
   )
 }
@@ -28,16 +28,19 @@ export function TextArea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
 /** Stort beløbsfelt: tallet er hovedpersonen. */
 export const AmountInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function AmountInput({ className, ...props }, ref) {
   return (
-    <div className="flex items-baseline justify-center gap-2 rounded-card bg-surface-1 px-4 py-6 shadow-card focus-within:ring-2 focus-within:ring-accent">
+    // <label> så et tryk hvor som helst i kortet sætter fokus i feltet
+    <label className="flex cursor-text items-baseline justify-center gap-2 rounded-card bg-surface-primary px-4 py-6 shadow-card ring-1 ring-subtle focus-within:ring-2 focus-within:ring-accent">
       <input
         ref={ref}
         inputMode="decimal"
         autoComplete="off"
         placeholder="0"
-        className={cn('tabular w-full min-w-0 bg-transparent text-center text-[44px] font-bold tracking-[-0.04em] text-text outline-none placeholder:text-text-tertiary', className)}
+        // Feltet er lige så bredt som beløbet, så "kr." står lige efter tallet
+        size={Math.max(1, String(props.value ?? '').length || 1)}
+        className={cn('tabular min-w-[1.2ch] max-w-full bg-transparent text-center text-[44px] font-bold tracking-[-0.04em] text-primary outline-none placeholder:text-muted [field-sizing:content]', className)}
         {...props}
       />
-      <span className="shrink-0 text-[20px] font-semibold text-text-secondary">kr.</span>
-    </div>
+      <span className="shrink-0 text-[20px] font-semibold text-secondary">kr.</span>
+    </label>
   )
 })

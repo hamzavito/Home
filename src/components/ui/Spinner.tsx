@@ -11,12 +11,12 @@ export function Spinner({ className }: { className?: string }) {
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn('rounded-xl bg-surface-2 [animation:shimmer_1.4s_ease-in-out_infinite]', className)} />
+  return <div className={cn('rounded-xl bg-surface-secondary [animation:shimmer_1.4s_ease-in-out_infinite]', className)} />
 }
 
 export function FullScreenLoader() {
   return (
-    <div className="flex min-h-dvh items-center justify-center text-text-secondary">
+    <div className="flex min-h-dvh items-center justify-center text-secondary">
       <Spinner className="size-8" />
     </div>
   )

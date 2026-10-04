@@ -22,7 +22,7 @@ export function MoneyCard({ eyebrow, budgetOre, spentOre, pace, children, to }: 
     <Card variant="hero" to={to} className="rounded-card-lg p-6">
       <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-hero-text-secondary">{eyebrow}</p>
       <div className="mt-5">
-        <Money ore={Math.abs(remaining)} size="hero" decimals="never" className={over ? 'text-[#ff8a8a]' : undefined} />
+        <Money ore={Math.abs(remaining)} size="hero" decimals="never" className={over ? 'text-hero-danger' : undefined} />
         <p className="mt-1.5 text-[15px] text-hero-text-secondary">{over ? 'over budgettet' : 'tilbage i budgettet'}</p>
       </div>
       <ProgressBar value={spentOre} max={budgetOre} tone="hero" size="lg" pace={pace} className="mt-6" label="Brugt af budget" />

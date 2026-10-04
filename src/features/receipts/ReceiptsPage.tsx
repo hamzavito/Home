@@ -62,19 +62,19 @@ export function ReceiptsPage() {
         <div className="mt-6 space-y-6">
           {groups.map((g) => (
             <section key={g.key}>
-              <h2 className="mb-2 px-1 text-[13px] font-semibold text-text-secondary first-letter:uppercase">{formatMonthYear(fromIsoDate(`${g.key}-01`))}</h2>
-              <Card padded={false} className="divide-y divide-separator">
+              <h2 className="mb-2 px-1 text-[13px] font-semibold text-secondary first-letter:uppercase">{formatMonthYear(fromIsoDate(`${g.key}-01`))}</h2>
+              <Card padded={false} className="divide-y divide-subtle">
                 {g.items.map((r) => {
                   const t = r.transaction
                   const c = t ? catById.get(t.category_id) : undefined
                   const badge = retentionBadge({ deleteAt: r.delete_at, imageDeletedAt: r.image_deleted_at })
                   const soon = !r.image_deleted_at && r.delete_at && /i morgen|i nat|^[1-7] dage/.test(badge)
                   return (
-                    <Link key={r.id} to={`/kvitteringer/${r.id}`} className="flex items-center gap-3 px-4 py-3 transition-colors active:bg-surface-2">
+                    <Link key={r.id} to={`/kvitteringer/${r.id}`} className="flex items-center gap-3 px-4 py-3 transition-colors active:bg-surface-secondary">
                       <ReceiptThumb url={r.storage_path ? urls.data?.get(r.storage_path) : undefined} deleted={Boolean(r.image_deleted_at)} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[16px] font-semibold">{t?.description ?? 'Kvittering'}</p>
-                        <p className="flex items-center gap-1.5 truncate text-[13px] text-text-secondary">
+                        <p className="flex items-center gap-1.5 truncate text-[13px] text-secondary">
                           {c && <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: c.color }} />}
                           {c?.name ?? ''}
                           {t && <> · {formatShortDate(fromIsoDate(t.occurred_on))}</>}
@@ -82,7 +82,7 @@ export function ReceiptsPage() {
                       </div>
                       <div className="shrink-0 text-right">
                         {t && <Money ore={t.amount_ore} size="md" />}
-                        <p className={cn('text-[12px]', soon ? 'font-semibold text-notice' : 'text-text-tertiary')}>{badge}</p>
+                        <p className={cn('text-[12px]', soon ? 'font-semibold text-notice' : 'text-muted')}>{badge}</p>
                       </div>
                     </Link>
                   )

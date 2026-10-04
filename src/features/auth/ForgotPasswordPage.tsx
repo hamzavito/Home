@@ -107,7 +107,7 @@ export function ForgotPasswordPage() {
     <div className="flex min-h-dvh flex-col px-safe pb-safe pt-safe">
       <div className="mx-auto w-full max-w-sm flex-1 pt-4">
         {step !== 'done' && (
-          <Link to="/login" aria-label="Tilbage til login" className="pressable mb-8 flex size-10 items-center justify-center rounded-full bg-surface-1 shadow-card">
+          <Link to="/login" aria-label="Tilbage til login" className="pressable mb-8 flex size-10 items-center justify-center rounded-full bg-surface-primary shadow-card">
             <ChevronLeft className="size-5" strokeWidth={2.5} />
           </Link>
         )}
@@ -115,7 +115,7 @@ export function ForgotPasswordPage() {
         {step === 'email' && (
           <form onSubmit={sendCode} className="space-y-4" noValidate>
             <Title>Nulstil adgangskode</Title>
-            <p className="text-[15px] text-text-secondary">Vi sender en 6-cifret kode til din e-mail. Du skriver den her i appen – du skal ikke klikke på noget link.</p>
+            <p className="text-[15px] text-secondary">Vi sender en 6-cifret kode til din e-mail. Du skriver den her i appen – du skal ikke klikke på noget link.</p>
             <Field label="E-mail" hideLabel>
               <TextInput type="email" inputMode="email" autoComplete="username" autoCapitalize="none" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
@@ -129,8 +129,8 @@ export function ForgotPasswordPage() {
         {step === 'code' && (
           <form onSubmit={verifyCode} className="space-y-4" noValidate>
             <Title>Indtast koden</Title>
-            <p className="text-[15px] text-text-secondary">
-              Hvis <span className="font-semibold text-text">{email.trim()}</span> har en konto, har vi sendt en kode. Tjek også spam.
+            <p className="text-[15px] text-secondary">
+              Hvis <span className="font-semibold text-primary">{email.trim()}</span> har en konto, har vi sendt en kode. Tjek også spam.
             </p>
             <Field label="6-cifret kode" hideLabel>
               <TextInput
@@ -152,7 +152,7 @@ export function ForgotPasswordPage() {
             <Button type="button" variant="ghost" block disabled={busy || cooldown > 0} onClick={() => sendCode()}>
               {cooldown > 0 ? `Send ny kode om ${cooldown} s` : 'Send ny kode'}
             </Button>
-            <button type="button" className="block w-full text-center text-[14px] text-text-secondary" onClick={() => {
+            <button type="button" className="block w-full text-center text-[14px] text-secondary" onClick={() => {
                 setStep('email')
                 setError(null)
               }}>
@@ -164,7 +164,7 @@ export function ForgotPasswordPage() {
         {step === 'password' && (
           <form onSubmit={savePassword} className="space-y-4" noValidate>
             <Title>Vælg ny adgangskode</Title>
-            <p className="text-[15px] text-text-secondary">Koden er godkendt. Vælg en adgangskode på mindst 8 tegn.</p>
+            <p className="text-[15px] text-secondary">Koden er godkendt. Vælg en adgangskode på mindst 8 tegn.</p>
             <Field label="Ny adgangskode" error={pwError}>
               <TextInput type="password" autoComplete="new-password" autoFocus value={password} onChange={(e) => setPassword(e.target.value)} />
             </Field>
@@ -184,7 +184,7 @@ export function ForgotPasswordPage() {
               <Check className="size-10 text-positive" strokeWidth={3} />
             </span>
             <Title className="mt-6">Adgangskoden er ændret</Title>
-            <p className="mt-2 text-[15px] text-text-secondary">Du er logget ind. Brug den nye adgangskode næste gang.</p>
+            <p className="mt-2 text-[15px] text-secondary">Du er logget ind. Brug den nye adgangskode næste gang.</p>
             <Button block className="mt-10" onClick={() => navigate('/', { replace: true })}>
               Fortsæt til appen
             </Button>

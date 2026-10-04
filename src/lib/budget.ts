@@ -22,8 +22,8 @@ export function percentUsed(spentOre: number, budgetOre: number): number {
 
 /** CSS-farve pr. status. "normal" bruger den neutrale tekstfarve – ikke grøn – for at undgå trafiklys. */
 export const statusColor: Record<BudgetStatus, string> = {
-  none: 'var(--text-tertiary)',
-  normal: 'var(--text)',
+  none: 'var(--text-muted)',
+  normal: 'var(--text-primary)',
   notice: 'var(--notice)',
   warning: 'var(--warning)',
   over: 'var(--danger)',

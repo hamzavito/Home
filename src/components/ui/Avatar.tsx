@@ -1,12 +1,13 @@
 import { Users } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
-const fallbackColors = ['#5a3cf0', '#1aa59a', '#d65a9c', '#3b8fd9']
+// Mørke nok til hvid tekst (≥ 4,5:1)
+const fallbackColors = ['#5a3cf0', '#0f6e66', '#a8336a', '#1d5fae']
 
 export function Avatar({ name, color, index = 0, shared, className }: { name: string; color?: string | null; index?: number; shared?: boolean; className?: string }) {
   if (shared)
     return (
-      <span aria-hidden className={cn('inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-3 text-text-secondary', className)}>
+      <span aria-hidden className={cn('inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-tertiary text-secondary', className)}>
         <Users className="size-[45%]" strokeWidth={2.4} />
       </span>
     )

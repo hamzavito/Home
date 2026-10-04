@@ -14,7 +14,7 @@ export function CategoryEditor({ value, onChange, nameError }: { value: Value; o
       </Field>
 
       <div>
-        <p className="mb-1.5 px-1 text-[13px] font-semibold text-text-secondary">Farve</p>
+        <p className="mb-1.5 px-1 text-[13px] font-semibold text-secondary">Farve</p>
         <div role="radiogroup" aria-label="Farve" className="flex flex-wrap gap-2.5 px-1">
           {categoryColors.map((c) => (
             <button
@@ -24,7 +24,7 @@ export function CategoryEditor({ value, onChange, nameError }: { value: Value; o
               aria-checked={value.color === c}
               aria-label={c}
               onClick={() => onChange({ ...value, color: c })}
-              className={cn('pressable size-9 rounded-full ring-offset-2 ring-offset-[var(--bg)]', value.color === c && 'ring-2 ring-text')}
+              className={cn('pressable size-9 rounded-full ring-offset-2 ring-offset-[var(--bg)]', value.color === c && 'ring-2 ring-primary')}
               style={{ background: c }}
             />
           ))}
@@ -32,7 +32,7 @@ export function CategoryEditor({ value, onChange, nameError }: { value: Value; o
       </div>
 
       <div>
-        <p className="mb-1.5 px-1 text-[13px] font-semibold text-text-secondary">Ikon</p>
+        <p className="mb-1.5 px-1 text-[13px] font-semibold text-secondary">Ikon</p>
         <div role="radiogroup" aria-label="Ikon" className="grid grid-cols-6 gap-2">
           {Object.entries(categoryIcons).map(([key, icon]) => {
             const active = value.icon === key
@@ -44,8 +44,8 @@ export function CategoryEditor({ value, onChange, nameError }: { value: Value; o
                 aria-checked={active}
                 aria-label={key}
                 onClick={() => onChange({ ...value, icon: key })}
-                className={cn('pressable flex aspect-square items-center justify-center rounded-[14px] bg-surface-1 shadow-card', active && 'ring-2')}
-                style={active ? { background: `color-mix(in srgb, ${value.color} 16%, var(--surface-1))`, ['--tw-ring-color' as string]: value.color } : undefined}
+                className={cn('pressable flex aspect-square items-center justify-center rounded-[14px] bg-surface-primary shadow-card', active && 'ring-2')}
+                style={active ? { background: `color-mix(in srgb, ${value.color} 16%, var(--surface-primary))`, ['--tw-ring-color' as string]: value.color } : undefined}
               >
                 {createElement(icon, { className: 'size-5', style: { color: active ? value.color : 'var(--text-secondary)' }, strokeWidth: 2.2 })}
               </button>

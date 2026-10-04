@@ -21,7 +21,7 @@ import { useBudgetMonth, useCategories, useMonthTransactions, type Transaction }
 import { paidByLabel } from './paidBy'
 import { useMonthParam } from './useMonthParam'
 
-const memberColors = ['#5a3cf0', '#1aa59a', '#d65a9c', '#3b8fd9']
+const memberColors = ['#5a3cf0', '#0f6e66', '#a8336a', '#1d5fae']
 
 export function FinancePage() {
   const navigate = useNavigate()
@@ -61,7 +61,7 @@ export function FinancePage() {
       key: 'shared',
       label: 'Fælles',
       ore: list.filter((t) => t.paid_by_kind === 'shared').reduce((s, t) => s + t.amount_ore, 0),
-      color: 'var(--text-tertiary)',
+      color: 'var(--text-muted)',
       leading: <Avatar name="Fælles" shared className="size-7" />,
     },
   ]
@@ -89,7 +89,7 @@ export function FinancePage() {
 
       <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
         {[sections.budgets, sections.upcoming, sections.receipts].map((s) => (
-          <Link key={s.path} to={s.path} className="pressable flex shrink-0 items-center gap-2 rounded-full bg-surface-1 py-2 pl-2 pr-4 shadow-card">
+          <Link key={s.path} to={s.path} className="pressable flex shrink-0 items-center gap-2 rounded-full bg-surface-primary py-2 pl-2 pr-4 shadow-card">
             <span className="flex size-7 items-center justify-center rounded-full" style={{ background: `color-mix(in srgb, ${s.color} 16%, transparent)` }}>
               <s.icon className="size-4" style={{ color: s.color }} strokeWidth={2.3} />
             </span>
@@ -124,16 +124,16 @@ export function FinancePage() {
           <Card className="mt-3 p-5">
             <div className="mb-4 flex items-baseline justify-between">
               <p className="text-[15px] font-semibold">Forbrug gennem {formatMonth(fromIsoDate(month))}</p>
-              {elapsed > 0 && <p className="tabular text-[13px] text-text-secondary">ø {formatAmount(avgPerDay, { decimals: 'never' })} kr./dag</p>}
+              {elapsed > 0 && <p className="tabular text-[13px] text-secondary">ø {formatAmount(avgPerDay, { decimals: 'never' })} kr./dag</p>}
             </div>
             <SpendingChart series={series} days={days} budgetOre={totalBudget} />
-            <div className="mt-3 flex gap-4 text-[12px] text-text-secondary">
+            <div className="mt-3 flex gap-4 text-[12px] text-secondary">
               <span className="flex items-center gap-1.5">
                 <span className="h-0.5 w-4 rounded bg-accent" /> Forbrug
               </span>
               {totalBudget > 0 && (
                 <span className="flex items-center gap-1.5">
-                  <span className="w-4 border-t border-dashed border-text-tertiary" /> Jævnt tempo mod budget
+                  <span className="w-4 border-t border-dashed border-strong" /> Jævnt tempo mod budget
                 </span>
               )}
             </div>
@@ -166,11 +166,11 @@ export function FinancePage() {
             <div className="space-y-4">
               {groups.map((g) => (
                 <section key={g.day}>
-                  <div className="mb-1.5 flex justify-between px-1 text-[13px] font-semibold text-text-secondary">
+                  <div className="mb-1.5 flex justify-between px-1 text-[13px] font-semibold text-secondary">
                     <span>{dayLabel(g.day)}</span>
                     <span className="tabular">−{formatAmount(g.total)} kr.</span>
                   </div>
-                  <Card padded={false} className="divide-y divide-separator">
+                  <Card padded={false} className="divide-y divide-subtle">
                     {g.items.map((t) => {
                       const c = catById.get(t.category_id)
                       return (

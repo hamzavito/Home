@@ -49,7 +49,7 @@ export function ProgressBar({ value, max, tone = 'budget', pace, size = 'md', cl
         <div
           aria-hidden
           className="absolute inset-y-0 w-0.5 rounded-full"
-          style={{ left: `calc(${pace * 100}% - 1px)`, background: tone === 'hero' ? 'rgb(255 255 255 / 0.55)' : 'var(--text-tertiary)' }}
+          style={{ left: `calc(${pace * 100}% - 1px)`, background: tone === 'hero' ? 'rgb(255 255 255 / 0.55)' : 'var(--text-muted)' }}
         />
       )}
     </div>

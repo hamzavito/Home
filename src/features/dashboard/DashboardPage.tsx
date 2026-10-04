@@ -43,7 +43,7 @@ export function DashboardPage() {
   return (
     <>
       <header className="pb-4 pt-4">
-        <p className="text-[15px] font-medium text-text-secondary">{greeting(now)}</p>
+        <p className="text-[15px] font-medium text-secondary">{greeting(now)}</p>
         <h1 className="text-[28px] font-bold leading-tight tracking-[-0.025em]">{names}</h1>
       </header>
 
@@ -114,7 +114,7 @@ export function DashboardPage() {
           <EmptyState compact icon={Receipt} title="Ingen udgifter endnu" text="Registrerede udgifter vises her." />
         </Card>
       ) : (
-        <Card padded={false} className="divide-y divide-separator">
+        <Card padded={false} className="divide-y divide-subtle">
           {recent.data!.map((t) => {
             const c = catById.get(t.category_id)
             return (

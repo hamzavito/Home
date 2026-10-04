@@ -16,7 +16,7 @@ export function NotFound() {
   return (
     <>
       <PageHeader title="Ikke fundet" back />
-      <p className="text-text-secondary">Siden findes ikke.</p>
+      <p className="text-secondary">Siden findes ikke.</p>
     </>
   )
 }

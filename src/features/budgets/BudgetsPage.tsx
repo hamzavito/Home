@@ -65,7 +65,7 @@ export function BudgetsPage() {
               <Button onClick={() => suggest.mutate(suggestedCategories)} loading={suggest.isPending}>
                 <Sparkles className="size-4" /> Opret forslag
               </Button>
-              <p className="text-[12px] text-text-tertiary">{suggestedCategories.map((c) => c.name).join(' · ')}</p>
+              <p className="text-[12px] text-muted">{suggestedCategories.map((c) => c.name).join(' · ')}</p>
             </div>
           </EmptyState>
         </Card>
@@ -74,15 +74,15 @@ export function BudgetsPage() {
           <Card className="mt-4 p-5">
             <div className="flex items-end justify-between">
               <div>
-                <p className="text-[13px] font-medium text-text-secondary">Brugt i alt</p>
+                <p className="text-[13px] font-medium text-secondary">Brugt i alt</p>
                 <Money ore={totalSpent} size="xl" decimals="never" />
               </div>
-              <p className="tabular pb-0.5 text-right text-[14px] text-text-secondary">
+              <p className="tabular pb-0.5 text-right text-[14px] text-secondary">
                 af {formatAmount(totalBudget, { decimals: 'never' })} kr.
               </p>
             </div>
             <ProgressBar value={totalSpent} max={totalBudget} pace={pace} size="lg" className="mt-4" label="Samlet budget" />
-            <p className="tabular mt-2.5 text-[13px] text-text-secondary">
+            <p className="tabular mt-2.5 text-[13px] text-secondary">
               {totalBudget - totalSpent >= 0 ? (
                 <>
                   <span className="font-semibold text-positive">{formatAmount(totalBudget - totalSpent, { decimals: 'never' })} kr.</span> tilbage
@@ -109,7 +109,7 @@ export function BudgetsPage() {
           {archived.length > 0 && (
             <>
               <SectionHeader title="Arkiveret, men med forbrug" />
-              <div className="space-y-3 opacity-80">
+              <div className="space-y-3">
                 {archived.map((l) => (
                   <BudgetRow
                     key={l.category_id}

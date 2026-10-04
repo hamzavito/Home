@@ -25,13 +25,13 @@ export function ListRow({ icon: Icon, iconColor = 'var(--accent)', title, subtit
       )}
       <span className="flex min-w-0 flex-1 flex-col">
         <span className={cn('truncate text-[16px] font-medium', tone === 'danger' && 'text-danger')}>{title}</span>
-        {subtitle && <span className="truncate text-[13px] text-text-secondary">{subtitle}</span>}
+        {subtitle && <span className="truncate text-[13px] text-secondary">{subtitle}</span>}
       </span>
       {trailing}
-      {(to || onClick) && tone !== 'danger' && <ChevronRight className="size-5 shrink-0 text-text-tertiary" />}
+      {(to || onClick) && tone !== 'danger' && <ChevronRight className="size-5 shrink-0 text-muted" />}
     </>
   )
-  const cls = 'flex min-h-[60px] w-full items-center gap-3 px-4 py-2.5 text-left transition-colors active:bg-surface-2'
+  const cls = 'flex min-h-[60px] w-full items-center gap-3 px-4 py-2.5 text-left transition-colors active:bg-surface-secondary'
   if (to)
     return (
       <Link to={to} className={cls}>
@@ -48,5 +48,5 @@ export function ListRow({ icon: Icon, iconColor = 'var(--accent)', title, subtit
 }
 
 export function ListGroup({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('divide-y divide-separator overflow-hidden rounded-card bg-surface-1 shadow-card', className)}>{children}</div>
+  return <div className={cn('divide-y divide-subtle overflow-hidden rounded-card bg-surface-primary shadow-card', className)}>{children}</div>
 }

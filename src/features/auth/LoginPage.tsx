@@ -29,7 +29,7 @@ export function LoginPage() {
       <div className="mx-auto w-full max-w-sm">
         <img src="/icons/icon-192.png" alt="" className="mb-8 size-16 rounded-[20px] shadow-raised" />
         <h1 className="text-[34px] font-bold leading-[1.05] tracking-[-0.03em]">Velkommen hjem</h1>
-        <p className="mb-8 mt-2 text-[16px] text-text-secondary">Log ind for at se jeres fælles overblik.</p>
+        <p className="mb-8 mt-2 text-[16px] text-secondary">Log ind for at se jeres fælles overblik.</p>
 
         <form onSubmit={onSubmit} className="space-y-3" noValidate>
           <Field label="E-mail" hideLabel>
@@ -77,11 +77,11 @@ export function LoginPage() {
           </Button>
         </form>
 
-        <Link to="/glemt-adgangskode" className="mt-5 block text-center text-[15px] font-semibold text-accent active:opacity-60">
+        <Link to="/glemt-adgangskode" className="mt-5 block text-center text-[15px] font-semibold text-accent-text active:opacity-60">
           Glemt adgangskode?
         </Link>
 
-        <p className="mt-8 text-center text-[13px] text-text-tertiary">
+        <p className="mt-8 text-center text-[13px] text-muted">
           Kun for medlemmer af husstanden. Der er ingen offentlig tilmelding.
         </p>
       </div>

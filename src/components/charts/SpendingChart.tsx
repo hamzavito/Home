@@ -29,8 +29,8 @@ export function SpendingChart({ series, days, budgetOre, tone = 'default', heigh
   const over = budgetOre > 0 && last > budgetOre
 
   const stroke = tone === 'hero' ? (over ? '#ff8a8a' : '#ffffff') : over ? 'var(--danger)' : 'var(--accent)'
-  const guide = tone === 'hero' ? 'rgb(255 255 255 / 0.35)' : 'var(--text-tertiary)'
-  const label = tone === 'hero' ? 'rgb(255 255 255 / 0.5)' : 'var(--text-tertiary)'
+  const guide = tone === 'hero' ? 'rgb(255 255 255 / 0.45)' : 'var(--border-strong)'
+  const label = tone === 'hero' ? 'var(--hero-text-secondary)' : 'var(--text-muted)'
 
   return (
     <figure className="relative m-0">
@@ -66,7 +66,7 @@ export function SpendingChart({ series, days, budgetOre, tone = 'default', heigh
         <span
           aria-hidden
           className="absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-4 [animation:fade-in_300ms_700ms_both]"
-          style={{ left: `${(x(series.length - 1) / W) * 100}%`, top: `${(y(last) / H) * height}px`, background: stroke, ['--tw-ring-color' as string]: tone === 'hero' ? 'rgb(255 255 255 / 0.18)' : 'var(--accent-soft)' }}
+          style={{ left: `${(x(series.length - 1) / W) * 100}%`, top: `${(y(last) / H) * height}px`, background: stroke, ['--tw-ring-color' as string]: tone === 'hero' ? 'rgb(255 255 255 / 0.18)' : 'var(--surface-accent)' }}
         />
       )}
       <figcaption className="mt-1.5 flex justify-between text-[11px] font-medium" style={{ color: label }}>

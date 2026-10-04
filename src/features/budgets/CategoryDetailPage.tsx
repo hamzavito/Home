@@ -83,7 +83,7 @@ function CategoryDetail({ category }: { category: Category }) {
         eyebrow={archived ? 'Arkiveret kategori' : 'Budget'}
         back={`/okonomi/budgetter${q}`}
         action={
-          <button type="button" aria-label="Redigér kategori" onClick={() => setSheet('edit')} className="pressable flex size-10 items-center justify-center rounded-full bg-surface-1 shadow-card">
+          <button type="button" aria-label="Redigér kategori" onClick={() => setSheet('edit')} className="pressable flex size-10 items-center justify-center rounded-full bg-surface-primary shadow-card">
             <Pencil className="size-4.5" />
           </button>
         }
@@ -94,14 +94,14 @@ function CategoryDetail({ category }: { category: Category }) {
       <Card className="mt-4 p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[13px] font-medium text-text-secondary">{remaining < 0 ? 'Over budget' : 'Tilbage'} i {formatMonth(fromIsoDate(month))}</p>
+            <p className="text-[13px] font-medium text-secondary">{remaining < 0 ? 'Over budget' : 'Tilbage'} i {formatMonth(fromIsoDate(month))}</p>
             <Money ore={Math.abs(remaining)} size="xl" decimals="never" className={remaining < 0 ? 'text-danger' : undefined} />
           </div>
           <CategoryIcon icon={category.icon} color={category.color} size="lg" />
         </div>
         <ProgressBar value={spentOre} max={budgetOre} pace={pace} size="lg" className="mt-5" label={statusLabel[status]} />
         <div className="tabular mt-2.5 flex justify-between text-[13px]">
-          <span className="text-text-secondary">
+          <span className="text-secondary">
             {formatAmount(spentOre, { decimals: 'never' })} / {formatAmount(budgetOre, { decimals: 'never' })} kr.
           </span>
           <span className="font-semibold" style={{ color: status === 'normal' || status === 'none' ? 'var(--text-secondary)' : statusColor[status] }}>
@@ -113,9 +113,9 @@ function CategoryDetail({ category }: { category: Category }) {
       {/* Budgetindstillinger */}
       <div className="mt-3 grid grid-cols-2 gap-3">
         <Card variant="tonal" className="p-4">
-          <p className="text-[13px] font-medium text-text-secondary">Budget i {formatMonth(fromIsoDate(month))}</p>
+          <p className="text-[13px] font-medium text-secondary">Budget i {formatMonth(fromIsoDate(month))}</p>
           <Money ore={budgetOre} size="lg" decimals="never" />
-          <p className="mt-0.5 text-[12px] text-text-tertiary">{line?.budget_source === 'override' ? 'Tilpasset denne måned' : line?.budget_source === 'default' ? 'Standardbudget' : 'Intet budget'}</p>
+          <p className="mt-0.5 text-[12px] text-muted">{line?.budget_source === 'override' ? 'Tilpasset denne måned' : line?.budget_source === 'default' ? 'Standardbudget' : 'Intet budget'}</p>
           {!archived && (
             <Button size="sm" variant="surface" className="mt-3 w-full" onClick={() => setSheet('month')}>
               Tilpas måned
@@ -123,9 +123,9 @@ function CategoryDetail({ category }: { category: Category }) {
           )}
         </Card>
         <Card variant="tonal" className="p-4">
-          <p className="text-[13px] font-medium text-text-secondary">Standard pr. måned</p>
+          <p className="text-[13px] font-medium text-secondary">Standard pr. måned</p>
           <Money ore={currentDefault?.amount_ore ?? 0} size="lg" decimals="never" />
-          <p className="mt-0.5 text-[12px] text-text-tertiary">{currentDefault ? `Siden ${formatMonthYear(fromIsoDate(currentDefault.valid_from))}` : 'Ikke sat'}</p>
+          <p className="mt-0.5 text-[12px] text-muted">{currentDefault ? `Siden ${formatMonthYear(fromIsoDate(currentDefault.valid_from))}` : 'Ikke sat'}</p>
           {!archived && (
             <Button size="sm" variant="surface" className="mt-3 w-full" onClick={() => setSheet('default')}>
               Ændr standard
@@ -141,7 +141,7 @@ function CategoryDetail({ category }: { category: Category }) {
           <EmptyState compact icon={WalletCards} title="Ingen udgifter" text={`Intet registreret i ${formatMonth(fromIsoDate(month))}.`} />
         </Card>
       ) : (
-        <Card padded={false} className="divide-y divide-separator">
+        <Card padded={false} className="divide-y divide-subtle">
           {txs.map((t) => (
             <TransactionRow
               key={t.id}
@@ -161,18 +161,18 @@ function CategoryDetail({ category }: { category: Category }) {
       {(defaults.data?.length ?? 0) > 0 && (
         <>
           <SectionHeader title="Standardbudget over tid" />
-          <Card padded={false} className="divide-y divide-separator">
+          <Card padded={false} className="divide-y divide-subtle">
             {defaults.data!.map((d) => (
               <div key={d.id} className="flex items-center justify-between px-4 py-3.5">
                 <span className="text-[15px]">
                   Fra <span className="font-semibold first-letter:uppercase">{formatMonthYear(fromIsoDate(d.valid_from))}</span>
-                  {d.valid_from > currentMonth && <span className="ml-2 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-accent">Planlagt</span>}
+                  {d.valid_from > currentMonth && <span className="ml-2 rounded-full bg-surface-accent px-2 py-0.5 text-[11px] font-semibold text-accent-text">Planlagt</span>}
                 </span>
                 <Money ore={d.amount_ore} size="md" decimals="never" />
               </div>
             ))}
           </Card>
-          <p className="mt-2 px-1 text-[12px] text-text-tertiary">Tidligere måneder beholder det budget, der gjaldt dengang.</p>
+          <p className="mt-2 px-1 text-[12px] text-muted">Tidligere måneder beholder det budget, der gjaldt dengang.</p>
         </>
       )}
 
@@ -217,7 +217,7 @@ function MonthBudgetForm({ onDone, category, month, current }: { onDone: () => v
   const label = formatMonthYear(fromIsoDate(month))
   return (
     <>
-      <p className="mb-4 text-[15px] text-text-secondary">
+      <p className="mb-4 text-[15px] text-secondary">
         Gælder kun {label}. Standardbudgettet ({formatAmount(current?.default_ore ?? 0, { decimals: 'never' })} kr.) ændres ikke.
       </p>
       <AmountInput value={amount} onChange={(e) => setAmount(e.target.value)} aria-label="Budget i kroner" />
@@ -263,9 +263,9 @@ function DefaultBudgetForm({ onDone, category, currentOre }: { onDone: () => voi
   return (
     <>
       <AmountInput value={amount} onChange={(e) => setAmount(e.target.value)} aria-label="Standardbudget i kroner" />
-      <p className="mb-1.5 mt-5 px-1 text-[13px] font-semibold text-text-secondary">Gælder fra</p>
+      <p className="mb-1.5 mt-5 px-1 text-[13px] font-semibold text-secondary">Gælder fra</p>
       <MonthStepper month={from} onChange={setFrom} min={minMonth} />
-      <p className="mt-3 px-1 text-[13px] text-text-secondary">
+      <p className="mt-3 px-1 text-[13px] text-secondary">
         Måneder før {formatMonthYear(fromIsoDate(from))} beholder deres budget. Måneder med et tilpasset budget påvirkes ikke.
       </p>
       <SheetError error={set.error} />
@@ -325,7 +325,7 @@ function ArchiveForm({ onDone, category }: { onDone: () => void; category: Categ
   const archived = Boolean(category.archived_at)
   return (
     <>
-      <p className="text-[15px] text-text-secondary">
+      <p className="text-[15px] text-secondary">
         {archived
           ? 'Kategorien bliver aktiv igen og kan bruges til nye udgifter.'
           : 'Kategorien skjules og kan ikke bruges til nye udgifter. Alle tidligere udgifter og budgetter bevares i historikken.'}

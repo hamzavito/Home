@@ -17,7 +17,7 @@ export function CategoryPicker({ categories, value, onChange }: { categories: Ca
             onClick={() => onChange(c.id)}
             className={cn(
               'pressable flex flex-col items-center gap-1.5 rounded-[18px] px-1 py-3 text-center transition-colors',
-              active ? 'bg-surface-1 shadow-raised ring-2 ring-accent' : 'bg-surface-1 shadow-card',
+              active ? 'bg-surface-primary shadow-raised ring-2 ring-accent' : 'bg-surface-primary shadow-card',
             )}
           >
             <CategoryIcon icon={c.icon} color={c.color} size="sm" />

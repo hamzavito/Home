@@ -229,7 +229,7 @@ export function ScanPage() {
   const header = (title: string, onBack?: () => void) => (
     <header className="flex items-center justify-between pb-3 pt-3">
       {onBack ? (
-        <button type="button" aria-label="Tilbage" onClick={onBack} className="pressable flex size-10 items-center justify-center rounded-full bg-surface-1 shadow-card">
+        <button type="button" aria-label="Tilbage" onClick={onBack} className="pressable flex size-10 items-center justify-center rounded-full bg-surface-primary shadow-card">
           <ChevronLeft className="size-5" strokeWidth={2.5} />
         </button>
       ) : (
@@ -241,7 +241,7 @@ export function ScanPage() {
           type="button"
           aria-label="Annullér scanning"
           onClick={() => (pending.current ? setConfirmCancel(true) : navigate(-1))}
-          className="pressable flex size-10 items-center justify-center rounded-full bg-surface-1 shadow-card"
+          className="pressable flex size-10 items-center justify-center rounded-full bg-surface-primary shadow-card"
         >
           <X className="size-5" strokeWidth={2.5} />
         </button>
@@ -254,7 +254,7 @@ export function ScanPage() {
   const stepDots = (n: number) => (
     <div className="mb-4 flex justify-center gap-1.5" aria-hidden>
       {[1, 2].map((i) => (
-        <span key={i} className={cn('h-1.5 rounded-full transition-all duration-300', i === n ? 'w-6 bg-accent' : 'w-1.5 bg-surface-3')} />
+        <span key={i} className={cn('h-1.5 rounded-full transition-all duration-300', i === n ? 'w-6 bg-accent' : 'w-1.5 bg-surface-tertiary')} />
       ))}
     </div>
   )
@@ -265,11 +265,11 @@ export function ScanPage() {
         <>
           {header('Scan kvittering')}
           <div className="mt-6 text-center">
-            <span className="mx-auto mb-4 flex size-16 items-center justify-center rounded-[22px] bg-accent-soft">
-              <Camera className="size-8 text-accent" />
+            <span className="mx-auto mb-4 flex size-16 items-center justify-center rounded-[22px] bg-surface-accent">
+              <Camera className="size-8 text-accent-text" />
             </span>
             <h2 className="text-[26px] font-bold tracking-tight">Tag et billede af kvitteringen</h2>
-            <p className="mx-auto mt-2 max-w-xs text-[15px] text-text-secondary">
+            <p className="mx-auto mt-2 max-w-xs text-[15px] text-secondary">
               Læg den fladt i godt lys. Appen foreslår butik, dato og beløb – du godkender altid selv.
             </p>
           </div>
@@ -280,8 +280,8 @@ export function ScanPage() {
               <span className="text-[17px] font-bold">Tag billede</span>
               <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={onFile} />
             </label>
-            <label className="pressable flex h-[76px] cursor-pointer items-center gap-4 rounded-[22px] bg-surface-1 px-5 shadow-card">
-              <ImageIcon className="size-6 text-text-secondary" />
+            <label className="pressable flex h-[76px] cursor-pointer items-center gap-4 rounded-[22px] bg-surface-primary px-5 shadow-card">
+              <ImageIcon className="size-6 text-secondary" />
               <span className="text-[17px] font-semibold">Vælg fra billeder</span>
               <input type="file" accept="image/*" className="sr-only" onChange={onFile} />
             </label>
@@ -293,7 +293,7 @@ export function ScanPage() {
         <>
           {header('Læser kvittering')}
           <div className="mt-2 flex flex-col items-center">
-            <div className="relative h-[300px] w-[220px] overflow-hidden rounded-[22px] bg-surface-2 shadow-raised">
+            <div className="relative h-[300px] w-[220px] overflow-hidden rounded-[22px] bg-surface-secondary shadow-raised">
               {preview && <img src={preview} alt="Kvittering" className="size-full object-cover object-top" />}
               {ocrStatus === 'running' && (
                 <div className="absolute inset-x-0 h-16 bg-gradient-to-b from-transparent via-[color-mix(in_srgb,var(--accent)_35%,transparent)] to-transparent [animation:scan_1.6s_ease-in-out_infinite_alternate]" />
@@ -304,7 +304,7 @@ export function ScanPage() {
               <StepRow status={uploadStatus} label="Gemmer sikkert" />
               <StepRow status={ocrStatus} label={ocrStatus === 'running' && ocrProgress > 0 ? `Læser tekst · ${Math.round(ocrProgress * 100)} %` : 'Læser tekst'} />
             </ul>
-            <p className="mt-6 text-center text-[13px] text-text-tertiary">Teksten læses på din telefon. Første gang tager det lidt længere.</p>
+            <p className="mt-6 text-center text-[13px] text-muted">Teksten læses på din telefon. Første gang tager det lidt længere.</p>
           </div>
         </>
       )}
@@ -315,7 +315,7 @@ export function ScanPage() {
           {stepDots(1)}
           <div className="flex gap-4">
             {preview && (
-              <button type="button" onClick={() => setViewer(true)} aria-label="Se kvitteringen i fuld størrelse" className="pressable relative h-[132px] w-[100px] shrink-0 overflow-hidden rounded-[18px] bg-surface-2 shadow-card">
+              <button type="button" onClick={() => setViewer(true)} aria-label="Se kvitteringen i fuld størrelse" className="pressable relative h-[132px] w-[100px] shrink-0 overflow-hidden rounded-[18px] bg-surface-secondary shadow-card">
                 <img src={preview} alt="" className="size-full object-cover object-top" />
                 <span className="absolute bottom-1.5 right-1.5 flex size-6 items-center justify-center rounded-full bg-black/50 text-white">
                   <Maximize2 className="size-3.5" />
@@ -323,9 +323,9 @@ export function ScanPage() {
               </button>
             )}
             <div className="min-w-0 flex-1 self-center">
-              <p className="text-[13px] font-medium text-text-secondary">{ocrStatus === 'error' ? 'Kunne ikke læse teksten' : 'Det fandt vi'}</p>
+              <p className="text-[13px] font-medium text-secondary">{ocrStatus === 'error' ? 'Kunne ikke læse teksten' : 'Det fandt vi'}</p>
               <p className="truncate text-[20px] font-bold">{merchant || '—'}</p>
-              {amountOre ? <Money ore={amountOre} size="lg" /> : <p className="text-[15px] text-text-tertiary">Intet beløb fundet</p>}
+              {amountOre ? <Money ore={amountOre} size="lg" /> : <p className="text-[15px] text-muted">Intet beløb fundet</p>}
               <UploadBadge status={uploadStatus} onRetry={retryUpload} />
             </div>
           </div>
@@ -354,7 +354,7 @@ export function ScanPage() {
                 }}
               />
               {!merchant && merchantHint && (
-                <button type="button" onClick={() => setMerchant(merchantHint)} className="pressable mt-2 inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1.5 text-[13px] font-semibold text-accent">
+                <button type="button" onClick={() => setMerchant(merchantHint)} className="pressable mt-2 inline-flex items-center gap-1.5 rounded-full bg-surface-accent px-3 py-1.5 text-[13px] font-semibold text-accent-text">
                   <Sparkles className="size-3.5" /> Forslag: {merchantHint}
                 </button>
               )}
@@ -398,9 +398,9 @@ export function ScanPage() {
 
           <div className="space-y-6">
             <div>
-              <p className="mb-1.5 px-1 text-[13px] font-semibold text-text-secondary">Budget</p>
+              <p className="mb-1.5 px-1 text-[13px] font-semibold text-secondary">Budget</p>
               {activeCategories.length === 0 ? (
-                <p className="rounded-2xl bg-surface-2 p-4 text-[14px] text-text-secondary">Opret en budgetkategori først under Økonomi → Budgetter.</p>
+                <p className="rounded-2xl bg-surface-secondary p-4 text-[14px] text-secondary">Opret en budgetkategori først under Økonomi → Budgetter.</p>
               ) : (
                 <CategoryPicker
                   categories={activeCategories}
@@ -412,19 +412,19 @@ export function ScanPage() {
                 />
               )}
               {suggestedFrom && (
-                <p className="mt-2 flex items-center gap-1.5 px-1 text-[13px] text-text-secondary">
-                  <Sparkles className="size-3.5 text-accent" /> Foreslået ud fra jeres tidligere køb hos {suggestedFrom}
+                <p className="mt-2 flex items-center gap-1.5 px-1 text-[13px] text-secondary">
+                  <Sparkles className="size-3.5 text-accent-text" /> Foreslået ud fra jeres tidligere køb hos {suggestedFrom}
                 </p>
               )}
             </div>
 
             <div>
-              <p className="mb-1.5 px-1 text-[13px] font-semibold text-text-secondary">Betalt af</p>
+              <p className="mb-1.5 px-1 text-[13px] font-semibold text-secondary">Betalt af</p>
               <SegmentedControl label="Betalt af" options={paidByOptions(members)} value={paidBy} onChange={setPaidBy} />
             </div>
 
             <div>
-              <p className="mb-1.5 px-1 text-[13px] font-semibold text-text-secondary">Gem kvitteringsbilledet</p>
+              <p className="mb-1.5 px-1 text-[13px] font-semibold text-secondary">Gem kvitteringsbilledet</p>
               <RetentionPicker value={retention} customDate={customDate} onChange={(r, d) => {
                   setRetention(r)
                   setCustomDate(d)
@@ -454,10 +454,10 @@ export function ScanPage() {
               <Check className="size-10 text-positive" strokeWidth={3} />
             </span>
             <h2 className="mt-5 text-[26px] font-bold tracking-tight">Kvitteringen er gemt</h2>
-            <p className="mt-2 text-[15px] text-text-secondary">
+            <p className="mt-2 text-[15px] text-secondary">
               <Money ore={result.amountOre} size="sm" /> fra {result.merchant} er trukket fra {result.category}.
             </p>
-            <p className="mt-1 text-[13px] text-text-tertiary">{deleteIso ? `Billedet slettes automatisk ${formatLongDate(fromIsoDate(deleteIso))}.` : 'Billedet beholdes permanent.'}</p>
+            <p className="mt-1 text-[13px] text-muted">{deleteIso ? `Billedet slettes automatisk ${formatLongDate(fromIsoDate(deleteIso))}.` : 'Billedet beholdes permanent.'}</p>
           </div>
           <div className="mt-10 space-y-3">
             <Button block onClick={() => navigate('/', { replace: true })}>
@@ -471,7 +471,7 @@ export function ScanPage() {
       )}
 
       <BottomSheet open={confirmCancel} onClose={() => setConfirmCancel(false)} title="Kassér kvittering?">
-        <p className="text-[15px] text-text-secondary">Billedet slettes, og der registreres ingen udgift.</p>
+        <p className="text-[15px] text-secondary">Billedet slettes, og der registreres ingen udgift.</p>
         <div className="mt-5 grid grid-cols-2 gap-3">
           <Button variant="secondary" onClick={() => setConfirmCancel(false)}>
             Fortsæt
@@ -495,19 +495,19 @@ function StepRow({ status, label }: { status: Status; label: string }) {
       <span
         className={cn(
           'flex size-7 items-center justify-center rounded-full transition-colors',
-          status === 'done' ? 'bg-positive-soft text-positive' : status === 'error' ? 'bg-notice-soft text-notice' : 'bg-surface-2 text-text-tertiary',
+          status === 'done' ? 'bg-positive-soft text-positive' : status === 'error' ? 'bg-notice-soft text-notice' : 'bg-surface-secondary text-muted',
         )}
       >
         {status === 'done' ? <Check className="size-4" strokeWidth={3} /> : status === 'running' ? <Loader2 className="size-4 animate-spin" /> : status === 'error' ? <AlertTriangle className="size-4" /> : <span className="size-1.5 rounded-full bg-current" />}
       </span>
-      <span className={cn('text-[15px] font-medium', status === 'idle' && 'text-text-tertiary')}>{label}</span>
+      <span className={cn('text-[15px] font-medium', status === 'idle' && 'text-muted')}>{label}</span>
     </li>
   )
 }
 
 function UploadBadge({ status, onRetry }: { status: Status; onRetry: () => void }) {
   if (status === 'done') return <p className="mt-1 flex items-center gap-1 text-[12px] font-medium text-positive"><Check className="size-3.5" strokeWidth={3} /> Billedet er gemt sikkert</p>
-  if (status === 'running') return <p className="mt-1 flex items-center gap-1 text-[12px] text-text-secondary"><Loader2 className="size-3.5 animate-spin" /> Gemmer billedet …</p>
+  if (status === 'running') return <p className="mt-1 flex items-center gap-1 text-[12px] text-secondary"><Loader2 className="size-3.5 animate-spin" /> Gemmer billedet …</p>
   if (status === 'error')
     return (
       <button type="button" onClick={onRetry} className="mt-1 text-[12px] font-semibold text-warning underline">
@@ -519,7 +519,7 @@ function UploadBadge({ status, onRetry }: { status: Status; onRetry: () => void 
 
 /** "Kontrollér beløbet" når OCR er usikker */
 function FieldNote({ confidence, missing, what }: { confidence?: Confidence; missing: boolean; what: string }) {
-  if (missing) return <p className="mt-1.5 px-1 text-[13px] text-text-secondary">Kunne ikke aflæse {what} – udfyld selv.</p>
+  if (missing) return <p className="mt-1.5 px-1 text-[13px] text-secondary">Kunne ikke aflæse {what} – udfyld selv.</p>
   if (!confidence || confidence === 'high') return null
   return (
     <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-notice-soft px-2.5 py-1 text-[12px] font-semibold text-notice">

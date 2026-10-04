@@ -15,7 +15,7 @@ export function ShareList({ items, total }: { items: ShareItem[]; total: number 
               {it.leading ?? <span className="size-2.5 shrink-0 rounded-full" style={{ background: it.color }} />}
               <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{it.label}</span>
               <span className="tabular text-[15px] font-semibold">{formatAmount(it.ore, { decimals: 'never' })} kr.</span>
-              <span className="tabular w-11 text-right text-[13px] text-text-tertiary">{Math.round(share * 100)} %</span>
+              <span className="tabular w-11 text-right text-[13px] text-muted">{Math.round(share * 100)} %</span>
             </div>
             <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-track">
               <div className="animate-grow h-full rounded-full" style={{ width: `${share * 100}%`, background: it.color }} />

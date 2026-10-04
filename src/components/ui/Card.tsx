@@ -5,8 +5,8 @@ import { cn } from '@/lib/cn'
 type Variant = 'default' | 'tonal' | 'hero'
 
 const variants: Record<Variant, string> = {
-  default: 'bg-surface-1 shadow-card',
-  tonal: 'bg-surface-2',
+  default: 'bg-surface-primary shadow-card',
+  tonal: 'bg-surface-secondary',
   hero: 'hero-surface shadow-raised',
 }
 
@@ -30,5 +30,5 @@ export function Card({ variant = 'default', to, padded = true, className, childr
 
 /** Lille overskrift inde i et kort */
 export function CardLabel({ children, className }: { children: ReactNode; className?: string }) {
-  return <p className={cn('text-[13px] font-medium text-text-secondary', className)}>{children}</p>
+  return <p className={cn('text-[13px] font-medium text-secondary', className)}>{children}</p>
 }

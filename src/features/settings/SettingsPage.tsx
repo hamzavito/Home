@@ -41,8 +41,8 @@ export function SettingsPage() {
       <PageHeader title="Indstillinger" back />
 
       <SectionHeader title="Min profil" />
-      <div className="rounded-card bg-surface-1 p-5 shadow-card">
-        <label className="block text-[13px] text-text-secondary" htmlFor="display-name">
+      <div className="rounded-card bg-surface-primary p-5 shadow-card">
+        <label className="block text-[13px] text-secondary" htmlFor="display-name">
           Visningsnavn
         </label>
         <div className="mt-1 flex gap-2">
@@ -51,13 +51,13 @@ export function SettingsPage() {
             value={name}
             maxLength={40}
             onChange={(e) => setName(e.target.value)}
-            className="h-11 min-w-0 flex-1 rounded-2xl bg-surface-2 px-4 text-text outline-none focus:ring-2 focus:ring-accent"
+            className="h-11 min-w-0 flex-1 rounded-2xl bg-surface-secondary px-4 text-primary outline-none focus:ring-2 focus:ring-accent"
           />
           <Button size="sm" className="h-11" disabled={!nameChanged} loading={saveName.isPending} onClick={() => saveName.mutate(trimmed)}>
             Gem
           </Button>
         </div>
-        <p className="mt-2 text-[13px] text-text-tertiary">{session?.user.email}</p>
+        <p className="mt-2 text-[13px] text-muted">{session?.user.email}</p>
         {saveName.isError && <p className="mt-2 text-[13px] text-danger">Navnet kunne ikke gemmes.</p>}
       </div>
 
@@ -69,7 +69,7 @@ export function SettingsPage() {
             <Avatar name={m.displayName} color={m.color} index={i} />
             <span className="flex-1 text-[16px] font-medium">
               {m.displayName}
-              {m.isMe && <span className="text-text-secondary"> (dig)</span>}
+              {m.isMe && <span className="text-secondary"> (dig)</span>}
             </span>
           </div>
         ))}
@@ -90,7 +90,7 @@ export function SettingsPage() {
         <ListRow icon={LogOut} iconColor="var(--danger)" title="Log ud" tone="danger" onClick={signOut} />
       </ListGroup>
 
-      <p className="mt-6 text-center text-[12px] text-text-tertiary">Hjem {__APP_VERSION__}</p>
+      <p className="mt-6 text-center text-[12px] text-muted">Hjem {__APP_VERSION__}</p>
     </>
   )
 }

@@ -13,46 +13,51 @@
 }
 
 /* -------------------------------------------------------------------------
-   Design-tokens – "Hjem" designsystem
+   Design-tokens – "Hjem" designsystem (semantiske navne)
    Lyst: varm off-white med hvide kort og et mørkt "hero"-kort.
-   Mørkt: næsten sort med tre overfladeniveauer – ikke bare sort + hvidt.
-   Accent (iris) bruges sparsomt: primær handling, aktiv fane, fokus.
-   Grøn = positiv økonomi. Amber/orange/rød = kun advarsler og overskridelser.
+   Mørkt: næsten sort med flere overfladeniveauer – ikke bare sort + hvidt.
+   Accent (iris) bruges sparsomt. Grøn = positiv økonomi. Amber/orange/rød =
+   kun advarsler. Alle tekstfarver er kontrolleret mod alle flader med
+   scripts/check-contrast.mjs (WCAG AA, 4,5:1 for tekst, 3:1 for ikoner/kanter).
    ------------------------------------------------------------------------- */
 :root {
   color-scheme: light;
   --bg: #f4f3ef;
-  --surface-1: #ffffff;
-  --surface-2: #ecebe6;
-  --surface-3: #e2e0da;
-  --sheet: #fbfaf7;
-  --raised: #ffffff;
-  --text: #131316;
-  --text-secondary: #67655f;
-  --text-tertiary: #a19e97;
-  --separator: rgb(19 19 22 / 0.07);
+  --surface-primary: #ffffff;
+  --surface-secondary: #ecebe6;
+  --surface-tertiary: #e1dfd8;
+  --surface-elevated: #ffffff;
+  --surface-sheet: #fbfaf7;
+  --surface-accent: rgb(90 60 240 / 0.1);
+  --surface-inverse: #18171c;
+  --text-primary: #131316;
+  --text-secondary: #57554f;
+  --text-muted: #625f59;
+  --text-on-accent: #ffffff;
+  --text-on-inverse: #ffffff;
+  --border-subtle: rgb(19 19 22 / 0.08);
+  --border-strong: rgb(19 19 22 / 0.5);
   --accent: #5a3cf0;
-  --accent-strong: #4a2de0;
-  --accent-soft: rgb(90 60 240 / 0.1);
-  --on-accent: #ffffff;
-  --positive: #0c9467;
-  --positive-soft: rgb(12 148 103 / 0.12);
-  --notice: #b7800f;
-  --notice-soft: rgb(201 138 18 / 0.14);
-  --warning: #dd6225;
-  --warning-soft: rgb(232 105 44 / 0.14);
-  --danger: #d43a3a;
+  --accent-text: #4b2ddb;
+  --positive: #04674a;
+  --positive-soft: rgb(4 103 74 / 0.11);
+  --notice: #865600;
+  --notice-soft: rgb(196 132 10 / 0.16);
+  --warning: #a8400f;
+  --warning-soft: rgb(220 98 37 / 0.14);
+  --danger: #b8262a;
   --danger-soft: rgb(212 58 58 / 0.12);
-  --track: rgb(19 19 22 / 0.07);
-  --shadow-sm: 0 1px 2px rgb(30 25 10 / 0.04), 0 2px 8px rgb(30 25 10 / 0.04);
-  --shadow-md: 0 1px 2px rgb(30 25 10 / 0.05), 0 12px 32px -8px rgb(30 25 10 / 0.1);
-  --nav-bg: rgb(255 255 255 / 0.82);
-  --nav-border: rgb(19 19 22 / 0.06);
-  /* Hero-kort: mørkt blæk med en svag iris-glød, også i lyst tema */
-  --hero-bg: radial-gradient(120% 90% at 100% 0%, rgb(124 96 255 / 0.45) 0%, rgb(124 96 255 / 0) 55%), linear-gradient(160deg, #1d1a2c 0%, #121116 100%);
+  --track: rgb(19 19 22 / 0.09);
+  --shadow-sm: 0 1px 2px rgb(30 25 10 / 0.05), 0 2px 8px rgb(30 25 10 / 0.05);
+  --shadow-md: 0 1px 2px rgb(30 25 10 / 0.06), 0 12px 32px -8px rgb(30 25 10 / 0.12);
+  --nav-bg: rgb(255 255 255 / 0.88);
+  /* Hero-kort: mørkt blæk med en iris-glød – samme i begge temaer */
+  --hero-base: #1d1a2c;
+  --hero-glow: rgb(124 96 255 / 0.45);
   --hero-text: #ffffff;
-  --hero-text-secondary: rgb(255 255 255 / 0.62);
-  --hero-track: rgb(255 255 255 / 0.14);
+  --hero-text-secondary: rgb(255 255 255 / 0.74);
+  --hero-danger: #ffa3a3;
+  --hero-track: rgb(255 255 255 / 0.16);
   --hero-fill: #ffffff;
 }
 
@@ -60,36 +65,40 @@
   :root:not([data-theme='light']) {
     color-scheme: dark;
     --bg: #09090b;
-    --surface-1: #141417;
-    --surface-2: #1c1c21;
-    --surface-3: #27272d;
-    --sheet: #17171b;
-    --raised: #2c2c33;
-    --text: #f3f2ee;
-    --text-secondary: #9b9993;
-    --text-tertiary: #615f5a;
-    --separator: rgb(255 255 255 / 0.06);
+    --surface-primary: #141417;
+    --surface-secondary: #1c1c21;
+    --surface-tertiary: #27272d;
+    --surface-elevated: #24242a;
+    --surface-sheet: #17171b;
+    --surface-accent: rgb(148 131 255 / 0.16);
+    --surface-inverse: #f3f2ee;
+    --text-primary: #f3f2ee;
+    --text-secondary: #b6b4ad;
+    --text-muted: #96948e;
+    --text-on-accent: #0d0a22;
+    --text-on-inverse: #131316;
+    --border-subtle: rgb(255 255 255 / 0.08);
+    --border-strong: rgb(255 255 255 / 0.4);
     --accent: #9483ff;
-    --accent-strong: #a597ff;
-    --accent-soft: rgb(148 131 255 / 0.14);
-    --on-accent: #0d0a22;
-    --positive: #3ad49a;
-    --positive-soft: rgb(58 212 154 / 0.13);
-    --notice: #f0b54d;
-    --notice-soft: rgb(240 181 77 / 0.13);
-    --warning: #ff8d52;
-    --warning-soft: rgb(255 141 82 / 0.14);
-    --danger: #ff6464;
-    --danger-soft: rgb(255 100 100 / 0.14);
-    --track: rgb(255 255 255 / 0.08);
-    --shadow-sm: 0 0 0 1px rgb(255 255 255 / 0.035);
-    --shadow-md: 0 0 0 1px rgb(255 255 255 / 0.045), 0 16px 40px -12px rgb(0 0 0 / 0.6);
-    --nav-bg: rgb(16 16 19 / 0.82);
-    --nav-border: rgb(255 255 255 / 0.06);
-    --hero-bg: radial-gradient(120% 90% at 100% 0%, rgb(148 131 255 / 0.38) 0%, rgb(148 131 255 / 0) 55%), linear-gradient(160deg, #221d3d 0%, #151419 70%);
+    --accent-text: #ad9fff;
+    --positive: #52dba8;
+    --positive-soft: rgb(82 219 168 / 0.13);
+    --notice: #f4c062;
+    --notice-soft: rgb(244 192 98 / 0.13);
+    --warning: #ff9e6a;
+    --warning-soft: rgb(255 158 106 / 0.13);
+    --danger: #ff8080;
+    --danger-soft: rgb(255 128 128 / 0.13);
+    --track: rgb(255 255 255 / 0.1);
+    --shadow-sm: 0 0 0 1px rgb(255 255 255 / 0.04);
+    --shadow-md: 0 0 0 1px rgb(255 255 255 / 0.05), 0 16px 40px -12px rgb(0 0 0 / 0.6);
+    --nav-bg: rgb(16 16 19 / 0.88);
+    --hero-base: #221d3d;
+    --hero-glow: rgb(148 131 255 / 0.38);
     --hero-text: #ffffff;
-    --hero-text-secondary: rgb(255 255 255 / 0.6);
-    --hero-track: rgb(255 255 255 / 0.12);
+    --hero-text-secondary: rgb(255 255 255 / 0.72);
+    --hero-danger: #ffa3a3;
+    --hero-track: rgb(255 255 255 / 0.14);
     --hero-fill: #ffffff;
   }
 }
@@ -97,54 +106,61 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
   --bg: #09090b;
-  --surface-1: #141417;
-  --surface-2: #1c1c21;
-  --surface-3: #27272d;
-  --sheet: #17171b;
-  --raised: #2c2c33;
-  --text: #f3f2ee;
-  --text-secondary: #9b9993;
-  --text-tertiary: #615f5a;
-  --separator: rgb(255 255 255 / 0.06);
+  --surface-primary: #141417;
+  --surface-secondary: #1c1c21;
+  --surface-tertiary: #27272d;
+  --surface-elevated: #24242a;
+  --surface-sheet: #17171b;
+  --surface-accent: rgb(148 131 255 / 0.16);
+  --surface-inverse: #f3f2ee;
+  --text-primary: #f3f2ee;
+  --text-secondary: #b6b4ad;
+  --text-muted: #96948e;
+  --text-on-accent: #0d0a22;
+  --text-on-inverse: #131316;
+  --border-subtle: rgb(255 255 255 / 0.08);
+  --border-strong: rgb(255 255 255 / 0.4);
   --accent: #9483ff;
-  --accent-strong: #a597ff;
-  --accent-soft: rgb(148 131 255 / 0.14);
-  --on-accent: #0d0a22;
-  --positive: #3ad49a;
-  --positive-soft: rgb(58 212 154 / 0.13);
-  --notice: #f0b54d;
-  --notice-soft: rgb(240 181 77 / 0.13);
-  --warning: #ff8d52;
-  --warning-soft: rgb(255 141 82 / 0.14);
-  --danger: #ff6464;
-  --danger-soft: rgb(255 100 100 / 0.14);
-  --track: rgb(255 255 255 / 0.08);
-  --shadow-sm: 0 0 0 1px rgb(255 255 255 / 0.035);
-  --shadow-md: 0 0 0 1px rgb(255 255 255 / 0.045), 0 16px 40px -12px rgb(0 0 0 / 0.6);
-  --nav-bg: rgb(16 16 19 / 0.82);
-  --nav-border: rgb(255 255 255 / 0.06);
-  --hero-bg: radial-gradient(120% 90% at 100% 0%, rgb(148 131 255 / 0.38) 0%, rgb(148 131 255 / 0) 55%), linear-gradient(160deg, #221d3d 0%, #151419 70%);
+  --accent-text: #ad9fff;
+  --positive: #52dba8;
+  --positive-soft: rgb(82 219 168 / 0.13);
+  --notice: #f4c062;
+  --notice-soft: rgb(244 192 98 / 0.13);
+  --warning: #ff9e6a;
+  --warning-soft: rgb(255 158 106 / 0.13);
+  --danger: #ff8080;
+  --danger-soft: rgb(255 128 128 / 0.13);
+  --track: rgb(255 255 255 / 0.1);
+  --shadow-sm: 0 0 0 1px rgb(255 255 255 / 0.04);
+  --shadow-md: 0 0 0 1px rgb(255 255 255 / 0.05), 0 16px 40px -12px rgb(0 0 0 / 0.6);
+  --nav-bg: rgb(16 16 19 / 0.88);
+  --hero-base: #221d3d;
+  --hero-glow: rgb(148 131 255 / 0.38);
   --hero-text: #ffffff;
-  --hero-text-secondary: rgb(255 255 255 / 0.6);
-  --hero-track: rgb(255 255 255 / 0.12);
+  --hero-text-secondary: rgb(255 255 255 / 0.72);
+  --hero-danger: #ffa3a3;
+  --hero-track: rgb(255 255 255 / 0.14);
   --hero-fill: #ffffff;
 }
 
 @theme inline {
   --color-bg: var(--bg);
-  --color-surface-1: var(--surface-1);
-  --color-surface-2: var(--surface-2);
-  --color-surface-3: var(--surface-3);
-  --color-sheet: var(--sheet);
-  --color-raised: var(--raised);
-  --color-text: var(--text);
-  --color-text-secondary: var(--text-secondary);
-  --color-text-tertiary: var(--text-tertiary);
-  --color-separator: var(--separator);
+  --color-surface-primary: var(--surface-primary);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-surface-tertiary: var(--surface-tertiary);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-sheet: var(--surface-sheet);
+  --color-surface-accent: var(--surface-accent);
+  --color-surface-inverse: var(--surface-inverse);
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-muted: var(--text-muted);
+  --color-on-accent: var(--text-on-accent);
+  --color-on-inverse: var(--text-on-inverse);
+  --color-subtle: var(--border-subtle);
+  --color-strong: var(--border-strong);
   --color-accent: var(--accent);
-  --color-accent-strong: var(--accent-strong);
-  --color-accent-soft: var(--accent-soft);
-  --color-on-accent: var(--on-accent);
+  --color-accent-text: var(--accent-text);
   --color-positive: var(--positive);
   --color-positive-soft: var(--positive-soft);
   --color-notice: var(--notice);
@@ -156,6 +172,7 @@
   --color-track: var(--track);
   --color-hero-text: var(--hero-text);
   --color-hero-text-secondary: var(--hero-text-secondary);
+  --color-hero-danger: var(--hero-danger);
   --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --radius-card: 1.5rem;
   --radius-card-lg: 1.875rem;
@@ -177,7 +194,7 @@
     margin: 0;
     min-height: 100dvh;
     background: var(--bg);
-    color: var(--text);
+    color: var(--text-primary);
     font-family: var(--font-sans);
     /* Inter: enkeltetages "a" og tydeligere tal */
     font-feature-settings: 'cv11', 'ss01';
@@ -215,7 +232,9 @@
 }
 
 @utility hero-surface {
-  background: var(--hero-bg);
+  background:
+    radial-gradient(120% 90% at 100% 0%, var(--hero-glow) 0%, transparent 55%),
+    linear-gradient(160deg, var(--hero-base) 0%, #121116 100%);
   color: var(--hero-text);
 }
 

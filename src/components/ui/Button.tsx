@@ -6,10 +6,10 @@ type Variant = 'primary' | 'secondary' | 'surface' | 'ghost' | 'danger'
 
 const variants: Record<Variant, string> = {
   primary: 'bg-accent text-on-accent shadow-[0_8px_20px_-8px_var(--accent)]',
-  secondary: 'bg-surface-2 text-text',
+  secondary: 'bg-surface-secondary text-primary',
   /** Til knapper oven på tonede kort eller baggrunden */
-  surface: 'bg-surface-1 text-text shadow-card',
-  ghost: 'bg-transparent text-accent',
+  surface: 'bg-surface-primary text-primary shadow-card',
+  ghost: 'bg-transparent text-accent-text',
   danger: 'bg-danger-soft text-danger',
 }
 
@@ -19,7 +19,8 @@ export function Button({ variant = 'primary', size = 'md', loading, block, class
   return (
     <button
       className={cn(
-        'pressable inline-flex items-center justify-center gap-2 rounded-full font-semibold disabled:opacity-45 disabled:active:scale-100',
+        // Deaktiveret: neutral flade + dæmpet tekst (læsbar, 4,5:1) i stedet for gennemsigtighed
+        'pressable inline-flex items-center justify-center gap-2 rounded-full font-semibold disabled:bg-surface-tertiary disabled:text-muted disabled:shadow-none disabled:active:scale-100',
         size === 'md' ? 'h-13 px-6 text-[16px]' : 'h-9 px-4 text-[14px]',
         variants[variant],
         block && 'w-full',

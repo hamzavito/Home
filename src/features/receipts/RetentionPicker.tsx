@@ -31,7 +31,7 @@ export function RetentionPicker({ value, customDate, onChange, deleteIso }: Prop
             onClick={() => onChange(o.value, o.value === 'custom' ? (customDate ?? null) : null)}
             className={cn(
               'pressable h-12 rounded-2xl px-2 text-[14px] font-semibold transition-colors',
-              value === o.value ? 'bg-text text-bg' : 'bg-surface-1 text-text shadow-card',
+              value === o.value ? 'bg-surface-inverse text-on-inverse' : 'bg-surface-primary text-primary shadow-card',
             )}
           >
             {o.label}
@@ -41,11 +41,11 @@ export function RetentionPicker({ value, customDate, onChange, deleteIso }: Prop
       {value === 'custom' && (
         <TextInput type="date" className="mt-2" min={tomorrow} value={customDate ?? ''} onChange={(e) => onChange('custom', e.target.value || null)} aria-label="Sletningsdato" />
       )}
-      <p className="mt-3 flex items-center gap-2 rounded-2xl bg-surface-2 px-4 py-3 text-[14px] font-medium">
-        {deleteIso || value !== 'permanent' ? <CalendarClock className="size-4 shrink-0 text-text-secondary" /> : <InfinityIcon className="size-4 shrink-0 text-text-secondary" />}
+      <p className="mt-3 flex items-center gap-2 rounded-2xl bg-surface-secondary px-4 py-3 text-[14px] font-medium">
+        {deleteIso || value !== 'permanent' ? <CalendarClock className="size-4 shrink-0 text-secondary" /> : <InfinityIcon className="size-4 shrink-0 text-secondary" />}
         {value === 'custom' && !customDate ? 'Vælg en dato efter i dag.' : retentionSentence(deleteIso)}
       </p>
-      <p className="mt-1.5 px-1 text-[12px] text-text-tertiary">Kun billedet slettes. Udgiften og oplysningerne bevares.</p>
+      <p className="mt-1.5 px-1 text-[12px] text-muted">Kun billedet slettes. Udgiften og oplysningerne bevares.</p>
     </div>
   )
 }

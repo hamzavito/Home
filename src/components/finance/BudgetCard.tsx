@@ -28,9 +28,9 @@ export function BudgetCard({ data, to }: { data: BudgetCardData; to?: string }) 
           {pct} %
         </span>
       </div>
-      <p className="mt-3 truncate text-[14px] font-medium text-text-secondary">{data.name}</p>
+      <p className="mt-3 truncate text-[14px] font-medium text-secondary">{data.name}</p>
       <Money ore={data.spentOre} size="lg" decimals="never" className="mt-0.5" />
-      <p className="tabular text-[13px] text-text-tertiary">af {formatAmount(data.budgetOre, { decimals: 'never' })} kr.</p>
+      <p className="tabular text-[13px] text-muted">af {formatAmount(data.budgetOre, { decimals: 'never' })} kr.</p>
       <ProgressBar value={data.spentOre} max={data.budgetOre} size="sm" className="mt-3" label={`${data.name}: ${statusLabel[status]}`} />
     </Card>
   )
@@ -46,18 +46,18 @@ export function BudgetRow({ data, pace, to }: { data: BudgetCardData; pace?: num
         <CategoryIcon icon={data.icon} color={data.color} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[16px] font-semibold">{data.name}</p>
-          <p className="tabular text-[13px] text-text-secondary">
+          <p className="tabular text-[13px] text-secondary">
             {data.budgetOre === 0 && data.spentOre === 0
               ? 'Tryk for at sætte et budget'
               : `${formatAmount(data.spentOre, { decimals: 'never' })} / ${formatAmount(data.budgetOre, { decimals: 'never' })} kr.`}
           </p>
         </div>
         {data.budgetOre === 0 && data.spentOre === 0 ? (
-          <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[12px] font-semibold text-text-secondary">Intet budget</span>
+          <span className="rounded-full bg-surface-secondary px-2.5 py-1 text-[12px] font-semibold text-secondary">Intet budget</span>
         ) : (
           <div className="text-right">
             <Money ore={Math.abs(remaining)} size="md" decimals="never" className={remaining < 0 ? 'text-danger' : undefined} />
-            <p className="text-[12px]" style={{ color: status === 'normal' || status === 'none' ? 'var(--text-tertiary)' : statusColor[status] }}>
+            <p className="text-[12px]" style={{ color: status === 'normal' || status === 'none' ? 'var(--text-muted)' : statusColor[status] }}>
               {remaining < 0 ? 'over' : 'tilbage'}
             </p>
           </div>

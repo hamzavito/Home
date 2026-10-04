@@ -69,15 +69,15 @@ function ReceiptDetail({ receipt }: { receipt: ReceiptWithTransaction }) {
       {/* Billede eller besked om at det er slettet */}
       {receipt.image_deleted_at ? (
         <Card variant="tonal" className="flex items-center gap-3 p-4">
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-surface-3">
-            <ImageOff className="size-5 text-text-secondary" />
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-surface-tertiary">
+            <ImageOff className="size-5 text-secondary" />
           </span>
-          <p className="text-[14px] text-text-secondary">
+          <p className="text-[14px] text-secondary">
             Kvitteringsbilledet blev automatisk slettet {formatLongDate(new Date(receipt.image_deleted_at))}. Udgiften og oplysningerne er bevaret.
           </p>
         </Card>
       ) : (
-        <button type="button" onClick={() => url && setViewer(true)} aria-label="Se kvitteringen i fuld størrelse" className="pressable relative block h-[260px] w-full overflow-hidden rounded-card bg-surface-2 shadow-card">
+        <button type="button" onClick={() => url && setViewer(true)} aria-label="Se kvitteringen i fuld størrelse" className="pressable relative block h-[260px] w-full overflow-hidden rounded-card bg-surface-secondary shadow-card">
           {url ? <img src={url} alt="Kvittering" className="size-full object-cover object-top" /> : <Skeleton className="size-full rounded-none" />}
           <span className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-[12px] font-semibold text-white backdrop-blur">
             <Maximize2 className="size-3.5" /> Se hele
@@ -88,12 +88,12 @@ function ReceiptDetail({ receipt }: { receipt: ReceiptWithTransaction }) {
       {/* Beløb */}
       {t && (
         <Card className="mt-3 p-5">
-          <p className="text-[13px] font-medium text-text-secondary">Beløb</p>
+          <p className="text-[13px] font-medium text-secondary">Beløb</p>
           <Money ore={t.amount_ore} size="xl" />
-          <dl className="mt-4 divide-y divide-separator">
+          <dl className="mt-4 divide-y divide-subtle">
             {rows.map(([k, v]) => (
               <div key={k} className="flex items-center justify-between gap-3 py-2.5 text-[15px]">
-                <dt className="text-text-secondary">{k}</dt>
+                <dt className="text-secondary">{k}</dt>
                 <dd className="text-right font-medium">{v}</dd>
               </div>
             ))}
@@ -101,18 +101,18 @@ function ReceiptDetail({ receipt }: { receipt: ReceiptWithTransaction }) {
           <Button variant="surface" block className="mt-4" onClick={() => navigate(`/okonomi/udgift/${t.id}`)}>
             <ExternalLink className="size-4" /> Åbn udgiften
           </Button>
-          <p className="mt-2 px-1 text-center text-[12px] text-text-tertiary">Beløb, butik, dato og kategori redigeres på udgiften – så de altid er ens.</p>
+          <p className="mt-2 px-1 text-center text-[12px] text-muted">Beløb, butik, dato og kategori redigeres på udgiften – så de altid er ens.</p>
         </Card>
       )}
 
       {/* Opbevaring */}
       <Card variant="tonal" className="mt-3 p-5">
         <div className="flex items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-surface-1">
-            {receipt.delete_at ? <CalendarClock className="size-5 text-text-secondary" /> : <InfinityIcon className="size-5 text-text-secondary" />}
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-surface-primary">
+            {receipt.delete_at ? <CalendarClock className="size-5 text-secondary" /> : <InfinityIcon className="size-5 text-secondary" />}
           </span>
           <div>
-            <p className="text-[13px] font-medium text-text-secondary">Opbevaring{retentionLabel ? ` · ${retentionLabel}` : ''}</p>
+            <p className="text-[13px] font-medium text-secondary">Opbevaring{retentionLabel ? ` · ${retentionLabel}` : ''}</p>
             <p className="text-[15px] font-semibold">
               {receipt.image_deleted_at ? 'Billedet er slettet' : retentionSentence(deleteIso)}
             </p>

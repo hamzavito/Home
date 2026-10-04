@@ -13,7 +13,7 @@ export function SavingsCard({ name, currentOre, targetOre, sub, to }: { name: st
         <span className="tabular text-[13px] font-semibold text-positive">{pct} %</span>
       </div>
       <Money ore={currentOre} size="lg" decimals="never" className="mt-1 block" />
-      <p className="tabular text-[13px] text-text-tertiary">
+      <p className="tabular text-[13px] text-muted">
         af {formatAmount(targetOre, { decimals: 'never' })} kr.{sub ? ` · ${sub}` : ''}
       </p>
       <ProgressBar value={currentOre} max={targetOre} tone="positive" size="sm" className="mt-3" label={`${name}: ${pct} % sparet`} />
