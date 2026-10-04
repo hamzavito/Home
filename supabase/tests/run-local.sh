@@ -28,4 +28,6 @@ for f in supabase/tests/*.test.sql; do
   echo "→ test $(basename "$f")"
   "${PSQL[@]}" -f "$f"
 done
+echo "→ test concurrency.sh"
+bash supabase/tests/concurrency.sh "${PSQL[@]}"
 echo "✓ Alle database-tests bestået"
