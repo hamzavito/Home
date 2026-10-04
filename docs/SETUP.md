@@ -13,6 +13,7 @@ Disse trin kræver din egen konto hos Supabase og Vercel. Alt sker på gratis-pl
    `supabase/migrations/` (sorteret efter navn) og tryk *Run*:
    1. `20261004000001_household_core.sql`
    2. `20261005000001_budgets_transactions.sql`
+   3. `20261006000001_receipts.sql` (opretter også den private Storage-bucket `receipts`)
    (Alternativ med CLI: `npx supabase link --project-ref <ref>` og `npx supabase db push`.)
 4. **Opret jer to brugere:** *Authentication → Users → Add user → Create new user*.
    Udfyld e-mail og adgangskode, og sæt flueben i **Auto Confirm User**.
@@ -39,6 +40,29 @@ Disse trin kræver din egen konto hos Supabase og Vercel. Alt sker på gratis-pl
    og på nyere projekter sender den kun til e-mails, der er medlemmer af jeres Supabase-organisation.
    Inviter derfor også din kones e-mail til organisationen (*Organization → Team*). Gratis.
    Alternativet er en egen SMTP-udbyder, men det gør vi kun efter aftale.
+
+8. **Daglig oprydning af kvitteringsbilleder** (fase 3):
+   1. *Database → Extensions*: slå **pg_cron** og **pg_net** til.
+   2. Deploy Edge Function og sæt en hemmelighed (kræver Supabase CLI, `npx` er nok):
+      ```bash
+      npx supabase login
+      npx supabase link --project-ref <ref>
+      npx supabase functions deploy cleanup-receipts --no-verify-jwt
+      npx supabase secrets set CLEANUP_SECRET=$(openssl rand -hex 32)
+      ```
+      Gem værdien af `CLEANUP_SECRET` – den skal bruges i næste trin.
+      (`SUPABASE_URL` og `SUPABASE_SERVICE_ROLE_KEY` findes automatisk i Edge Functions.)
+   3. Ret de to værdier øverst i `supabase/setup/schedule_cleanup.sql` og kør scriptet i *SQL Editor*.
+      Hemmeligheden gemmes i Supabase Vault.
+   4. Test manuelt: `select net.http_post(...)` fra scriptet, eller vent til næste nat og se
+      `select * from cron.job_run_details order by start_time desc limit 5;`.
+
+   Oprydningen sletter kun billedfiler: udløbne billeder, forladte uploads (> 24 t) og forældreløse filer.
+   Transaktioner og kvitteringsoplysninger bevares altid. Den kan køres flere gange uden problemer.
+
+> **Custom SMTP senere:** Appen bruger kun Supabase Auth-kaldene (`resetPasswordForEmail`, `verifyOtp`,
+> `updateUser`). Skift af mailserver sker under *Authentication → Emails → SMTP Settings* og kræver
+> ingen ændringer i appen. Mailskabelonen med `{{ .Token }}` beholdes.
 
 ## 2. Vercel-projekt
 

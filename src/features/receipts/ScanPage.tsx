@@ -66,6 +66,8 @@ export function ScanPage() {
   const pending = useRef<Pending | null>(null)
   const blobRef = useRef<Blob | null>(null)
   const approved = useRef(false)
+  // Spærre mod dobbelttryk (serveren er desuden idempotent)
+  const approving = useRef(false)
 
   // Ryd op hvis brugeren forlader flowet uden at godkende (fx tilbage-knap).
   // Vi venter på at uploaden er færdig, så filen ikke lander EFTER sletningen.
@@ -196,7 +198,8 @@ export function ScanPage() {
 
   async function onApprove() {
     const p = pending.current
-    if (!p || !categoryId || !amountOre) return
+    if (!p || !categoryId || !amountOre || approving.current) return
+    approving.current = true
     setError(null)
     try {
       await p.upload
@@ -217,6 +220,8 @@ export function ScanPage() {
       setPhase('done')
     } catch (e) {
       setError(receiptErrorMessage(e))
+    } finally {
+      approving.current = false
     }
   }
 
@@ -289,7 +294,7 @@ export function ScanPage() {
           {header('Læser kvittering')}
           <div className="mt-2 flex flex-col items-center">
             <div className="relative h-[300px] w-[220px] overflow-hidden rounded-[22px] bg-surface-2 shadow-raised">
-              {preview && <img src={preview} alt="Kvittering" className="size-full object-cover" />}
+              {preview && <img src={preview} alt="Kvittering" className="size-full object-cover object-top" />}
               {ocrStatus === 'running' && (
                 <div className="absolute inset-x-0 h-16 bg-gradient-to-b from-transparent via-[color-mix(in_srgb,var(--accent)_35%,transparent)] to-transparent [animation:scan_1.6s_ease-in-out_infinite_alternate]" />
               )}
@@ -311,7 +316,7 @@ export function ScanPage() {
           <div className="flex gap-4">
             {preview && (
               <button type="button" onClick={() => setViewer(true)} aria-label="Se kvitteringen i fuld størrelse" className="pressable relative h-[132px] w-[100px] shrink-0 overflow-hidden rounded-[18px] bg-surface-2 shadow-card">
-                <img src={preview} alt="" className="size-full object-cover" />
+                <img src={preview} alt="" className="size-full object-cover object-top" />
                 <span className="absolute bottom-1.5 right-1.5 flex size-6 items-center justify-center rounded-full bg-black/50 text-white">
                   <Maximize2 className="size-3.5" />
                 </span>

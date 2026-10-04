@@ -26,6 +26,7 @@
   --surface-2: #ecebe6;
   --surface-3: #e2e0da;
   --sheet: #fbfaf7;
+  --raised: #ffffff;
   --text: #131316;
   --text-secondary: #67655f;
   --text-tertiary: #a19e97;
@@ -63,6 +64,7 @@
     --surface-2: #1c1c21;
     --surface-3: #27272d;
     --sheet: #17171b;
+    --raised: #2c2c33;
     --text: #f3f2ee;
     --text-secondary: #9b9993;
     --text-tertiary: #615f5a;
@@ -99,6 +101,7 @@
   --surface-2: #1c1c21;
   --surface-3: #27272d;
   --sheet: #17171b;
+  --raised: #2c2c33;
   --text: #f3f2ee;
   --text-secondary: #9b9993;
   --text-tertiary: #615f5a;
@@ -133,6 +136,7 @@
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
   --color-sheet: var(--sheet);
+  --color-raised: var(--raised);
   --color-text: var(--text);
   --color-text-secondary: var(--text-secondary);
   --color-text-tertiary: var(--text-tertiary);

@@ -52,7 +52,7 @@ function ReceiptDetail({ receipt }: { receipt: ReceiptWithTransaction }) {
         [
           'Kategori',
           <span key="c" className="inline-flex items-center gap-2">
-            {c && <CategoryIcon icon={c.icon} color={c.color} size="sm" className="size-6 rounded-[8px] [&_svg]:size-3.5" />}
+            {c && <CategoryIcon icon={c.icon} color={c.color} size="sm" />}
             {c?.name ?? '—'}
           </span>,
         ],

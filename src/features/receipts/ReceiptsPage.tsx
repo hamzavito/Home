@@ -1,6 +1,5 @@
 import { Camera, Receipt as ReceiptIcon } from 'lucide-react'
 import { Link, useNavigate } from 'react-router'
-import { CategoryIcon } from '@/components/finance/CategoryIcon'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -76,7 +75,7 @@ export function ReceiptsPage() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[16px] font-semibold">{t?.description ?? 'Kvittering'}</p>
                         <p className="flex items-center gap-1.5 truncate text-[13px] text-text-secondary">
-                          {c && <CategoryIcon icon={c.icon} color={c.color} size="sm" className="size-4 rounded-[5px] [&_svg]:size-2.5" />}
+                          {c && <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: c.color }} />}
                           {c?.name ?? ''}
                           {t && <> · {formatShortDate(fromIsoDate(t.occurred_on))}</>}
                         </p>
