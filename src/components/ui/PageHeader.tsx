@@ -2,26 +2,32 @@ import { ChevronLeft } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 
-/** Stor iOS-agtig sidetitel. Med `back` vises en tilbage-knap. */
-export function PageHeader({ title, subtitle, back, action }: { title: string; subtitle?: string; back?: boolean; action?: ReactNode }) {
+type Props = { title: string; eyebrow?: string; back?: boolean | string; action?: ReactNode }
+
+/** Sidehoved. `back` viser en rund tilbage-knap (true = historik, streng = sti). */
+export function PageHeader({ title, eyebrow, back, action }: Props) {
   const navigate = useNavigate()
   return (
-    <header className="pb-2 pt-4">
+    <header className="pb-3 pt-3">
       {back && (
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="-ml-2 mb-1 flex items-center text-[17px] text-accent active:opacity-60"
-        >
-          <ChevronLeft className="size-6" /> Tilbage
-        </button>
+        <div className="mb-3 flex items-center justify-between">
+          <button
+            type="button"
+            aria-label="Tilbage"
+            onClick={() => (typeof back === 'string' ? navigate(back) : navigate(-1))}
+            className="pressable -ml-1 flex size-10 items-center justify-center rounded-full bg-surface-1 shadow-card"
+          >
+            <ChevronLeft className="size-5" strokeWidth={2.5} />
+          </button>
+          {action}
+        </div>
       )}
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
-          {subtitle && <p className="text-[13px] font-semibold uppercase tracking-wide text-text-secondary">{subtitle}</p>}
-          <h1 className="truncate font-display text-[34px] font-bold leading-tight tracking-tight">{title}</h1>
+          {eyebrow && <p className="mb-0.5 text-[14px] font-medium text-text-secondary">{eyebrow}</p>}
+          <h1 className="truncate text-[30px] font-bold leading-tight tracking-[-0.025em]">{title}</h1>
         </div>
-        {action}
+        {!back && action}
       </div>
     </header>
   )

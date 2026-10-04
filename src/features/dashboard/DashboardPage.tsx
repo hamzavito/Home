@@ -1,65 +1,52 @@
-import { Camera, Wallet } from 'lucide-react'
-import { Link } from 'react-router'
-import { addActions, CURRENT_PHASE, sections } from '@/app/sections'
-import { Card, SectionTitle } from '@/components/ui/Card'
-import { Skeleton } from '@/components/ui/Spinner'
+import { CalendarClock, PiggyBank, Receipt, WalletCards } from 'lucide-react'
+import { sections } from '@/app/sections'
+import { SpendingChart } from '@/components/charts/SpendingChart'
+import { MoneyCard } from '@/components/finance/MoneyCard'
+import { Card } from '@/components/ui/Card'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { SectionHeader } from '@/components/ui/SectionHeader'
 import { useHousehold } from '@/features/household/HouseholdProvider'
-import { formatMonth, formatWeekday, greeting } from '@/lib/dates'
-
-const quick = [
-  { action: addActions.find((a) => a.key === 'expense')!, icon: Wallet },
-  { action: addActions.find((a) => a.key === 'receipt')!, icon: Camera },
-]
+import { formatMonth, greeting, monthKey } from '@/lib/dates'
+import { daysInMonth, elapsedDays } from '@/lib/series'
 
 export function DashboardPage() {
-  const { me } = useHousehold()
+  const { members } = useHousehold()
   const now = new Date()
+  const month = monthKey(now)
+  const days = daysInMonth(month)
+  const names = members.map((m) => m.displayName).join(' & ')
 
   return (
     <>
-      <header className="pb-2 pt-4">
-        <p className="text-[13px] font-semibold uppercase tracking-wide text-text-secondary">{formatWeekday(now)}</p>
-        <h1 className="font-display text-[34px] font-bold leading-tight tracking-tight">
-          {greeting(now)}, {me.displayName}
-        </h1>
+      <header className="pb-4 pt-4">
+        <p className="text-[15px] font-medium text-text-secondary">{greeting(now)}</p>
+        <h1 className="text-[28px] font-bold leading-tight tracking-[-0.025em]">{names}</h1>
       </header>
 
-      <Card className="mt-2">
-        <p className="text-[13px] font-semibold uppercase tracking-wide text-text-secondary">{formatMonth(now)}</p>
-        <p className="mt-3 text-[15px] text-text-secondary">Tilbage i budget</p>
-        <Skeleton className="mt-1 h-10 w-44" />
-        <Skeleton className="mt-4 h-2 w-full rounded-full" />
-        <p className="mt-3 text-[13px] text-text-tertiary">Budgetoverblikket kommer i fase {sections.budgets.phase}.</p>
+      <MoneyCard eyebrow={formatMonth(now)} budgetOre={0} spentOre={0} pace={elapsedDays(month) / days}>
+        <div className="mt-5">
+          <SpendingChart series={[]} days={days} budgetOre={0} tone="hero" height={72} />
+        </div>
+      </MoneyCard>
+
+      <SectionHeader title="Budgetter" to={sections.budgets.path} />
+      <Card variant="tonal">
+        <EmptyState compact icon={WalletCards} title="Ingen budgetter endnu" text={`Budgetter kommer i fase ${sections.budgets.phase}.`} />
       </Card>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        {quick.map(({ action, icon: Icon }) => {
-          const ready = action.phase <= CURRENT_PHASE
-          const inner = (
-            <>
-              <span className="flex size-10 items-center justify-center rounded-xl" style={{ backgroundColor: action.color }}>
-                <Icon className="size-5 text-white" />
-              </span>
-              <span className="text-[15px] font-semibold">{action.title}</span>
-              {!ready && <span className="text-[12px] text-text-tertiary">Snart</span>}
-            </>
-          )
-          const cls = 'flex flex-col items-start gap-2 rounded-card bg-surface-strong p-4 shadow-card'
-          return ready ? (
-            <Link key={action.key} to={action.path} className={cls}>
-              {inner}
-            </Link>
-          ) : (
-            <div key={action.key} className={cls} aria-disabled>
-              {inner}
-            </div>
-          )
-        })}
-      </div>
-
-      <SectionTitle>Kommende</SectionTitle>
+      <SectionHeader title="Kommende" />
       <Card>
-        <p className="text-[15px] text-text-secondary">Kommende udgifter og aftaler vises her.</p>
+        <EmptyState compact icon={CalendarClock} title="Intet kommende" text="Kommende udgifter og aftaler vises her." />
+      </Card>
+
+      <SectionHeader title="Opsparing" />
+      <Card variant="tonal">
+        <EmptyState compact icon={PiggyBank} title="Ingen opsparingsmål" text={`Opsparing kommer i fase ${sections.savings.phase}.`} />
+      </Card>
+
+      <SectionHeader title="Seneste aktivitet" />
+      <Card padded={false}>
+        <EmptyState compact icon={Receipt} title="Ingen udgifter endnu" text="Registrerede udgifter vises her." />
       </Card>
     </>
   )

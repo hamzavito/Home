@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatKr, parseKr } from './money'
+import { formatAmount, formatKr, parseKr, toInputValue } from './money'
 
 const nbsp = (s: string) => s.replace(/[\u00a0\u202f]/g, ' ')
 
@@ -27,5 +27,15 @@ describe('parseKr', () => {
   })
   it.each(['', 'abc', '1,234', '12.34', '1,999'])('afviser "%s"', (input) => {
     expect(parseKr(input)).toBeNull()
+  })
+})
+
+describe('formatAmount / toInputValue', () => {
+  it('tal uden kr.', () => expect(nbsp(formatAmount(1245000))).toBe('12.450'))
+  it('negative vises som absolut værdi', () => expect(formatAmount(-63875)).toBe('638,75'))
+  it('input-værdi', () => {
+    expect(toInputValue(63875)).toBe('638,75')
+    expect(toInputValue(500000)).toBe('5000')
+    expect(toInputValue(505)).toBe('5,05')
   })
 })

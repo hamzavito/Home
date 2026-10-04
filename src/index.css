@@ -1,102 +1,167 @@
 @import 'tailwindcss';
 
 /* -------------------------------------------------------------------------
-   Design-tokens. Lyst tema som standard, mørkt via systemindstilling eller
-   eksplicit valg (data-theme på <html>).
+   Skrifttype: Inter (selvhostet, kun latin, variabel vægt).
+   Ingen eksterne fontkald – den caches af service workeren.
+   ------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+/* -------------------------------------------------------------------------
+   Design-tokens – "Hjem" designsystem
+   Lyst: varm off-white med hvide kort og et mørkt "hero"-kort.
+   Mørkt: næsten sort med tre overfladeniveauer – ikke bare sort + hvidt.
+   Accent (iris) bruges sparsomt: primær handling, aktiv fane, fokus.
+   Grøn = positiv økonomi. Amber/orange/rød = kun advarsler og overskridelser.
    ------------------------------------------------------------------------- */
 :root {
   color-scheme: light;
-  --bg: #f2f2f7;
-  --bg-elevated: #ffffff;
-  --surface: rgb(255 255 255 / 0.78);
-  --surface-strong: #ffffff;
-  --fill: rgb(118 118 128 / 0.12);
-  --fill-strong: rgb(118 118 128 / 0.2);
-  --text: #1c1c1e;
-  --text-secondary: #6e6e73;
-  --text-tertiary: #aeaeb2;
-  --separator: rgb(60 60 67 / 0.12);
-  --accent: #2f7d6d;
-  --accent-soft: rgb(47 125 109 / 0.12);
+  --bg: #f4f3ef;
+  --surface-1: #ffffff;
+  --surface-2: #ecebe6;
+  --surface-3: #e2e0da;
+  --sheet: #fbfaf7;
+  --text: #131316;
+  --text-secondary: #67655f;
+  --text-tertiary: #a19e97;
+  --separator: rgb(19 19 22 / 0.07);
+  --accent: #5a3cf0;
+  --accent-strong: #4a2de0;
+  --accent-soft: rgb(90 60 240 / 0.1);
   --on-accent: #ffffff;
-  --danger: #d6382c;
-  --warning: #b86e00;
-  --success: #2a8a55;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.06);
-  --nav-glass: rgb(249 249 251 / 0.78);
+  --positive: #0c9467;
+  --positive-soft: rgb(12 148 103 / 0.12);
+  --notice: #b7800f;
+  --notice-soft: rgb(201 138 18 / 0.14);
+  --warning: #dd6225;
+  --warning-soft: rgb(232 105 44 / 0.14);
+  --danger: #d43a3a;
+  --danger-soft: rgb(212 58 58 / 0.12);
+  --track: rgb(19 19 22 / 0.07);
+  --shadow-sm: 0 1px 2px rgb(30 25 10 / 0.04), 0 2px 8px rgb(30 25 10 / 0.04);
+  --shadow-md: 0 1px 2px rgb(30 25 10 / 0.05), 0 12px 32px -8px rgb(30 25 10 / 0.1);
+  --nav-bg: rgb(255 255 255 / 0.82);
+  --nav-border: rgb(19 19 22 / 0.06);
+  /* Hero-kort: mørkt blæk med en svag iris-glød, også i lyst tema */
+  --hero-bg: radial-gradient(120% 90% at 100% 0%, rgb(124 96 255 / 0.45) 0%, rgb(124 96 255 / 0) 55%), linear-gradient(160deg, #1d1a2c 0%, #121116 100%);
+  --hero-text: #ffffff;
+  --hero-text-secondary: rgb(255 255 255 / 0.62);
+  --hero-track: rgb(255 255 255 / 0.14);
+  --hero-fill: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
-    --bg: #000000;
-    --bg-elevated: #1c1c1e;
-    --surface: rgb(28 28 30 / 0.8);
-    --surface-strong: #1c1c1e;
-    --fill: rgb(118 118 128 / 0.24);
-    --fill-strong: rgb(118 118 128 / 0.36);
-    --text: #f5f5f7;
-    --text-secondary: #98989f;
-    --text-tertiary: #5a5a5f;
-    --separator: rgb(84 84 88 / 0.45);
-    --accent: #5cc2a8;
-    --accent-soft: rgb(92 194 168 / 0.16);
-    --on-accent: #00241c;
-    --danger: #ff6b5e;
-    --warning: #ffb340;
-    --success: #4cd38a;
-    --shadow: none;
-    --nav-glass: rgb(22 22 24 / 0.78);
+    --bg: #09090b;
+    --surface-1: #141417;
+    --surface-2: #1c1c21;
+    --surface-3: #27272d;
+    --sheet: #17171b;
+    --text: #f3f2ee;
+    --text-secondary: #9b9993;
+    --text-tertiary: #615f5a;
+    --separator: rgb(255 255 255 / 0.06);
+    --accent: #9483ff;
+    --accent-strong: #a597ff;
+    --accent-soft: rgb(148 131 255 / 0.14);
+    --on-accent: #0d0a22;
+    --positive: #3ad49a;
+    --positive-soft: rgb(58 212 154 / 0.13);
+    --notice: #f0b54d;
+    --notice-soft: rgb(240 181 77 / 0.13);
+    --warning: #ff8d52;
+    --warning-soft: rgb(255 141 82 / 0.14);
+    --danger: #ff6464;
+    --danger-soft: rgb(255 100 100 / 0.14);
+    --track: rgb(255 255 255 / 0.08);
+    --shadow-sm: 0 0 0 1px rgb(255 255 255 / 0.035);
+    --shadow-md: 0 0 0 1px rgb(255 255 255 / 0.045), 0 16px 40px -12px rgb(0 0 0 / 0.6);
+    --nav-bg: rgb(16 16 19 / 0.82);
+    --nav-border: rgb(255 255 255 / 0.06);
+    --hero-bg: radial-gradient(120% 90% at 100% 0%, rgb(148 131 255 / 0.38) 0%, rgb(148 131 255 / 0) 55%), linear-gradient(160deg, #221d3d 0%, #151419 70%);
+    --hero-text: #ffffff;
+    --hero-text-secondary: rgb(255 255 255 / 0.6);
+    --hero-track: rgb(255 255 255 / 0.12);
+    --hero-fill: #ffffff;
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #000000;
-  --bg-elevated: #1c1c1e;
-  --surface: rgb(28 28 30 / 0.8);
-  --surface-strong: #1c1c1e;
-  --fill: rgb(118 118 128 / 0.24);
-  --fill-strong: rgb(118 118 128 / 0.36);
-  --text: #f5f5f7;
-  --text-secondary: #98989f;
-  --text-tertiary: #5a5a5f;
-  --separator: rgb(84 84 88 / 0.45);
-  --accent: #5cc2a8;
-  --accent-soft: rgb(92 194 168 / 0.16);
-  --on-accent: #00241c;
-  --danger: #ff6b5e;
-  --warning: #ffb340;
-  --success: #4cd38a;
-  --shadow: none;
-  --nav-glass: rgb(22 22 24 / 0.78);
+  --bg: #09090b;
+  --surface-1: #141417;
+  --surface-2: #1c1c21;
+  --surface-3: #27272d;
+  --sheet: #17171b;
+  --text: #f3f2ee;
+  --text-secondary: #9b9993;
+  --text-tertiary: #615f5a;
+  --separator: rgb(255 255 255 / 0.06);
+  --accent: #9483ff;
+  --accent-strong: #a597ff;
+  --accent-soft: rgb(148 131 255 / 0.14);
+  --on-accent: #0d0a22;
+  --positive: #3ad49a;
+  --positive-soft: rgb(58 212 154 / 0.13);
+  --notice: #f0b54d;
+  --notice-soft: rgb(240 181 77 / 0.13);
+  --warning: #ff8d52;
+  --warning-soft: rgb(255 141 82 / 0.14);
+  --danger: #ff6464;
+  --danger-soft: rgb(255 100 100 / 0.14);
+  --track: rgb(255 255 255 / 0.08);
+  --shadow-sm: 0 0 0 1px rgb(255 255 255 / 0.035);
+  --shadow-md: 0 0 0 1px rgb(255 255 255 / 0.045), 0 16px 40px -12px rgb(0 0 0 / 0.6);
+  --nav-bg: rgb(16 16 19 / 0.82);
+  --nav-border: rgb(255 255 255 / 0.06);
+  --hero-bg: radial-gradient(120% 90% at 100% 0%, rgb(148 131 255 / 0.38) 0%, rgb(148 131 255 / 0) 55%), linear-gradient(160deg, #221d3d 0%, #151419 70%);
+  --hero-text: #ffffff;
+  --hero-text-secondary: rgb(255 255 255 / 0.6);
+  --hero-track: rgb(255 255 255 / 0.12);
+  --hero-fill: #ffffff;
 }
 
 @theme inline {
   --color-bg: var(--bg);
-  --color-elevated: var(--bg-elevated);
-  --color-surface: var(--surface);
-  --color-surface-strong: var(--surface-strong);
-  --color-fill: var(--fill);
-  --color-fill-strong: var(--fill-strong);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-sheet: var(--sheet);
   --color-text: var(--text);
   --color-text-secondary: var(--text-secondary);
   --color-text-tertiary: var(--text-tertiary);
   --color-separator: var(--separator);
   --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
   --color-accent-soft: var(--accent-soft);
   --color-on-accent: var(--on-accent);
-  --color-danger: var(--danger);
+  --color-positive: var(--positive);
+  --color-positive-soft: var(--positive-soft);
+  --color-notice: var(--notice);
+  --color-notice-soft: var(--notice-soft);
   --color-warning: var(--warning);
-  --color-success: var(--success);
-  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
-  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
-  --radius-card: 1.25rem;
-  --shadow-card: var(--shadow);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-track: var(--track);
+  --color-hero-text: var(--hero-text);
+  --color-hero-text-secondary: var(--hero-text-secondary);
+  --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --radius-card: 1.5rem;
+  --radius-card-lg: 1.875rem;
+  --shadow-card: var(--shadow-sm);
+  --shadow-raised: var(--shadow-md);
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 /* -------------------------------------------------------------------------
-   Grundlæggende app-adfærd: føles som en app, ikke en hjemmeside
+   Grundlæggende app-adfærd
    ------------------------------------------------------------------------- */
 @layer base {
   html {
@@ -110,7 +175,9 @@
     background: var(--bg);
     color: var(--text);
     font-family: var(--font-sans);
-    font-feature-settings: 'tnum' 0;
+    /* Inter: enkeltetages "a" og tydeligere tal */
+    font-feature-settings: 'cv11', 'ss01';
+    letter-spacing: -0.011em;
     -webkit-font-smoothing: antialiased;
     overscroll-behavior-y: none;
   }
@@ -131,14 +198,28 @@
   }
 }
 
+/* Tal står pænt under hinanden */
 @utility tabular {
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum', 'cv11', 'ss01';
 }
 
 @utility glass {
-  background: var(--nav-glass);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  backdrop-filter: saturate(180%) blur(20px);
+  background: var(--nav-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  backdrop-filter: saturate(180%) blur(24px);
+}
+
+@utility hero-surface {
+  background: var(--hero-bg);
+  color: var(--hero-text);
+}
+
+@utility pressable {
+  transition: transform 160ms var(--ease-spring), background-color 160ms;
+  &:active {
+    transform: scale(0.975);
+  }
 }
 
 @utility pt-safe {
@@ -152,15 +233,9 @@
   padding-right: max(1rem, env(safe-area-inset-right));
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
+/* -------------------------------------------------------------------------
+   Mikroanimationer – korte og diskrete
+   ------------------------------------------------------------------------- */
 @keyframes sheet-in {
   from {
     transform: translateY(100%);
@@ -177,6 +252,32 @@
     opacity: 1;
   }
 }
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes draw-line {
+  from {
+    stroke-dashoffset: var(--len, 1000);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
 @keyframes shimmer {
   0% {
     opacity: 0.55;
@@ -186,5 +287,22 @@
   }
   100% {
     opacity: 0.55;
+  }
+}
+
+@utility animate-page {
+  animation: page-in 220ms var(--ease-spring) both;
+}
+@utility animate-grow {
+  transform-origin: left center;
+  animation: grow-x 700ms var(--ease-spring) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

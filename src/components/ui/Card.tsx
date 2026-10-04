@@ -1,15 +1,34 @@
-import type { HTMLAttributes } from 'react'
+import type { HTMLAttributes, ReactNode } from 'react'
+import { Link } from 'react-router'
 import { cn } from '@/lib/cn'
 
-export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('rounded-card bg-surface-strong p-4 shadow-card', className)} {...props} />
+type Variant = 'default' | 'tonal' | 'hero'
+
+const variants: Record<Variant, string> = {
+  default: 'bg-surface-1 shadow-card',
+  tonal: 'bg-surface-2',
+  hero: 'hero-surface shadow-raised',
 }
 
-export function SectionTitle({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
+type Props = HTMLAttributes<HTMLDivElement> & { variant?: Variant; to?: string; padded?: boolean }
+
+/** Grundkortet. `hero` er det mørke hovedkort, `tonal` et roligt kort uden skygge. */
+export function Card({ variant = 'default', to, padded = true, className, children, ...props }: Props) {
+  const cls = cn('relative overflow-hidden rounded-card', variants[variant], padded && 'p-5', to && 'pressable block', className)
+  if (to)
+    return (
+      <Link to={to} className={cls}>
+        {children}
+      </Link>
+    )
   return (
-    <div className="mb-2 mt-6 flex items-baseline justify-between px-1">
-      <h2 className="text-[13px] font-semibold uppercase tracking-wide text-text-secondary">{children}</h2>
-      {action}
+    <div className={cls} {...props}>
+      {children}
     </div>
   )
+}
+
+/** Lille overskrift inde i et kort */
+export function CardLabel({ children, className }: { children: ReactNode; className?: string }) {
+  return <p className={cn('text-[13px] font-medium text-text-secondary', className)}>{children}</p>
 }

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router'
 import { Button } from '@/components/ui/Button'
+import { Field, TextInput } from '@/components/ui/Field'
 import { getRememberMe } from '@/lib/session-storage'
 import { useAuth } from './AuthProvider'
 
@@ -23,21 +24,16 @@ export function LoginPage() {
     if (res.error) setError(res.error)
   }
 
-  const input =
-    'h-12 w-full rounded-xl bg-fill px-4 text-[17px] text-text placeholder:text-text-tertiary outline-none focus:ring-2 focus:ring-accent'
-
   return (
     <div className="flex min-h-dvh flex-col justify-center px-safe pb-safe pt-safe">
       <div className="mx-auto w-full max-w-sm">
-        <img src="/icons/icon-192.png" alt="" className="mx-auto mb-6 size-20 rounded-[22px] shadow-card" />
-        <h1 className="text-center font-display text-[30px] font-bold tracking-tight">Hjem</h1>
-        <p className="mb-8 text-center text-[15px] text-text-secondary">Log ind for at fortsætte</p>
+        <img src="/icons/icon-192.png" alt="" className="mb-8 size-16 rounded-[20px] shadow-raised" />
+        <h1 className="text-[34px] font-bold leading-[1.05] tracking-[-0.03em]">Velkommen hjem</h1>
+        <p className="mb-8 mt-2 text-[16px] text-text-secondary">Log ind for at se jeres fælles overblik.</p>
 
         <form onSubmit={onSubmit} className="space-y-3" noValidate>
-          <label className="block">
-            <span className="sr-only">E-mail</span>
-            <input
-              className={input}
+          <Field label="E-mail" hideLabel>
+            <TextInput
               type="email"
               inputMode="email"
               autoComplete="username"
@@ -48,11 +44,9 @@ export function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-          </label>
-          <label className="block">
-            <span className="sr-only">Adgangskode</span>
-            <input
-              className={input}
+          </Field>
+          <Field label="Adgangskode" hideLabel>
+            <TextInput
               type="password"
               autoComplete="current-password"
               placeholder="Adgangskode"
@@ -60,9 +54,9 @@ export function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-          </label>
+          </Field>
 
-          <label className="flex items-center justify-between rounded-xl px-1 py-2 text-[15px]">
+          <label className="flex items-center justify-between px-1 py-2 text-[15px] font-medium">
             <span>Husk mig på denne enhed</span>
             <input
               type="checkbox"
@@ -73,7 +67,7 @@ export function LoginPage() {
           </label>
 
           {error && (
-            <p role="alert" className="rounded-xl bg-danger/10 px-4 py-3 text-[15px] text-danger">
+            <p role="alert" className="rounded-2xl bg-danger-soft px-4 py-3 text-[15px] font-medium text-danger">
               {error}
             </p>
           )}
@@ -83,7 +77,7 @@ export function LoginPage() {
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-[13px] text-text-tertiary">
+        <p className="mt-8 text-center text-[13px] text-text-tertiary">
           Kun for medlemmer af husstanden. Der er ingen offentlig tilmelding.
         </p>
       </div>

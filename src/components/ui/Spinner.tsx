@@ -11,7 +11,7 @@ export function Spinner({ className }: { className?: string }) {
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn('rounded-xl bg-fill [animation:shimmer_1.4s_ease-in-out_infinite]', className)} />
+  return <div className={cn('rounded-xl bg-surface-2 [animation:shimmer_1.4s_ease-in-out_infinite]', className)} />
 }
 
 export function FullScreenLoader() {

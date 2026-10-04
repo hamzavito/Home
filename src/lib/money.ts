@@ -23,6 +23,24 @@ export function formatKr(ore: number, opts: { decimals?: 'auto' | 'always' | 'ne
   return (useWhole ? krWhole : kr).format(useWhole ? Math.round(value) : value)
 }
 
+const plain = new Intl.NumberFormat('da-DK', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+const plain2 = new Intl.NumberFormat('da-DK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+/** Kun tallet, uden "kr.": 63875 → "638,75" · 1245000 → "12.450" */
+export function formatAmount(ore: number, opts: { decimals?: 'auto' | 'always' | 'never' } = {}): string {
+  const decimals = opts.decimals ?? 'auto'
+  const abs = Math.abs(ore)
+  if (decimals === 'never' || (decimals === 'auto' && abs % 100 === 0)) return plain.format(Math.round(abs / 100))
+  return plain2.format(abs / 100)
+}
+
+/** Til inputfelter: 63875 → "638,75" · 500000 → "5000" */
+export function toInputValue(ore: number): string {
+  const kr = Math.floor(Math.abs(ore) / 100)
+  const rest = Math.abs(ore) % 100
+  return rest === 0 ? String(kr) : `${kr},${String(rest).padStart(2, '0')}`
+}
+
 /**
  * Fortolker et beløb skrevet på dansk: "638,75", "1.234,50", "1234", "12 000 kr."
  * Returnerer øre eller null, hvis teksten ikke er et gyldigt beløb.

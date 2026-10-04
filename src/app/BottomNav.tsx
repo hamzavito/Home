@@ -1,11 +1,11 @@
-import { Ellipsis, Home, House, Plus, Wallet } from 'lucide-react'
+import { Ellipsis, House, LayoutGrid, Plus, Wallet } from 'lucide-react'
 import { NavLink } from 'react-router'
 import { cn } from '@/lib/cn'
 
 type Props = { onAdd: () => void }
 
 const tabs = [
-  { to: '/', label: 'Hjem', icon: Home, end: true },
+  { to: '/', label: 'Hjem', icon: LayoutGrid, end: true },
   { to: '/okonomi', label: 'Økonomi', icon: Wallet, end: false },
   null, // plads til +-knappen
   { to: '/hjemmet', label: 'Hjemmet', icon: House, end: false },
@@ -14,8 +14,8 @@ const tabs = [
 
 export function BottomNav({ onAdd }: Props) {
   return (
-    <nav aria-label="Hovednavigation" className="glass fixed inset-x-0 bottom-0 z-40 border-t border-separator pb-safe">
-      <ul className="mx-auto grid h-[58px] max-w-lg grid-cols-5 items-center">
+    <nav aria-label="Hovednavigation" className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <ul className="glass mx-auto grid h-[66px] max-w-md grid-cols-5 items-center rounded-[26px] border border-[var(--nav-border)] px-1 shadow-raised">
         {tabs.map((tab, i) =>
           tab === null ? (
             <li key="add" className="flex justify-center">
@@ -23,9 +23,9 @@ export function BottomNav({ onAdd }: Props) {
                 type="button"
                 onClick={onAdd}
                 aria-label="Tilføj"
-                className="-mt-5 flex size-14 items-center justify-center rounded-full bg-accent text-on-accent shadow-[0_6px_20px_rgb(47_125_109_/_0.4)] transition active:scale-95"
+                className="pressable flex size-[52px] items-center justify-center rounded-[18px] bg-accent text-on-accent shadow-[0_10px_24px_-8px_var(--accent)]"
               >
-                <Plus className="size-7" strokeWidth={2.5} />
+                <Plus className="size-7" strokeWidth={2.6} />
               </button>
             </li>
           ) : (
@@ -34,14 +34,17 @@ export function BottomNav({ onAdd }: Props) {
                 to={tab.to}
                 end={tab.end}
                 className={({ isActive }) =>
-                  cn(
-                    'flex flex-col items-center gap-0.5 py-1 text-[10px] font-medium transition-colors',
-                    isActive ? 'text-accent' : 'text-text-secondary',
-                  )
+                  cn('flex flex-col items-center gap-1 py-1 text-[11px] font-semibold transition-colors', isActive ? 'text-text' : 'text-text-tertiary')
                 }
               >
-                <tab.icon className="size-6" strokeWidth={2} />
-                {tab.label}
+                {({ isActive }) => (
+                  <>
+                    <span className={cn('flex h-7 w-12 items-center justify-center rounded-full transition-colors duration-200', isActive && 'bg-accent-soft')}>
+                      <tab.icon className={cn('size-[21px]', isActive && 'text-accent')} strokeWidth={isActive ? 2.4 : 2} />
+                    </span>
+                    {tab.label}
+                  </>
+                )}
               </NavLink>
             </li>
           ),

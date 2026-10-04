@@ -24,7 +24,7 @@ export function applyTheme(pref: ThemePreference) {
   // Statuslinjens farve følger appens baggrund.
   const dark = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
   document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
-    m.setAttribute('content', dark ? '#000000' : '#f2f2f7')
+    m.setAttribute('content', dark ? '#09090b' : '#f4f3ef')
     if (pref !== 'system') m.removeAttribute('media')
   })
 }
