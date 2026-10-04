@@ -37,7 +37,7 @@ export function BudgetCard({ data, to }: { data: BudgetCardData; to?: string }) 
 }
 
 /** Bred række til budgetsiden: navn, brugt/budget, tilbage og bar. */
-export function BudgetRow({ data, pace, to }: { data: BudgetCardData; pace?: number; to?: string }) {
+export function BudgetRow({ data, pace, to, sub }: { data: BudgetCardData; pace?: number; to?: string; sub?: string }) {
   const status = budgetStatus(data.spentOre, data.budgetOre)
   const remaining = data.budgetOre - data.spentOre
   return (
@@ -51,6 +51,7 @@ export function BudgetRow({ data, pace, to }: { data: BudgetCardData; pace?: num
               ? 'Tryk for at sætte et budget'
               : `${formatAmount(data.spentOre, { decimals: 'never' })} / ${formatAmount(data.budgetOre, { decimals: 'never' })} kr.`}
           </p>
+          {sub && <p className="truncate text-[12px] text-secondary">{sub}</p>}
         </div>
         {data.budgetOre === 0 && data.spentOre === 0 ? (
           <span className="rounded-full bg-surface-secondary px-2.5 py-1 text-[12px] font-semibold text-secondary">Intet budget</span>

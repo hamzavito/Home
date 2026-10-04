@@ -1,5 +1,5 @@
-import { CalendarClock, Camera, PiggyBank, Plus, Receipt, WalletCards } from 'lucide-react'
-import { useNavigate } from 'react-router'
+import { CalendarClock, Camera, ChevronRight, PiggyBank, Plus, Receipt, WalletCards } from 'lucide-react'
+import { Link, useNavigate } from 'react-router'
 import { sections } from '@/app/sections'
 import { SpendingChart } from '@/components/charts/SpendingChart'
 import { BudgetCard } from '@/components/finance/BudgetCard'
@@ -11,6 +11,8 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { Skeleton } from '@/components/ui/Spinner'
 import { useBudgetMonth, useCategories, useMonthTransactions, useRecentTransactions } from '@/features/finance/api'
+import { useMonthPlan } from '@/features/fixed/api'
+import { formatAmount } from '@/lib/money'
 import { paidByLabel } from '@/features/finance/paidBy'
 import { useHousehold } from '@/features/household/HouseholdProvider'
 import { formatMonth, greeting, monthKey, relativeDay } from '@/lib/dates'
@@ -25,13 +27,22 @@ export function DashboardPage() {
   const monthTx = useMonthTransactions(month)
   const recent = useRecentTransactions(5)
   const categories = useCategories()
+  const planQuery = useMonthPlan(month)
 
   const days = daysInMonth(month)
   const elapsed = elapsedDays(month)
-  const lines = budget.data ?? []
+  // Hovedtallet gælder de variable forbrugsbudgetter. Reserver (fx Buffer) står for sig.
+  const lines = (budget.data ?? []).filter((l) => l.kind === 'spending')
   const totalBudget = lines.reduce((s, l) => s + l.budget_ore, 0)
   const spent = lines.reduce((s, l) => s + l.spent_ore, 0)
-  const series = cumulativeByDay(month, (monthTx.data ?? []).map((t) => ({ date: t.occurred_on, ore: t.amount_ore })), elapsed)
+  const spendingIds = new Set(lines.map((l) => l.category_id))
+  const series = cumulativeByDay(
+    month,
+    (monthTx.data ?? []).filter((t) => spendingIds.has(t.category_id)).map((t) => ({ date: t.occurred_on, ore: t.amount_ore })),
+    elapsed,
+  )
+  const plan = planQuery.data
+  const hasPlan = Boolean(plan && (plan.income_ore !== 0 || plan.fixed_expenses_ore !== 0))
   const topBudgets = lines
     .filter((l) => !l.archived && (l.budget_ore > 0 || l.spent_ore > 0))
     .sort((a, b) => b.budget_ore - a.budget_ore || b.spent_ore - a.spent_ore)
@@ -69,6 +80,37 @@ export function DashboardPage() {
           <Camera className="size-4.5" /> Kvittering
         </Button>
       </div>
+
+      {hasPlan && plan && (
+        <Link to="/okonomi" className="pressable mt-3 block rounded-card bg-surface-primary p-4 shadow-card">
+          <div className="flex items-center justify-between">
+            <p className="text-[13px] font-semibold text-secondary">Månedens plan</p>
+            <ChevronRight className="size-4 text-muted" />
+          </div>
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            <div>
+              <p className="text-[12px] text-secondary">Indkomst</p>
+              <p className="tabular text-[15px] font-semibold">{formatAmount(plan.income_ore, { decimals: 'never' })} kr.</p>
+            </div>
+            <div>
+              <p className="text-[12px] text-secondary">Faste udgifter</p>
+              <p className="tabular text-[15px] font-semibold">{formatAmount(plan.fixed_expenses_ore, { decimals: 'never' })} kr.</p>
+            </div>
+            <div>
+              <p className="text-[12px] text-secondary">Tilbage</p>
+              <p className={`tabular text-[15px] font-bold ${plan.available_ore < 0 ? 'text-danger' : 'text-positive'}`}>
+                {plan.available_ore < 0 ? '−' : ''}
+                {formatAmount(Math.abs(plan.available_ore), { decimals: 'never' })} kr.
+              </p>
+            </div>
+          </div>
+          {plan.unallocated_ore !== 0 && (
+            <p className={`mt-2.5 rounded-xl px-3 py-2 text-[12px] font-semibold ${plan.unallocated_ore < 0 ? 'bg-danger-soft text-danger' : 'bg-notice-soft text-notice'}`}>
+              {plan.unallocated_ore < 0 ? 'Overfordelt' : 'Ufordelt'}: {formatAmount(Math.abs(plan.unallocated_ore), { decimals: 'always' })} kr.
+            </p>
+          )}
+        </Link>
+      )}
 
       <SectionHeader title="Budgetter" to={sections.budgets.path} />
       {budget.isPending ? (

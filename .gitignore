@@ -11,3 +11,7 @@ supabase/.temp
 supabase/.branches
 .vercel
 public/ocr
+e2e/.dist
+e2e/.dist-artifact
+test-results
+playwright-report

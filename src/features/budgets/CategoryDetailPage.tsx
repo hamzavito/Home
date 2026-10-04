@@ -26,6 +26,7 @@ import {
   useSetMonthlyBudget,
   useUpdateCategory,
   type Category,
+  type CategoryDefault,
 } from '@/features/finance/api'
 import { paidByLabel } from '@/features/finance/paidBy'
 import { useMonthParam } from '@/features/finance/useMonthParam'
@@ -34,7 +35,11 @@ import { budgetStatus, percentUsed, statusColor, statusLabel } from '@/lib/budge
 import { formatMonth, formatMonthYear, fromIsoDate, monthKey, relativeDay } from '@/lib/dates'
 import { formatAmount, parseKr, toInputValue } from '@/lib/money'
 import { daysInMonth, elapsedDays } from '@/lib/series'
+import { formatPercent, parsePercent, percentInputValue } from '@/lib/percent'
+import type { CategoryKind } from '@/types/database'
+import { BudgetRuleInput, type RuleValue } from './BudgetRuleInput'
 import { CategoryEditor } from './CategoryEditor'
+import { KindPicker } from './KindPicker'
 
 type SheetKind = 'month' | 'default' | 'edit' | 'archive' | null
 
@@ -80,7 +85,7 @@ function CategoryDetail({ category }: { category: Category }) {
     <>
       <PageHeader
         title={category.name}
-        eyebrow={archived ? 'Arkiveret kategori' : 'Budget'}
+        eyebrow={archived ? 'Arkiveret kategori' : category.kind === 'reserve' ? 'Reserve' : 'Budget'}
         back={`/okonomi/budgetter${q}`}
         action={
           <button type="button" aria-label="Redigér kategori" onClick={() => setSheet('edit')} className="pressable flex size-10 items-center justify-center rounded-full bg-surface-primary shadow-card">
@@ -124,8 +129,16 @@ function CategoryDetail({ category }: { category: Category }) {
         </Card>
         <Card variant="tonal" className="p-4">
           <p className="text-[13px] font-medium text-secondary">Standard pr. måned</p>
-          <Money ore={currentDefault?.amount_ore ?? 0} size="lg" decimals="never" />
-          <p className="mt-0.5 text-[12px] text-muted">{currentDefault ? `Siden ${formatMonthYear(fromIsoDate(currentDefault.valid_from))}` : 'Ikke sat'}</p>
+          {currentDefault?.mode === 'percent' ? (
+            <p className="tabular text-[22px] font-bold leading-tight tracking-[-0.025em]">{formatPercent(currentDefault.percent_bp ?? 0)}</p>
+          ) : (
+            <Money ore={currentDefault?.amount_ore ?? 0} size="lg" decimals="never" />
+          )}
+          <p className="mt-0.5 text-[12px] text-muted">
+            {currentDefault
+              ? `${currentDefault.mode === 'percent' ? 'af til fordeling · ' : ''}Siden ${formatMonthYear(fromIsoDate(currentDefault.valid_from))}`
+              : 'Ikke sat'}
+          </p>
           {!archived && (
             <Button size="sm" variant="surface" className="mt-3 w-full" onClick={() => setSheet('default')}>
               Ændr standard
@@ -168,7 +181,11 @@ function CategoryDetail({ category }: { category: Category }) {
                   Fra <span className="font-semibold first-letter:uppercase">{formatMonthYear(fromIsoDate(d.valid_from))}</span>
                   {d.valid_from > currentMonth && <span className="ml-2 rounded-full bg-surface-accent px-2 py-0.5 text-[11px] font-semibold text-accent-text">Planlagt</span>}
                 </span>
-                <Money ore={d.amount_ore} size="md" decimals="never" />
+                {d.mode === 'percent' ? (
+                  <span className="tabular text-[17px] font-semibold">{formatPercent(d.percent_bp ?? 0)}</span>
+                ) : (
+                  <Money ore={d.amount_ore ?? 0} size="md" decimals="never" />
+                )}
               </div>
             ))}
           </Card>
@@ -185,7 +202,7 @@ function CategoryDetail({ category }: { category: Category }) {
       </ListGroup>
 
       <MonthBudgetSheet open={sheet === 'month'} onClose={() => setSheet(null)} category={category} month={month} current={line} />
-      <DefaultBudgetSheet open={sheet === 'default'} onClose={() => setSheet(null)} category={category} currentOre={currentDefault?.amount_ore ?? 0} />
+      <DefaultBudgetSheet open={sheet === 'default'} onClose={() => setSheet(null)} category={category} current={currentDefault} />
       <EditCategorySheet open={sheet === 'edit'} onClose={() => setSheet(null)} category={category} />
       <ArchiveSheet open={sheet === 'archive'} onClose={() => setSheet(null)} category={category} />
     </>
@@ -246,23 +263,29 @@ function MonthBudgetForm({ onDone, category, month, current }: { onDone: () => v
   )
 }
 
-function DefaultBudgetSheet({ open, onClose, category, currentOre }: { open: boolean; onClose: () => void; category: Category; currentOre: number }) {
+function DefaultBudgetSheet({ open, onClose, category, current }: { open: boolean; onClose: () => void; category: Category; current: CategoryDefault | undefined }) {
   return (
     <BottomSheet open={open} onClose={onClose} title="Ændr standardbudget">
-      {open && <DefaultBudgetForm onDone={onClose} category={category} currentOre={currentOre} />}
+      {open && <DefaultBudgetForm onDone={onClose} category={category} current={current} />}
     </BottomSheet>
   )
 }
 
-function DefaultBudgetForm({ onDone, category, currentOre }: { onDone: () => void; category: Category; currentOre: number }) {
+function DefaultBudgetForm({ onDone, category, current }: { onDone: () => void; category: Category; current: CategoryDefault | undefined }) {
   const set = useSetCategoryDefault()
   const minMonth = monthKey(new Date())
-  const [amount, setAmount] = useState(toInputValue(currentOre))
+  const [rule, setRule] = useState<RuleValue>({
+    mode: current?.mode ?? 'amount',
+    amount: current?.amount_ore != null ? toInputValue(current.amount_ore) : '',
+    percent: current?.percent_bp != null ? percentInputValue(current.percent_bp) : '',
+  })
   const [from, setFrom] = useState(minMonth)
-  const ore = parseKr(amount)
+  const ore = parseKr(rule.amount)
+  const bp = parsePercent(rule.percent)
+  const valid = rule.mode === 'amount' ? ore !== null && ore >= 0 : bp !== null
   return (
     <>
-      <AmountInput value={amount} onChange={(e) => setAmount(e.target.value)} aria-label="Standardbudget i kroner" />
+      <BudgetRuleInput value={rule} onChange={setRule} />
       <p className="mb-1.5 mt-5 px-1 text-[13px] font-semibold text-secondary">Gælder fra</p>
       <MonthStepper month={from} onChange={setFrom} min={minMonth} />
       <p className="mt-3 px-1 text-[13px] text-secondary">
@@ -272,9 +295,9 @@ function DefaultBudgetForm({ onDone, category, currentOre }: { onDone: () => voi
       <Button
         block
         className="mt-5"
-        disabled={ore === null || ore < 0}
+        disabled={!valid}
         loading={set.isPending}
-        onClick={() => set.mutate({ categoryId: category.id, validFrom: from, amountOre: ore! }, { onSuccess: onDone })}
+        onClick={() => set.mutate({ categoryId: category.id, validFrom: from, mode: rule.mode, amountOre: ore, percentBp: bp }, { onSuccess: onDone })}
       >
         Gem standardbudget
       </Button>
@@ -293,17 +316,21 @@ function EditCategorySheet({ open, onClose, category }: { open: boolean; onClose
 function EditCategoryForm({ onDone, category }: { onDone: () => void; category: Category }) {
   const update = useUpdateCategory()
   const [value, setValue] = useState({ name: category.name, icon: category.icon, color: category.color })
+  const [kind, setKind] = useState<CategoryKind>(category.kind)
   const nameError = value.name.trim() ? null : 'Giv kategorien et navn'
   return (
     <>
       <CategoryEditor value={value} onChange={setValue} nameError={nameError} />
+      <div className="mt-5">
+        <KindPicker value={kind} onChange={setKind} />
+      </div>
       <SheetError error={update.error} />
       <Button
         block
         className="mt-5"
         disabled={Boolean(nameError)}
         loading={update.isPending}
-        onClick={() => update.mutate({ id: category.id, name: value.name.trim(), icon: value.icon, color: value.color }, { onSuccess: onDone })}
+        onClick={() => update.mutate({ id: category.id, name: value.name.trim(), icon: value.icon, color: value.color, kind }, { onSuccess: onDone })}
       >
         Gem
       </Button>

@@ -79,5 +79,6 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}', 'supabase/functions/**/*.test.ts'],
+    exclude: ['e2e/**', 'node_modules/**'],
   },
 })

@@ -9,6 +9,10 @@ export type HouseholdRole = 'owner' | 'member'
 export type PaidByKind = 'member' | 'shared'
 export type TransactionSource = 'manual' | 'receipt' | 'upcoming'
 export type BudgetSource = 'override' | 'default' | 'none'
+export type BudgetMode = 'amount' | 'percent'
+export type CategoryKind = 'spending' | 'reserve'
+export type FixedKind = 'income' | 'expense'
+export type Frequency = 'monthly' | 'quarterly' | 'yearly'
 export type ReceiptStatus = 'pending' | 'approved'
 export type ReceiptRetention = '30d' | '3m' | '6m' | '1y' | 'custom' | 'permanent'
 
@@ -56,13 +60,14 @@ export type Database = {
           icon: string
           color: string
           sort_order: number
+          kind: CategoryKind
           archived_at: string | null
           created_by: string
           created_at: string
           updated_at: string
         }
         Insert: { household_id: string; name: string; icon?: string; color?: string; sort_order?: number }
-        Update: { name?: string; icon?: string; color?: string; sort_order?: number; archived_at?: string | null }
+        Update: { name?: string; icon?: string; color?: string; sort_order?: number; archived_at?: string | null; kind?: CategoryKind }
         Relationships: []
       }
       budget_category_defaults: {
@@ -71,13 +76,15 @@ export type Database = {
           household_id: string
           category_id: string
           valid_from: string
-          amount_ore: number
+          mode: BudgetMode
+          amount_ore: number | null
+          percent_bp: number | null
           created_by: string
           created_at: string
           updated_at: string
         }
-        Insert: { household_id: string; category_id: string; valid_from: string; amount_ore: number }
-        Update: { amount_ore?: number }
+        Insert: { household_id: string; category_id: string; valid_from: string; amount_ore?: number | null; mode?: BudgetMode; percent_bp?: number | null }
+        Update: { amount_ore?: number | null; mode?: BudgetMode; percent_bp?: number | null }
         Relationships: []
       }
       monthly_budgets: {
@@ -133,6 +140,71 @@ export type Database = {
         }
         Relationships: []
       }
+      fixed_groups: {
+        Row: {
+          id: string
+          household_id: string
+          name: string
+          sort_order: number
+          archived_at: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: { household_id: string; name: string; sort_order?: number }
+        Update: { name?: string; sort_order?: number; archived_at?: string | null }
+        Relationships: []
+      }
+      fixed_items: {
+        Row: {
+          id: string
+          household_id: string
+          kind: FixedKind
+          name: string
+          group_id: string | null
+          owner_kind: PaidByKind | null
+          owner_user_id: string | null
+          payment_day: number | null
+          note: string | null
+          sort_order: number
+          start_month: string
+          end_month: string | null
+          archived_at: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: never
+        Update: {
+          name?: string
+          group_id?: string | null
+          owner_kind?: PaidByKind | null
+          owner_user_id?: string | null
+          payment_day?: number | null
+          note?: string | null
+          sort_order?: number
+          end_month?: string | null
+          archived_at?: string | null
+        }
+        Relationships: []
+      }
+      fixed_item_versions: {
+        Row: {
+          id: string
+          household_id: string
+          item_id: string
+          valid_from: string
+          amount_ore: number
+          frequency: Frequency
+          due_month: number | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       receipts: {
         Row: {
           id: string
@@ -157,10 +229,74 @@ export type Database = {
     Functions: {
       current_household_id: { Args: Record<PropertyKey, never>; Returns: string | null }
       create_budget_category: {
-        Args: { p_name: string; p_icon: string; p_color: string; p_default_amount_ore?: number | null; p_valid_from?: string | null }
+        Args: {
+          p_name: string
+          p_icon: string
+          p_color: string
+          p_default_amount_ore?: number | null
+          p_valid_from?: string | null
+          p_kind?: CategoryKind
+          p_mode?: BudgetMode
+          p_percent_bp?: number | null
+        }
         Returns: string
       }
-      set_category_default: { Args: { p_category_id: string; p_valid_from: string; p_amount_ore: number }; Returns: undefined }
+      set_category_default: {
+        Args: { p_category_id: string; p_valid_from: string; p_amount_ore: number | null; p_mode?: BudgetMode; p_percent_bp?: number | null }
+        Returns: undefined
+      }
+      create_fixed_item: {
+        Args: {
+          p_kind: FixedKind
+          p_name: string
+          p_amount_ore: number
+          p_frequency?: Frequency
+          p_due_month?: number | null
+          p_group_id?: string | null
+          p_owner_kind?: PaidByKind | null
+          p_owner_user_id?: string | null
+          p_payment_day?: number | null
+          p_note?: string | null
+          p_start_month?: string | null
+        }
+        Returns: string
+      }
+      set_fixed_item_amount: {
+        Args: { p_item_id: string; p_valid_from: string; p_amount_ore: number; p_frequency?: Frequency; p_due_month?: number | null }
+        Returns: undefined
+      }
+      create_default_fixed_groups: { Args: Record<PropertyKey, never>; Returns: undefined }
+      fixed_items_month: {
+        Args: { p_month: string }
+        Returns: Array<{
+          item_id: string
+          kind: FixedKind
+          name: string
+          group_id: string | null
+          owner_kind: PaidByKind | null
+          owner_user_id: string | null
+          payment_day: number | null
+          frequency: Frequency
+          due_month: number | null
+          amount_ore: number
+          monthly_ore: number
+          due_this_month: boolean
+          version_from: string
+        }>
+      }
+      month_plan: {
+        Args: { p_month: string }
+        Returns: Array<{
+          income_ore: number
+          fixed_expenses_ore: number
+          available_ore: number
+          fixed_allocations_ore: number
+          distributable_ore: number
+          percent_total_bp: number
+          allocated_ore: number
+          unallocated_ore: number
+        }>
+      }
       set_monthly_budget: { Args: { p_category_id: string; p_month: string; p_amount_ore: number | null }; Returns: undefined }
       create_pending_receipt: { Args: Record<PropertyKey, never>; Returns: Array<{ receipt_id: string; storage_path: string }> }
       approve_receipt: {
@@ -190,8 +326,11 @@ export type Database = {
           color: string
           sort_order: number
           archived: boolean
+          kind: CategoryKind
           budget_ore: number
           budget_source: BudgetSource
+          budget_mode: BudgetMode | 'none'
+          percent_bp: number | null
           default_ore: number
           spent_ore: number
           transaction_count: number

@@ -3,7 +3,7 @@ import { useHousehold } from '@/features/household/HouseholdProvider'
 import { fromIsoDate, monthKey, toIsoDate } from '@/lib/dates'
 import { deleteTransactionWithReceipt } from '@/features/receipts/api'
 import { supabase } from '@/lib/supabase'
-import type { Database, PaidByKind, Tables } from '@/types/database'
+import type { BudgetMode, CategoryKind, Database, PaidByKind, Tables } from '@/types/database'
 
 export type Category = Tables<'budget_categories'>
 export type Transaction = Tables<'transactions'>
@@ -176,13 +176,24 @@ export function useDeleteTransaction() {
 export function useCreateCategory() {
   const invalidate = useInvalidateFinance()
   return useMutation({
-    mutationFn: async (input: { name: string; icon: string; color: string; defaultOre: number | null }) => {
+    mutationFn: async (input: {
+      name: string
+      icon: string
+      color: string
+      kind: CategoryKind
+      mode: BudgetMode
+      defaultOre: number | null
+      percentBp: number | null
+    }) => {
       const { data, error } = await supabase.rpc('create_budget_category', {
         p_name: input.name.trim(),
         p_icon: input.icon,
         p_color: input.color,
-        p_default_amount_ore: input.defaultOre,
+        p_default_amount_ore: input.mode === 'amount' ? input.defaultOre : null,
         p_valid_from: null,
+        p_kind: input.kind,
+        p_mode: input.mode,
+        p_percent_bp: input.mode === 'percent' ? input.percentBp : null,
       })
       if (error) throw error
       return data
@@ -194,7 +205,7 @@ export function useCreateCategory() {
 export function useUpdateCategory() {
   const invalidate = useInvalidateFinance()
   return useMutation({
-    mutationFn: async ({ id, ...values }: { id: string; name?: string; icon?: string; color?: string; archived_at?: string | null }) => {
+    mutationFn: async ({ id, ...values }: { id: string; name?: string; icon?: string; color?: string; archived_at?: string | null; kind?: CategoryKind }) => {
       const { error } = await supabase.from('budget_categories').update(values).eq('id', id)
       if (error) throw error
     },
@@ -205,11 +216,13 @@ export function useUpdateCategory() {
 export function useSetCategoryDefault() {
   const invalidate = useInvalidateFinance()
   return useMutation({
-    mutationFn: async (input: { categoryId: string; validFrom: string; amountOre: number }) => {
+    mutationFn: async (input: { categoryId: string; validFrom: string; mode: BudgetMode; amountOre: number | null; percentBp: number | null }) => {
       const { error } = await supabase.rpc('set_category_default', {
         p_category_id: input.categoryId,
         p_valid_from: input.validFrom,
-        p_amount_ore: input.amountOre,
+        p_amount_ore: input.mode === 'amount' ? input.amountOre : null,
+        p_mode: input.mode,
+        p_percent_bp: input.mode === 'percent' ? input.percentBp : null,
       })
       if (error) throw error
     },

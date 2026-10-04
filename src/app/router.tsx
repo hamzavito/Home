@@ -7,7 +7,12 @@ import { BudgetsPage } from '@/features/budgets/BudgetsPage'
 import { CategoryDetailPage } from '@/features/budgets/CategoryDetailPage'
 import { CategoryNewPage } from '@/features/budgets/CategoryNewPage'
 import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage'
-import { FinancePage } from '@/features/finance/FinancePage'
+import { FinanceLayout } from '@/features/finance/FinanceLayout'
+import { OverviewPage } from '@/features/finance/OverviewPage'
+import { TransactionsPage } from '@/features/finance/TransactionsPage'
+import { FixedItemPage } from '@/features/fixed/FixedItemPage'
+import { FixedNewPage } from '@/features/fixed/FixedNewPage'
+import { FixedPage } from '@/features/fixed/FixedPage'
 import { TransactionFormPage } from '@/features/finance/TransactionFormPage'
 import { ReceiptDetailPage } from '@/features/receipts/ReceiptDetailPage'
 import { ReceiptsPage } from '@/features/receipts/ReceiptsPage'
@@ -35,10 +40,20 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { index: true, element: <DashboardPage /> },
-          { path: '/okonomi', element: <FinancePage /> },
+          {
+            path: '/okonomi',
+            element: <FinanceLayout />,
+            children: [
+              { index: true, element: <OverviewPage /> },
+              { path: 'budgetter', element: <BudgetsPage /> },
+              { path: 'faste', element: <FixedPage /> },
+              { path: 'transaktioner', element: <TransactionsPage /> },
+            ],
+          },
+          { path: '/okonomi/faste/ny', element: <FixedNewPage /> },
+          { path: '/okonomi/faste/:id', element: <FixedItemPage /> },
           { path: '/okonomi/ny', element: <TransactionFormPage /> },
           { path: '/okonomi/udgift/:id', element: <TransactionFormPage /> },
-          { path: '/okonomi/budgetter', element: <BudgetsPage /> },
           { path: '/okonomi/budgetter/ny', element: <CategoryNewPage /> },
           { path: '/okonomi/budgetter/:id', element: <CategoryDetailPage /> },
           { path: '/hjemmet', element: <HomeHubPage /> },
