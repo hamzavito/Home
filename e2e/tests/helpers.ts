@@ -31,4 +31,4 @@ export async function expectReadable(page: Page, name: string) {
 }
 
 /** Danske beløb kan indeholde hårde mellemrum – normalisér før sammenligning. */
-export const norm = (s: string | null) => (s ?? '').replace(/[  ]/g, ' ')
+export const norm = (s: string | null) => (s ?? '').replace(/[\u00a0\u202f]/g, ' ')

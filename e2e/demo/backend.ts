@@ -559,8 +559,18 @@ const rpcs: Record<string, (a: Row) => unknown> = {
       Object.assign(u, { status: 'paid', paid_at: nowIso(), transaction_id: tid })
       return tid
     }
+    if (u.transaction_id) throw new PgError('Udgiften er registreret. Fortryd betalingen først.', '23514')
     Object.assign(u, { status: a.p_status, paid_at: null })
-    return u.transaction_id
+    return null
+  },
+  undo_upcoming_payment: (a) => {
+    const u = db.upcoming_expenses!.find((x) => x.id === a.p_id)
+    if (!u) throw new PgError('Udgiften findes ikke', 'P0002')
+    if (u.status !== 'paid') return null
+    const tid = u.transaction_id
+    Object.assign(u, { status: 'upcoming', paid_at: null, transaction_id: null })
+    if (tid) db.transactions = db.transactions!.filter((t) => !(t.id === tid && t.source === 'upcoming'))
+    return null
   },
   savings_goal_progress: () =>
     db.savings_goals!.map((g) => {
@@ -599,6 +609,19 @@ function insertTransaction(v: Row): Row {
   const t = { id: uuid(), household_id: HID, note: null, paid_by_user_id: null, created_by: ME, created_at: nowIso(), updated_at: nowIso(), ...v }
   db.transactions!.push(t)
   return t
+}
+
+// Standardværdier som i databasen (DEFAULT-kolonner)
+const DEFAULTS: Record<string, () => Row> = {
+  upcoming_expenses: () => ({ status: 'upcoming', paid_at: null, transaction_id: null, note: null }),
+  savings_goals: () => ({ archived_at: null, color: '#0c9467', note: null, target_date: null }),
+  savings_movements: () => ({ occurred_on: today(), note: null }),
+  budget_categories: () => ({ kind: 'spending', archived_at: null, icon: 'sparkles', color: '#6d5cff', sort_order: 0 }),
+  fixed_groups: () => ({ archived_at: null, sort_order: 0 }),
+  shopping_items: () => ({ is_checked: false, checked_by: null, checked_at: null, note: null, quantity: null, sort_order: 0 }),
+  household_tasks: () => ({ status: 'open', priority: 'normal', recurrence: 'none', recurrence_interval: 1, completed_at: null, completed_by: null, previous_task_id: null, archived_at: null, description: null, assignee_id: null, due_on: null }),
+  calendar_events: () => ({ start_time: null, end_time: null, all_day: false, description: null, type: 'family' }),
+  transactions: () => ({ note: null, paid_by_kind: 'shared', paid_by_user_id: null, source: 'manual' }),
 }
 
 // ------------------------------------------------------------------ PostgREST-filtre
@@ -729,12 +752,17 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
       if (method === 'POST') {
         const list = (Array.isArray(body) ? body : [body]).map((b: Row): Row => ({
           id: uuid(), created_at: nowIso(), updated_at: nowIso(),
-          ...(table === 'shopping_items' ? { added_by: ME, is_checked: false, checked_by: null, checked_at: null, note: null, quantity: null } : { created_by: ME }),
+          ...(table === 'shopping_items' ? { added_by: ME } : { created_by: ME }),
+          ...(DEFAULTS[table]?.() ?? {}),
           ...b,
         }))
         for (const row of list) {
           if (table === 'transactions' && db.budget_categories!.find((c) => c.id === row.category_id)?.archived_at) throw new PgError('Kategorien er arkiveret', '23514')
           if (table === 'fixed_groups' && db.fixed_groups!.some((g) => !g.archived_at && g.name.toLowerCase() === String(row.name).toLowerCase())) throw new PgError('duplicate', '23505', 409)
+          if (table === 'savings_movements' && row.kind === 'withdrawal') {
+            const bal = db.savings_movements!.filter((m) => m.goal_id === row.goal_id).reduce((s2, m) => s2 + (m.kind === 'deposit' ? m.amount_ore : -m.amount_ore), 0)
+            if (bal - row.amount_ore < 0) throw new PgError('Saldoen kan ikke blive negativ', '23514')
+          }
           rows.push(row)
         }
         save()
@@ -752,6 +780,12 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
         // RLS-lignende regler
         if (table === 'receipts') hit = hit.filter((r) => r.status === 'pending')
         if (table === 'fixed_items') hit = hit.filter((r) => r.start_month >= curMonth())
+        if (table === 'savings_goals' || table === 'budget_categories' || table === 'fixed_groups') hit = []
+        if (table === 'savings_movements')
+          for (const m of hit.filter((x) => x.kind === 'deposit')) {
+            const bal = db.savings_movements!.filter((x) => x.goal_id === m.goal_id && x.id !== m.id).reduce((s2, x) => s2 + (x.kind === 'deposit' ? x.amount_ore : -x.amount_ore), 0)
+            if (bal < 0) throw new PgError('Saldoen kan ikke blive negativ', '23514')
+          }
         if (table === 'transactions' && hit.some((t) => db.receipts!.some((r) => r.transaction_id === t.id))) throw new PgError('fk', '23503', 409)
         const del = new Set(hit.map((r) => r.id))
         db[table] = rows.filter((r) => !del.has(r.id))

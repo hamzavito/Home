@@ -13,6 +13,8 @@ export type BudgetMode = 'amount' | 'percent'
 export type CategoryKind = 'spending' | 'reserve'
 export type FixedKind = 'income' | 'expense'
 export type Frequency = 'monthly' | 'quarterly' | 'yearly'
+export type UpcomingStatus = 'upcoming' | 'paid' | 'cancelled'
+export type MovementKind = 'deposit' | 'withdrawal'
 export type ReceiptStatus = 'pending' | 'approved'
 export type ReceiptRetention = '30d' | '3m' | '6m' | '1y' | 'custom' | 'permanent'
 
@@ -205,6 +207,60 @@ export type Database = {
         Update: never
         Relationships: []
       }
+      upcoming_expenses: {
+        Row: {
+          id: string
+          household_id: string
+          title: string
+          amount_ore: number
+          due_on: string
+          category_id: string
+          note: string | null
+          status: UpcomingStatus
+          paid_at: string | null
+          transaction_id: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: { household_id: string; title: string; amount_ore: number; due_on: string; category_id: string; note?: string | null }
+        Update: { title?: string; amount_ore?: number; due_on?: string; category_id?: string; note?: string | null }
+        Relationships: []
+      }
+      savings_goals: {
+        Row: {
+          id: string
+          household_id: string
+          name: string
+          target_ore: number
+          target_date: string | null
+          note: string | null
+          color: string
+          archived_at: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: { household_id: string; name: string; target_ore: number; target_date?: string | null; note?: string | null; color?: string }
+        Update: { name?: string; target_ore?: number; target_date?: string | null; note?: string | null; color?: string; archived_at?: string | null }
+        Relationships: []
+      }
+      savings_movements: {
+        Row: {
+          id: string
+          household_id: string
+          goal_id: string
+          kind: MovementKind
+          amount_ore: number
+          occurred_on: string
+          note: string | null
+          created_by: string
+          created_at: string
+        }
+        Insert: { household_id: string; goal_id: string; kind: MovementKind; amount_ore: number; occurred_on?: string; note?: string | null }
+        Update: { kind?: MovementKind; amount_ore?: number; occurred_on?: string; note?: string | null }
+        Relationships: []
+      }
       receipts: {
         Row: {
           id: string
@@ -266,6 +322,23 @@ export type Database = {
         Returns: undefined
       }
       create_default_fixed_groups: { Args: Record<PropertyKey, never>; Returns: undefined }
+      set_upcoming_status: {
+        Args: {
+          p_id: string
+          p_status: UpcomingStatus
+          p_register?: boolean
+          p_amount_ore?: number | null
+          p_paid_on?: string | null
+          p_paid_by_kind?: PaidByKind
+          p_paid_by_user_id?: string | null
+        }
+        Returns: string | null
+      }
+      undo_upcoming_payment: { Args: { p_id: string }; Returns: undefined }
+      savings_goal_progress: {
+        Args: Record<PropertyKey, never>
+        Returns: Array<{ goal_id: string; current_ore: number; movement_count: number; last_movement_on: string | null }>
+      }
       fixed_items_month: {
         Args: { p_month: string }
         Returns: Array<{

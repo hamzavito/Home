@@ -58,6 +58,7 @@ test('scan kvittering: OCR-forslag, kategoriforslag, godkendelse præcis én gan
   await expect(page.getByText('Kvitteringen er gemt')).toBeVisible()
 
   await page.goto('/okonomi/transaktioner')
+  await expect(page.getByText('· Kvittering')).toBeVisible()
   const txt = norm(await page.locator('main').textContent())
   expect(txt.match(/Kvittering/g)?.length, 'præcis én transaktion fra kvitteringen').toBe(1)
   expect(txt).toContain('638,75 kr.')

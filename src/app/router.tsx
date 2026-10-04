@@ -15,6 +15,11 @@ import { FixedNewPage } from '@/features/fixed/FixedNewPage'
 import { FixedPage } from '@/features/fixed/FixedPage'
 import { TransactionFormPage } from '@/features/finance/TransactionFormPage'
 import { ReceiptDetailPage } from '@/features/receipts/ReceiptDetailPage'
+import { GoalNewPage } from '@/features/savings/GoalNewPage'
+import { GoalPage } from '@/features/savings/GoalPage'
+import { SavingsPage } from '@/features/savings/SavingsPage'
+import { UpcomingFormPage } from '@/features/upcoming/UpcomingFormPage'
+import { UpcomingPage } from '@/features/upcoming/UpcomingPage'
 import { ReceiptsPage } from '@/features/receipts/ReceiptsPage'
 import { ScanPage } from '@/features/receipts/ScanPage'
 import { HomeHubPage } from '@/features/home/HomeHubPage'
@@ -59,10 +64,14 @@ export const router = createBrowserRouter([
           { path: '/hjemmet', element: <HomeHubPage /> },
           { path: '/mere', element: <MorePage /> },
           { path: '/indstillinger', element: <SettingsPage /> },
-          soon(sections.upcoming),
+          { path: '/okonomi/kommende', element: <UpcomingPage /> },
+          { path: '/okonomi/kommende/ny', element: <UpcomingFormPage /> },
+          { path: '/okonomi/kommende/:id', element: <UpcomingFormPage /> },
           { path: '/kvitteringer', element: <ReceiptsPage /> },
           { path: '/kvitteringer/:id', element: <ReceiptDetailPage /> },
-          soon(sections.savings),
+          { path: '/opsparing', element: <SavingsPage /> },
+          { path: '/opsparing/ny', element: <GoalNewPage /> },
+          { path: '/opsparing/:id', element: <GoalPage /> },
           soon(sections.shopping),
           soon(sections.calendar),
           { path: '*', element: <NotFound /> },

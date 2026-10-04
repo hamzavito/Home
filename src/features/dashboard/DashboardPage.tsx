@@ -12,6 +12,11 @@ import { SectionHeader } from '@/components/ui/SectionHeader'
 import { Skeleton } from '@/components/ui/Spinner'
 import { useBudgetMonth, useCategories, useMonthTransactions, useRecentTransactions } from '@/features/finance/api'
 import { useMonthPlan } from '@/features/fixed/api'
+import { SavingsCard } from '@/components/finance/SavingsCard'
+import { useGoals } from '@/features/savings/api'
+import { goalSub } from '@/features/savings/SavingsPage'
+import { useUpcoming } from '@/features/upcoming/api'
+import { daysUntil, UpcomingRow } from '@/features/upcoming/UpcomingPage'
 import { formatAmount } from '@/lib/money'
 import { paidByLabel } from '@/features/finance/paidBy'
 import { useHousehold } from '@/features/household/HouseholdProvider'
@@ -28,6 +33,8 @@ export function DashboardPage() {
   const recent = useRecentTransactions(5)
   const categories = useCategories()
   const planQuery = useMonthPlan(month)
+  const upcoming = useUpcoming()
+  const goals = useGoals()
 
   const days = daysInMonth(month)
   const elapsed = elapsedDays(month)
@@ -48,6 +55,8 @@ export function DashboardPage() {
     .sort((a, b) => b.budget_ore - a.budget_ore || b.spent_ore - a.spent_ore)
     .slice(0, 4)
   const catById = new Map((categories.data ?? []).map((c) => [c.id, c]))
+  const nextUpcoming = (upcoming.data ?? []).filter((u) => u.status === 'upcoming' && daysUntil(u.due_on) <= 30).slice(0, 3)
+  const activeGoals = (goals.data ?? []).filter((g) => !g.archived_at).sort((a, b) => b.currentOre / b.target_ore - a.currentOre / a.target_ore)
   const names = members.map((m) => m.displayName).join(' & ')
   const hasCategories = (categories.data ?? []).some((c) => !c.archived_at)
 
@@ -138,15 +147,39 @@ export function DashboardPage() {
         </div>
       )}
 
-      <SectionHeader title="Kommende" />
-      <Card>
-        <EmptyState compact icon={CalendarClock} title="Intet kommende" text={`Kommende udgifter kommer i fase ${sections.upcoming.phase}.`} />
-      </Card>
+      <SectionHeader title="Kommende" to="/okonomi/kommende" />
+      {nextUpcoming.length === 0 ? (
+        <Card variant="tonal">
+          <EmptyState compact icon={CalendarClock} title="Intet de næste 30 dage" text="Planlæg fx tandlæge eller bilservice, så I kan se det komme.">
+            <Button size="sm" variant="surface" onClick={() => navigate('/okonomi/kommende/ny')}>
+              Tilføj kommende udgift
+            </Button>
+          </EmptyState>
+        </Card>
+      ) : (
+        <Card padded={false} className="divide-y divide-subtle">
+          {nextUpcoming.map((u) => (
+            <UpcomingRow key={u.id} u={u} categoryName={catById.get(u.category_id)?.name} />
+          ))}
+        </Card>
+      )}
 
-      <SectionHeader title="Opsparing" />
-      <Card variant="tonal">
-        <EmptyState compact icon={PiggyBank} title="Ingen opsparingsmål" text={`Opsparing kommer i fase ${sections.savings.phase}.`} />
-      </Card>
+      <SectionHeader title="Opsparing" to="/opsparing" />
+      {activeGoals.length === 0 ? (
+        <Card variant="tonal">
+          <EmptyState compact icon={PiggyBank} title="Ingen opsparingsmål" text="Sæt et mål, fx ferie eller nødbuffer.">
+            <Button size="sm" variant="surface" onClick={() => navigate('/opsparing/ny')}>
+              Opret mål
+            </Button>
+          </EmptyState>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-3">
+          {activeGoals.slice(0, 2).map((g) => (
+            <SavingsCard key={g.id} name={g.name} currentOre={g.currentOre} targetOre={g.target_ore} sub={goalSub(g)} to={`/opsparing/${g.id}`} />
+          ))}
+        </div>
+      )}
 
       <SectionHeader title="Seneste aktivitet" to="/okonomi" />
       {recent.isPending ? (
