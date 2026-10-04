@@ -15,6 +15,10 @@ export type FixedKind = 'income' | 'expense'
 export type Frequency = 'monthly' | 'quarterly' | 'yearly'
 export type UpcomingStatus = 'upcoming' | 'paid' | 'cancelled'
 export type MovementKind = 'deposit' | 'withdrawal'
+export type TaskStatus = 'open' | 'in_progress' | 'done'
+export type TaskPriority = 'low' | 'normal' | 'high'
+export type Recurrence = 'none' | 'daily' | 'weekly' | 'monthly'
+export type EventType = 'family' | 'work' | 'doctor' | 'vacation' | 'kids' | 'other'
 export type ReceiptStatus = 'pending' | 'approved'
 export type ReceiptRetention = '30d' | '3m' | '6m' | '1y' | 'custom' | 'permanent'
 
@@ -261,6 +265,114 @@ export type Database = {
         Update: { kind?: MovementKind; amount_ore?: number; occurred_on?: string; note?: string | null }
         Relationships: []
       }
+      shopping_lists: {
+        Row: { id: string; household_id: string; name: string; sort_order: number; archived_at: string | null; created_at: string; updated_at: string }
+        Insert: { household_id: string; name: string; sort_order?: number }
+        Update: { name?: string; sort_order?: number; archived_at?: string | null }
+        Relationships: []
+      }
+      shopping_items: {
+        Row: {
+          id: string
+          household_id: string
+          list_id: string
+          name: string
+          quantity: string | null
+          note: string | null
+          is_checked: boolean
+          checked_by: string | null
+          checked_at: string | null
+          added_by: string
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: { household_id: string; list_id: string; name: string; quantity?: string | null; note?: string | null; is_checked?: boolean; sort_order?: number }
+        Update: { name?: string; quantity?: string | null; note?: string | null; is_checked?: boolean; sort_order?: number }
+        Relationships: []
+      }
+      household_tasks: {
+        Row: {
+          id: string
+          household_id: string
+          title: string
+          description: string | null
+          assignee_id: string | null
+          due_on: string | null
+          priority: TaskPriority
+          status: TaskStatus
+          recurrence: Recurrence
+          recurrence_interval: number
+          series_id: string
+          previous_task_id: string | null
+          completed_at: string | null
+          completed_by: string | null
+          archived_at: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          household_id: string
+          title: string
+          description?: string | null
+          assignee_id?: string | null
+          due_on?: string | null
+          priority?: TaskPriority
+          recurrence?: Recurrence
+          recurrence_interval?: number
+        }
+        Update: {
+          title?: string
+          description?: string | null
+          assignee_id?: string | null
+          due_on?: string | null
+          priority?: TaskPriority
+          recurrence?: Recurrence
+          recurrence_interval?: number
+          archived_at?: string | null
+        }
+        Relationships: []
+      }
+      calendar_events: {
+        Row: {
+          id: string
+          household_id: string
+          title: string
+          event_date: string
+          end_date: string | null
+          start_time: string | null
+          end_time: string | null
+          all_day: boolean
+          description: string | null
+          type: EventType
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          household_id: string
+          title: string
+          event_date: string
+          end_date?: string | null
+          start_time?: string | null
+          end_time?: string | null
+          all_day?: boolean
+          description?: string | null
+          type?: EventType
+        }
+        Update: {
+          title?: string
+          event_date?: string
+          end_date?: string | null
+          start_time?: string | null
+          end_time?: string | null
+          all_day?: boolean
+          description?: string | null
+          type?: EventType
+        }
+        Relationships: []
+      }
       receipts: {
         Row: {
           id: string
@@ -335,6 +447,8 @@ export type Database = {
         Returns: string | null
       }
       undo_upcoming_payment: { Args: { p_id: string }; Returns: undefined }
+      ensure_shopping_list: { Args: Record<PropertyKey, never>; Returns: string }
+      set_task_status: { Args: { p_task_id: string; p_status: TaskStatus }; Returns: string | null }
       savings_goal_progress: {
         Args: Record<PropertyKey, never>
         Returns: Array<{ goal_id: string; current_ore: number; movement_count: number; last_movement_on: string | null }>
@@ -416,3 +530,4 @@ export type Database = {
 }
 
 export type Tables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row']
+export type TablesUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']

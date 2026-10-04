@@ -1,4 +1,4 @@
-import { CalendarClock, Camera, ChevronRight, PiggyBank, Plus, Receipt, WalletCards } from 'lucide-react'
+import { CalendarClock, Camera, CheckSquare, ChevronRight, PiggyBank, Plus, Receipt, WalletCards } from 'lucide-react'
 import { Link, useNavigate } from 'react-router'
 import { sections } from '@/app/sections'
 import { SpendingChart } from '@/components/charts/SpendingChart'
@@ -20,7 +20,11 @@ import { daysUntil, UpcomingRow } from '@/features/upcoming/UpcomingPage'
 import { formatAmount } from '@/lib/money'
 import { paidByLabel } from '@/features/finance/paidBy'
 import { useHousehold } from '@/features/household/HouseholdProvider'
-import { formatMonth, greeting, monthKey, relativeDay } from '@/lib/dates'
+import { dayLabel, formatMonth, greeting, monthKey, relativeDay, toIsoDate } from '@/lib/dates'
+import { EventRow } from '@/features/calendar/EventRow'
+import { useEvents, useTasks } from '@/features/home/api'
+import { TaskRow } from '@/features/home/TaskRow'
+import { addDaysIso, compareEvents } from '@/lib/home'
 import { cumulativeByDay, daysInMonth, elapsedDays } from '@/lib/series'
 
 export function DashboardPage() {
@@ -35,6 +39,9 @@ export function DashboardPage() {
   const planQuery = useMonthPlan(month)
   const upcoming = useUpcoming()
   const goals = useGoals()
+  const todayIso = toIsoDate(now)
+  const events = useEvents(todayIso, addDaysIso(todayIso, 7))
+  const tasks = useTasks()
 
   const days = daysInMonth(month)
   const elapsed = elapsedDays(month)
@@ -57,6 +64,9 @@ export function DashboardPage() {
   const catById = new Map((categories.data ?? []).map((c) => [c.id, c]))
   const nextUpcoming = (upcoming.data ?? []).filter((u) => u.status === 'upcoming' && daysUntil(u.due_on) <= 30).slice(0, 3)
   const activeGoals = (goals.data ?? []).filter((g) => !g.archived_at).sort((a, b) => b.currentOre / b.target_ore - a.currentOre / a.target_ore)
+  const weekEvents = [...(events.data ?? [])].sort(compareEvents).slice(0, 3)
+  // Opgaver der er forfaldne eller skal gøres i dag
+  const dueTasks = (tasks.data?.active ?? []).filter((t) => t.due_on !== null && t.due_on <= todayIso).slice(0, 3)
   const names = members.map((m) => m.displayName).join(' & ')
   const hasCategories = (categories.data ?? []).some((c) => !c.archived_at)
 
@@ -179,6 +189,24 @@ export function DashboardPage() {
             <SavingsCard key={g.id} name={g.name} currentOre={g.currentOre} targetOre={g.target_ore} sub={goalSub(g)} to={`/opsparing/${g.id}`} />
           ))}
         </div>
+      )}
+
+      <SectionHeader title="Hjemmet" to="/hjemmet" />
+      {events.isPending || tasks.isPending ? (
+        <Skeleton className="h-32 rounded-card" />
+      ) : weekEvents.length === 0 && dueTasks.length === 0 ? (
+        <Card variant="tonal">
+          <EmptyState compact icon={CheckSquare} title="Roligt i hjemmet" text="Ingen aftaler de næste 7 dage og ingen opgaver i dag." />
+        </Card>
+      ) : (
+        <Card padded={false} className="divide-y divide-subtle">
+          {weekEvents.map((e) => (
+            <EventRow key={e.id} e={e} showDate={e.end_date ? undefined : dayLabel(e.event_date)} />
+          ))}
+          {dueTasks.map((t) => (
+            <TaskRow key={t.id} task={t} />
+          ))}
+        </Card>
       )}
 
       <SectionHeader title="Seneste aktivitet" to="/okonomi" />

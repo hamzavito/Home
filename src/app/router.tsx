@@ -1,5 +1,5 @@
 import { createBrowserRouter } from 'react-router'
-import { ComingSoon, NotFound } from '@/features/ComingSoon'
+import { NotFound } from '@/features/NotFound'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { RequireHousehold } from '@/features/auth/RequireHousehold'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
@@ -23,13 +23,14 @@ import { UpcomingPage } from '@/features/upcoming/UpcomingPage'
 import { ReceiptsPage } from '@/features/receipts/ReceiptsPage'
 import { ScanPage } from '@/features/receipts/ScanPage'
 import { HomeHubPage } from '@/features/home/HomeHubPage'
+import { TaskFormPage } from '@/features/home/TaskFormPage'
+import { ShoppingPage } from '@/features/shopping/ShoppingPage'
+import { CalendarPage } from '@/features/calendar/CalendarPage'
+import { EventFormPage } from '@/features/calendar/EventFormPage'
 import { MorePage } from '@/features/more/MorePage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { AppLayout } from './AppLayout'
 import { FocusLayout } from './FocusLayout'
-import { sections } from './sections'
-
-const soon = (s: (typeof sections)[keyof typeof sections]) => ({ path: s.path, element: <ComingSoon section={s} /> })
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -62,6 +63,12 @@ export const router = createBrowserRouter([
           { path: '/okonomi/budgetter/ny', element: <CategoryNewPage /> },
           { path: '/okonomi/budgetter/:id', element: <CategoryDetailPage /> },
           { path: '/hjemmet', element: <HomeHubPage /> },
+          { path: '/hjemmet/ny', element: <TaskFormPage /> },
+          { path: '/hjemmet/opgave/:id', element: <TaskFormPage /> },
+          { path: '/hjemmet/kalender', element: <CalendarPage /> },
+          { path: '/hjemmet/kalender/ny', element: <EventFormPage /> },
+          { path: '/hjemmet/kalender/:id', element: <EventFormPage /> },
+          { path: '/indkob', element: <ShoppingPage /> },
           { path: '/mere', element: <MorePage /> },
           { path: '/indstillinger', element: <SettingsPage /> },
           { path: '/okonomi/kommende', element: <UpcomingPage /> },
@@ -72,8 +79,6 @@ export const router = createBrowserRouter([
           { path: '/opsparing', element: <SavingsPage /> },
           { path: '/opsparing/ny', element: <GoalNewPage /> },
           { path: '/opsparing/:id', element: <GoalPage /> },
-          soon(sections.shopping),
-          soon(sections.calendar),
           { path: '*', element: <NotFound /> },
         ],
       },

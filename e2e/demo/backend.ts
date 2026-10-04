@@ -71,6 +71,8 @@ class PgError extends Error {
 let db: Db
 const files = new Map<string, Blob>()
 const listeners = new Set<() => void>()
+// Som Supabase Realtime: kun ændringer i shopping_items udsendes
+let lastShopping = ''
 
 function emptyDb(): Db {
   return Object.fromEntries(TABLES.map((t) => [t, []]))
@@ -81,7 +83,12 @@ function save() {
   } catch {
     /* kun i hukommelsen */
   }
-  listeners.forEach((l) => l())
+  const snap = JSON.stringify(db.shopping_items ?? [])
+  if (snap !== lastShopping) {
+    lastShopping = snap
+    // Asynkront, ligesom en rigtig realtime-besked
+    setTimeout(() => listeners.forEach((l) => l()), 0)
+  }
 }
 async function saveFiles() {
   try {
@@ -295,7 +302,7 @@ function seedHome(d: Db, catId: Record<string, string>) {
   task('Rengøre ovn', null, 'normal', null, 'none')
 
   const ev = (title: string, days: number, start: string | null, end: string | null, type: string, by: string) =>
-    d.calendar_events!.push({ id: uuid(), household_id: HID, title, event_date: addDays(t, days), start_time: start, end_time: end, all_day: start === null, description: null, type, created_by: by, created_at: created, updated_at: created })
+    d.calendar_events!.push({ id: uuid(), household_id: HID, title, event_date: addDays(t, days), end_date: type === 'vacation' ? addDays(t, days + 6) : null, start_time: start, end_time: end, all_day: start === null, description: null, type, created_by: by, created_at: created, updated_at: created })
   ev('Lægetid – Adam', 2, '09:30', '10:00', 'doctor', WIFE)
   ev('Middag hos svigerforældre', 5, '18:00', '21:00', 'family', ME)
   ev('Efterårsferie', 12, null, null, 'vacation', ME)
@@ -578,23 +585,29 @@ const rpcs: Record<string, (a: Row) => unknown> = {
       const cur = mv.reduce((s, m) => s + (m.kind === 'deposit' ? m.amount_ore : -m.amount_ore), 0)
       return { goal_id: g.id, current_ore: cur, movement_count: mv.length, last_movement_on: mv.map((m) => m.occurred_on).sort().at(-1) ?? null }
     }),
-  complete_task: (a) => {
-    const task = db.household_tasks!.find((x) => x.id === a.p_task_id)
-    if (!task) throw new PgError('Opgaven findes ikke', 'P0002')
-    if (task.status === 'done') return db.household_tasks!.find((x) => x.previous_task_id === task.id)?.id ?? null
-    Object.assign(task, { status: 'done', completed_at: nowIso(), completed_by: ME })
-    if (task.recurrence === 'none') return null
-    const base = task.due_on ?? today()
-    const next = { ...task, id: uuid(), status: 'open', completed_at: null, completed_by: null, previous_task_id: task.id, due_on: nextDue(base, task.recurrence, task.recurrence_interval ?? 1), created_at: nowIso(), updated_at: nowIso() }
-    db.household_tasks!.push(next)
-    return next.id
+  ensure_shopping_list: () => {
+    let l = db.shopping_lists!.find((x) => !x.archived_at)
+    if (!l) {
+      l = { id: uuid(), household_id: HID, name: 'Indkøb', sort_order: 0, archived_at: null, created_at: nowIso(), updated_at: nowIso() }
+      db.shopping_lists!.push(l)
+    }
+    return l.id
   },
-  reopen_task: (a) => {
+  set_task_status: (a) => {
     const task = db.household_tasks!.find((x) => x.id === a.p_task_id)
     if (!task) throw new PgError('Opgaven findes ikke', 'P0002')
-    const next = db.household_tasks!.find((x) => x.previous_task_id === task.id && x.status !== 'done')
-    if (next) db.household_tasks = db.household_tasks!.filter((x) => x !== next)
-    Object.assign(task, { status: 'open', completed_at: null, completed_by: null })
+    if (a.p_status === 'done') {
+      if (task.status !== 'done') Object.assign(task, { status: 'done', completed_at: nowIso(), completed_by: ME })
+      if (task.recurrence === 'none') return null
+      let next = db.household_tasks!.find((x) => x.previous_task_id === task.id)
+      if (!next) {
+        next = { ...task, id: uuid(), status: 'open', completed_at: null, completed_by: null, previous_task_id: task.id, due_on: nextDue(task.due_on ?? today(), task.recurrence, task.recurrence_interval ?? 1), created_at: nowIso(), updated_at: nowIso() }
+        db.household_tasks!.push(next)
+      }
+      return next.id
+    }
+    if (task.status === 'done') db.household_tasks = db.household_tasks!.filter((x) => !(x.previous_task_id === task.id && x.status === 'open'))
+    Object.assign(task, { status: a.p_status, completed_at: null, completed_by: null })
     return null
   },
   export_household_data: () => {
@@ -620,7 +633,7 @@ const DEFAULTS: Record<string, () => Row> = {
   fixed_groups: () => ({ archived_at: null, sort_order: 0 }),
   shopping_items: () => ({ is_checked: false, checked_by: null, checked_at: null, note: null, quantity: null, sort_order: 0 }),
   household_tasks: () => ({ status: 'open', priority: 'normal', recurrence: 'none', recurrence_interval: 1, completed_at: null, completed_by: null, previous_task_id: null, archived_at: null, description: null, assignee_id: null, due_on: null }),
-  calendar_events: () => ({ start_time: null, end_time: null, all_day: false, description: null, type: 'family' }),
+  calendar_events: () => ({ start_time: null, end_time: null, end_date: null, all_day: false, description: null, type: 'family' }),
   transactions: () => ({ note: null, paid_by_kind: 'shared', paid_by_user_id: null, source: 'manual' }),
 }
 
@@ -771,7 +784,11 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
       }
       if (method === 'PATCH') {
         const hit = filterRows(rows, url.searchParams)
-        for (const r of hit) Object.assign(r, body, { updated_at: nowIso() })
+        for (const r of hit) {
+          if (table === 'shopping_items' && body && 'is_checked' in body && body.is_checked !== r.is_checked)
+            Object.assign(r, body.is_checked ? { checked_by: ME, checked_at: nowIso() } : { checked_by: null, checked_at: null })
+          Object.assign(r, body, { updated_at: nowIso() })
+        }
         save()
         return prefer.includes('return=representation') ? json(accept.includes('object') ? hit[0] : hit) : empty()
       }
