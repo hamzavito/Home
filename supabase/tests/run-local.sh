@@ -18,7 +18,7 @@ fi
 "${RUNAS[@]}" "$PGBIN/initdb" -D "$TMP/data" -U postgres -A trust >/dev/null
 "${RUNAS[@]}" "$PGBIN/pg_ctl" -D "$TMP/data" -o "-p $PORT -k $TMP -c listen_addresses=''" -l "$TMP/log" -w start >/dev/null
 
-PSQL=(psql -X -q -v ON_ERROR_STOP=1 -h "$TMP" -p "$PORT" -U postgres -d postgres)
+PSQL=(psql -X -q -o /dev/null -v ON_ERROR_STOP=1 -h "$TMP" -p "$PORT" -U postgres -d postgres)
 "${PSQL[@]}" -f supabase/tests/stub_supabase.sql
 for f in supabase/migrations/*.sql; do
   echo "→ migration $(basename "$f")"
