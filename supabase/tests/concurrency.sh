@@ -40,3 +40,27 @@ do $$ begin
 end $$;
 SQL
 echo "  ✓ samtidig godkendelse giver én transaktion"
+
+# To telefoner afslutter samme gentagende opgave samtidig → kun én næste forekomst
+"${PSQL[@]}" <<'SQL'
+insert into public.household_tasks (id, household_id, title, due_on, recurrence, created_by)
+values ('f1000000-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333333333', 'Støvsuge', current_date, 'weekly', '00000000-0000-0000-0000-00000000c0c1');
+SQL
+DONE="set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000c0c1';
+begin;
+select public.set_task_status('f1000000-0000-0000-0000-000000000001', 'done');
+select pg_sleep(0.6);
+commit;"
+"${PSQL[@]}" -c "$DONE" &
+P1=$!
+sleep 0.15
+"${PSQL[@]}" -c "$DONE" &
+P2=$!
+wait $P1
+wait $P2
+"${PSQL[@]}" <<'SQL'
+do $$ begin
+  assert (select count(*) from public.household_tasks where title = 'Støvsuge') = 2, 'samtidig afslutning må kun give én ny forekomst';
+end $$;
+SQL
+echo "  ✓ samtidig afslutning af gentagende opgave giver én ny forekomst"
