@@ -18,6 +18,7 @@ Disse trin kræver din egen konto hos Supabase og Vercel. Alt sker på gratis-pl
    5. `20261008000001_upcoming_savings.sql`
    6. `20261009000001_home.sql` (slår også Realtime til for indkøbslisten)
    7. `20261010000001_settings_export.sql`
+   8. `20261011000001_cleanup_secret.sql`
    (Alternativ med CLI: `npx supabase link --project-ref <ref>` og `npx supabase db push`.)
 4. **Opret jer to brugere:** *Authentication → Users → Add user → Create new user*.
    Udfyld e-mail og adgangskode, og sæt flueben i **Auto Confirm User**.
@@ -46,20 +47,13 @@ Disse trin kræver din egen konto hos Supabase og Vercel. Alt sker på gratis-pl
    Alternativet er en egen SMTP-udbyder, men det gør vi kun efter aftale.
 
 8. **Daglig oprydning af kvitteringsbilleder:**
-   1. *Database → Extensions*: slå **pg_cron** og **pg_net** til.
-   2. Deploy Edge Function og sæt en hemmelighed (kræver Supabase CLI, `npx` er nok):
-      ```bash
-      npx supabase login
-      npx supabase link --project-ref <ref>
-      npx supabase functions deploy cleanup-receipts --no-verify-jwt
-      npx supabase secrets set CLEANUP_SECRET=$(openssl rand -hex 32)
-      ```
-      Gem værdien af `CLEANUP_SECRET` – den skal bruges i næste trin.
-      (`SUPABASE_URL` og `SUPABASE_SERVICE_ROLE_KEY` findes automatisk i Edge Functions.)
-   3. Ret de to værdier øverst i `supabase/setup/schedule_cleanup.sql` og kør scriptet i *SQL Editor*.
-      Hemmeligheden gemmes i Supabase Vault.
-   4. Test manuelt: `select net.http_post(...)` fra scriptet, eller vent til næste nat og se
-      `select * from cron.job_run_details order by start_time desc limit 5;`.
+   1. Kør migration `20261011000001_cleanup_secret.sql` (følger med de øvrige migrations).
+   2. Deploy Edge Function `cleanup-receipts` med **verify_jwt slået fra** (den tjekker selv
+      headeren `x-cleanup-secret`): `npx supabase functions deploy cleanup-receipts --no-verify-jwt`.
+   3. Ret projektets ref øverst i `supabase/setup/schedule_cleanup.sql` og kør scriptet i *SQL Editor*.
+      Det slår pg_cron og pg_net til, genererer en hemmelighed på 256 bit direkte i Supabase Vault
+      og planlægger jobbet. Hemmeligheden skal ikke kopieres nogen steder hen.
+   4. Kontrollér med forespørgslerne nederst i scriptet.
 
    Oprydningen sletter kun billedfiler: udløbne billeder, forladte uploads (> 24 t) og forældreløse filer.
    Transaktioner og kvitteringsoplysninger bevares altid. Den kan køres flere gange uden problemer.
