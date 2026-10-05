@@ -19,12 +19,15 @@ export function EventRow({ e, showDate }: { e: CalendarEvent; showDate?: string 
         <Icon className="size-5" style={{ color: t.color }} strokeWidth={2.2} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[16px] font-semibold">{e.title}</span>
-        <span className="block truncate text-[13px] text-secondary">
-          <span className="font-semibold text-primary">{who}</span>
-          {' · '}
-          {[showDate, range ?? eventTimeLabel(e)].filter(Boolean).join(' · ')}
+        {/* Titel ombrydes i fuld længde i stedet for at blive afkortet */}
+        <span className="block break-words text-[16px] font-semibold leading-snug">{e.title}</span>
+        {/* Hvem + tid: hver del holdes samlet og brydes hellere til ny linje end at blive skåret over */}
+        <span className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 text-[13px] leading-snug text-secondary">
+          <span className="max-w-full truncate font-semibold text-primary">{who}</span>
+          <span aria-hidden>·</span>
+          <span className="tabular whitespace-nowrap">{range ?? eventTimeLabel(e)}</span>
         </span>
+        {showDate && <span className="block text-[13px] leading-snug text-secondary">{showDate}</span>}
       </span>
       <ForWhomBadge forUserId={e.for_user_id} members={members} className="size-7 text-[11px]" />
     </Link>

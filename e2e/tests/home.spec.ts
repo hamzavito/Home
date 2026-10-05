@@ -115,13 +115,13 @@ test('kalender: "Gælder for" er adskilt fra "Oprettet af" og vises i oversigten
   await who.getByRole('radio', { name: 'Sumaya' }).click()
   await page.getByLabel('Start').fill('14:00')
   await page.getByRole('button', { name: 'Opret aftale' }).click()
-  await expect(page.getByRole('link', { name: /Lægetid/ }).first()).toContainText('Sumaya · 14.00')
+  await expect(page.getByRole('link', { name: /Lægetid/ }).first()).toContainText(/Sumaya·?\s*14\.00/)
 
   await page.goto('/hjemmet/kalender/ny')
   await page.getByPlaceholder('Fx Lægetid').fill('Fødselsdag')
   await page.getByLabel('Start').fill('17:00')
   await page.getByRole('button', { name: 'Opret aftale' }).click()
-  await expect(page.getByRole('link', { name: /Fødselsdag/ }).first()).toContainText('Begge · 17.00')
+  await expect(page.getByRole('link', { name: /Fødselsdag/ }).first()).toContainText(/Begge·?\s*17\.00/)
 
   // Detaljevisning: oprettet af Hamza, gælder for Sumaya
   await page.getByRole('link', { name: /Lægetid/ }).first().click()
@@ -130,7 +130,33 @@ test('kalender: "Gælder for" er adskilt fra "Oprettet af" og vises i oversigten
   // Kan ændres til fælles
   await page.getByRole('radiogroup', { name: 'Gælder for' }).getByRole('radio', { name: 'Begge' }).click()
   await page.getByRole('button', { name: 'Gem ændringer' }).click()
-  await expect(page.getByRole('link', { name: /Lægetid/ }).first()).toContainText('Begge · 14.00')
+  await expect(page.getByRole('link', { name: /Lægetid/ }).first()).toContainText(/Begge·?\s*14\.00/)
+})
+
+test('kalender på smal skærm (iPhone SE): titel, hvem og tid afkortes ikke', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 })
+  await startEmpty(page, '/hjemmet/kalender/ny')
+  await page.getByPlaceholder('Fx Lægetid').fill('Forældremøde i børnehaven om sommerferien')
+  await page.getByRole('radiogroup', { name: 'Gælder for' }).getByRole('radio', { name: 'Sumaya' }).click()
+  await page.getByLabel('Start').fill('14:00')
+  await page.getByLabel('Slut (valgfri)').fill('15:30')
+  await page.getByRole('button', { name: 'Opret aftale' }).click()
+
+  // Både i dagens liste og under "Kommende" (med dato)
+  const rows = page.getByRole('link', { name: /Forældremøde/ })
+  await expect(rows).toHaveCount(2)
+  for (const row of await rows.all()) {
+    const cut = await row.evaluate((el) =>
+      [...el.querySelectorAll('span')]
+        .filter((s) => s.children.length === 0 && s.textContent?.trim())
+        .filter((s) => s.scrollWidth > s.clientWidth + 1 || s.scrollHeight > s.clientHeight + 1)
+        .map((s) => s.textContent),
+    )
+    expect(cut, `afkortet: ${cut.join(', ')}`).toEqual([])
+    await expect(row).toContainText('Forældremøde i børnehaven om sommerferien')
+    await expect(row).toContainText('Sumaya')
+    await expect(row).toContainText('14.00–15.30')
+  }
 })
 
 test('+-menuen: alle handlinger virker', async ({ page }) => {
