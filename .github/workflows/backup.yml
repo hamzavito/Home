@@ -1,0 +1,76 @@
+# Ugentlig, krypteret backup af databasen (gratis: GitHub Actions + artefakter).
+# Kræver to repository secrets (Settings → Secrets and variables → Actions):
+#   SUPABASE_DB_URL     Supabase → Connect → "Session pooler"-forbindelsesstrengen (IPv4)
+#   BACKUP_PASSPHRASE   en lang, tilfældig adgangsfrase – gem den også i jeres password manager
+# Uden secrets springes jobbet over (grønt), så CI ikke fejler før opsætningen.
+# Gendannelse: se docs/BACKUP.md
+name: Backup
+
+on:
+  schedule:
+    - cron: '17 2 * * 0' # søndag kl. 02:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Tjek opsætning
+        id: cfg
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::notice::Backup er ikke sat op endnu (SUPABASE_DB_URL/BACKUP_PASSPHRASE mangler). Se docs/BACKUP.md."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.cfg.outputs.ready == 'true'
+
+      - name: Installér PostgreSQL 17-klient
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Dump og kryptér
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          set -euo pipefail
+          umask 077
+          NAME="hjem-backup-$(date -u +%Y-%m-%d)"
+          mkdir -p "work/$NAME"
+          bash scripts/backup/dump.sh "$SUPABASE_DB_URL" "work/$NAME"
+          # Migrations med i backuppen, så skemaet kan genskabes præcis som det var
+          cp -r supabase/migrations "work/$NAME/migrations"
+          tar -czf "work/$NAME.tar.gz" -C work "$NAME"
+          printf '%s' "$BACKUP_PASSPHRASE" > work/pass
+          gpg --batch --yes --pinentry-mode loopback --passphrase-file work/pass \
+            --symmetric --cipher-algo AES256 -o "$NAME.tar.gz.gpg" "work/$NAME.tar.gz"
+          rm -rf work
+          echo "NAME=$NAME" >> "$GITHUB_ENV"
+          ls -lh "$NAME.tar.gz.gpg"
+
+      - name: Gem som artefakt (90 dage)
+        if: steps.cfg.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}
+          path: ${{ env.NAME }}.tar.gz.gpg
+          retention-days: 90
+          if-no-files-found: error

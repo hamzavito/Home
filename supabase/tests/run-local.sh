@@ -30,4 +30,6 @@ for f in supabase/tests/*.test.sql; do
 done
 echo "→ test concurrency.sh"
 bash supabase/tests/concurrency.sh "${PSQL[@]}"
+echo "→ test backup_restore.sh"
+bash supabase/tests/backup_restore.sh "$TMP" "$PORT"
 echo "✓ Alle database-tests bestået"
