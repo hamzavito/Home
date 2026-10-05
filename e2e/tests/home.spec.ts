@@ -93,7 +93,7 @@ test('kalender: opret heldags- og tidsaftale, se i måned og på forsiden, slet'
   await page.getByRole('switch', { name: 'Hele dagen' }).click()
   await page.getByRole('switch', { name: 'Flere dage' }).click()
   await page.getByRole('button', { name: 'Opret aftale' }).click()
-  await expect(page.getByText(/\d+\. \w+\. – \d+\. \w+\. · Familie/).first()).toBeVisible()
+  await expect(page.getByText(/\d+\. \w+\. – \d+\. \w+\./).first()).toBeVisible()
 
   await page.goto('/')
   await expect(page.getByRole('link', { name: /Lægetid/ })).toBeVisible()
@@ -103,6 +103,34 @@ test('kalender: opret heldags- og tidsaftale, se i måned og på forsiden, slet'
   await page.getByRole('button', { name: 'Slet aftale' }).click()
   await page.locator('dialog[open]').getByRole('button', { name: 'Slet' }).click()
   await expect(page.getByRole('link', { name: /Lægetid/ })).toHaveCount(0)
+})
+
+test('kalender: "Gælder for" er adskilt fra "Oprettet af" og vises i oversigten', async ({ page }) => {
+  await startEmpty(page, '/hjemmet/kalender/ny')
+  const who = page.getByRole('radiogroup', { name: 'Gælder for' })
+  // Standard er fælles; mulighederne kommer fra husstandens medlemmer
+  await expect(who.getByRole('radio', { name: 'Begge' })).toHaveAttribute('aria-checked', 'true')
+  await expect(who.getByRole('radio', { name: 'Hamza' })).toBeVisible()
+  await page.getByPlaceholder('Fx Lægetid').fill('Lægetid')
+  await who.getByRole('radio', { name: 'Sumaya' }).click()
+  await page.getByLabel('Start').fill('14:00')
+  await page.getByRole('button', { name: 'Opret aftale' }).click()
+  await expect(page.getByRole('link', { name: /Lægetid/ }).first()).toContainText('Sumaya · 14.00')
+
+  await page.goto('/hjemmet/kalender/ny')
+  await page.getByPlaceholder('Fx Lægetid').fill('Fødselsdag')
+  await page.getByLabel('Start').fill('17:00')
+  await page.getByRole('button', { name: 'Opret aftale' }).click()
+  await expect(page.getByRole('link', { name: /Fødselsdag/ }).first()).toContainText('Begge · 17.00')
+
+  // Detaljevisning: oprettet af Hamza, gælder for Sumaya
+  await page.getByRole('link', { name: /Lægetid/ }).first().click()
+  await expect(page.getByText(/Oprettet af Hamza/)).toBeVisible()
+  await expect(page.getByRole('radiogroup', { name: 'Gælder for' }).getByRole('radio', { name: 'Sumaya' })).toHaveAttribute('aria-checked', 'true')
+  // Kan ændres til fælles
+  await page.getByRole('radiogroup', { name: 'Gælder for' }).getByRole('radio', { name: 'Begge' }).click()
+  await page.getByRole('button', { name: 'Gem ændringer' }).click()
+  await expect(page.getByRole('link', { name: /Lægetid/ }).first()).toContainText('Begge · 14.00')
 })
 
 test('+-menuen: alle handlinger virker', async ({ page }) => {

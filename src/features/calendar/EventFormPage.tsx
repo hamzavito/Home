@@ -15,6 +15,10 @@ import { cn } from '@/lib/cn'
 import { formatLongDate, formatWeekday, fromIsoDate, toIsoDate } from '@/lib/dates'
 import { addDaysIso, timeInputValue } from '@/lib/home'
 import type { EventType } from '@/types/database'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
+import { sharedLabel } from './forWhom'
+
+const SHARED = 'shared'
 
 export function EventFormPage() {
   const { id } = useParams()
@@ -46,6 +50,8 @@ function EventForm({ existing }: { existing?: CalendarEvent }) {
   const [start, setStart] = useState(timeInputValue(existing?.start_time) || '09:00')
   const [end, setEnd] = useState(timeInputValue(existing?.end_time))
   const [type, setType] = useState<EventType>(existing?.type ?? 'family')
+  // Tidligere medlem eller tomt felt vises som fælles
+  const [forUser, setForUser] = useState(existing?.for_user_id && members.some((m) => m.userId === existing.for_user_id) ? existing.for_user_id : SHARED)
   const [description, setDescription] = useState(existing?.description ?? '')
   const [touched, setTouched] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -66,7 +72,17 @@ function EventForm({ existing }: { existing?: CalendarEvent }) {
     try {
       await save.mutateAsync({
         id: existing?.id,
-        input: { title, date, endDate: multiDay ? endDate : null, allDay, startTime: allDay ? null : start, endTime: allDay ? null : end || null, description, type },
+        input: {
+          title,
+          date,
+          endDate: multiDay ? endDate : null,
+          allDay,
+          startTime: allDay ? null : start,
+          endTime: allDay ? null : end || null,
+          description,
+          type,
+          forUserId: forUser === SHARED ? null : forUser,
+        },
       })
       goBack(back)
     } catch {
@@ -93,6 +109,16 @@ function EventForm({ existing }: { existing?: CalendarEvent }) {
         <Field label="Titel" error={touched ? errors.title : null}>
           <TextInput value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Fx Lægetid" maxLength={100} autoFocus={!existing} autoCapitalize="sentences" />
         </Field>
+
+        <div>
+          <p className="mb-1.5 px-1 text-[13px] font-semibold text-secondary">Gælder for</p>
+          <SegmentedControl
+            label="Gælder for"
+            value={forUser}
+            onChange={setForUser}
+            options={[...members.map((m) => ({ value: m.userId, label: m.displayName })), { value: SHARED, label: sharedLabel(members) }]}
+          />
+        </div>
 
         <div>
           <p className="mb-1.5 px-1 text-[13px] font-semibold text-secondary">Type</p>
