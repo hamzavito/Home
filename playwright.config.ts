@@ -11,6 +11,9 @@ export default defineConfig({
   workers: process.env.CI ? 2 : 4,
   reporter: [['list']],
   use: {
+    // Som brugernes telefoner: dansk sprog og dansk tid
+    locale: 'da-DK',
+    timezoneId: 'Europe/Copenhagen',
     baseURL: 'http://localhost:4300',
     ...devices['iPhone 13'],
     browserName: 'chromium',
