@@ -261,6 +261,8 @@ export type EventInput = {
   endTime: string | null
   description: string | null
   type: EventType
+  /** NULL = Begge/Fælles */
+  forUserId: string | null
 }
 
 export function useSaveEvent() {
@@ -277,6 +279,7 @@ export function useSaveEvent() {
         end_time: input.allDay ? null : input.endTime || null,
         description: input.description?.trim() || null,
         type: input.type,
+        for_user_id: input.forUserId,
       }
       if (id) {
         const { error } = await supabase.from('calendar_events').update(values).eq('id', id)

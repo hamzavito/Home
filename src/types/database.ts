@@ -348,6 +348,7 @@ export type Database = {
           all_day: boolean
           description: string | null
           type: EventType
+          for_user_id: string | null
           created_by: string
           created_at: string
           updated_at: string
@@ -362,6 +363,7 @@ export type Database = {
           all_day?: boolean
           description?: string | null
           type?: EventType
+          for_user_id?: string | null
         }
         Update: {
           title?: string
@@ -372,6 +374,7 @@ export type Database = {
           all_day?: boolean
           description?: string | null
           type?: EventType
+          for_user_id?: string | null
         }
         Relationships: []
       }

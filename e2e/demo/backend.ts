@@ -18,7 +18,7 @@ const URL_BASE = 'http://demo.local'
 export const HID = '11111111-1111-4111-8111-111111111111'
 export const ME = '00000000-0000-4000-8000-0000000000a1'
 export const WIFE = '00000000-0000-4000-8000-0000000000a2'
-const DB_KEY = 'hjem-demo-db-v3'
+const DB_KEY = 'hjem-demo-db-v4'
 const FILES_KEY = 'hjem-demo-files-v2'
 const MODE_KEY = 'hjem-demo-mode' // 'empty' = start uden demodata (bruges af tests)
 
@@ -303,11 +303,12 @@ function seedHome(d: Db, catId: Record<string, string>) {
   task('Skifte filter i emhætten', 10, 'low', ME, 'monthly')
   task('Rengøre ovn', null, 'normal', null, 'none')
 
-  const ev = (title: string, days: number, start: string | null, end: string | null, type: string, by: string) =>
-    d.calendar_events!.push({ id: uuid(), household_id: HID, title, event_date: addDays(t, days), end_date: type === 'vacation' ? addDays(t, days + 6) : null, start_time: start, end_time: end, all_day: start === null, description: null, type, created_by: by, created_at: created, updated_at: created })
-  ev('Lægetid – Adam', 2, '09:30', '10:00', 'doctor', WIFE)
-  ev('Middag hos svigerforældre', 5, '18:00', '21:00', 'family', ME)
-  ev('Efterårsferie', 12, null, null, 'vacation', ME)
+  const ev = (title: string, days: number, start: string | null, end: string | null, type: string, by: string, forUser: string | null) =>
+    d.calendar_events!.push({ id: uuid(), household_id: HID, title, event_date: addDays(t, days), end_date: type === 'vacation' ? addDays(t, days + 6) : null, start_time: start, end_time: end, all_day: start === null, description: null, type, for_user_id: forUser, created_by: by, created_at: created, updated_at: created })
+  ev('Lægetid – Adam', 2, '09:30', '10:00', 'doctor', ME, WIFE)
+  ev('Middag hos svigerforældre', 5, '18:00', '21:00', 'family', ME, null)
+  ev('Tandlæge', 8, '10:30', '11:00', 'doctor', WIFE, ME)
+  ev('Efterårsferie', 12, null, null, 'vacation', ME, null)
 }
 
 function seedEmpty(): Db {
@@ -635,7 +636,7 @@ const DEFAULTS: Record<string, () => Row> = {
   fixed_groups: () => ({ archived_at: null, sort_order: 0 }),
   shopping_items: () => ({ is_checked: false, checked_by: null, checked_at: null, note: null, quantity: null, sort_order: 0 }),
   household_tasks: () => ({ status: 'open', priority: 'normal', recurrence: 'none', recurrence_interval: 1, completed_at: null, completed_by: null, previous_task_id: null, archived_at: null, description: null, assignee_id: null, due_on: null }),
-  calendar_events: () => ({ start_time: null, end_time: null, end_date: null, all_day: false, description: null, type: 'family' }),
+  calendar_events: () => ({ start_time: null, end_time: null, end_date: null, all_day: false, description: null, type: 'family', for_user_id: null }),
   transactions: () => ({ note: null, paid_by_kind: 'shared', paid_by_user_id: null, source: 'manual' }),
 }
 
