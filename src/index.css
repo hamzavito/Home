@@ -1,0 +1,352 @@
+@import 'tailwindcss';
+
+/* -------------------------------------------------------------------------
+   Skrifttype: Inter (selvhostet, kun latin, variabel vægt).
+   Ingen eksterne fontkald – den caches af service workeren.
+   ------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+/* -------------------------------------------------------------------------
+   Design-tokens – "Hjem" designsystem (semantiske navne)
+   Lyst: varm off-white med hvide kort og et mørkt "hero"-kort.
+   Mørkt: næsten sort med flere overfladeniveauer – ikke bare sort + hvidt.
+   Accent (iris) bruges sparsomt. Grøn = positiv økonomi. Amber/orange/rød =
+   kun advarsler. Alle tekstfarver er kontrolleret mod alle flader med
+   scripts/check-contrast.mjs (WCAG AA, 4,5:1 for tekst, 3:1 for ikoner/kanter).
+   ------------------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+  --bg: #f4f3ef;
+  --surface-primary: #ffffff;
+  --surface-secondary: #ecebe6;
+  --surface-tertiary: #e1dfd8;
+  --surface-elevated: #ffffff;
+  --surface-sheet: #fbfaf7;
+  --surface-accent: rgb(90 60 240 / 0.1);
+  --surface-inverse: #18171c;
+  --text-primary: #131316;
+  --text-secondary: #57554f;
+  --text-muted: #625f59;
+  --text-on-accent: #ffffff;
+  --text-on-inverse: #ffffff;
+  --border-subtle: rgb(19 19 22 / 0.08);
+  --border-strong: rgb(19 19 22 / 0.5);
+  --accent: #5a3cf0;
+  --accent-text: #4b2ddb;
+  --positive: #04674a;
+  --positive-soft: rgb(4 103 74 / 0.11);
+  --notice: #865600;
+  --notice-soft: rgb(196 132 10 / 0.16);
+  --warning: #a8400f;
+  --warning-soft: rgb(220 98 37 / 0.14);
+  --danger: #b8262a;
+  --danger-soft: rgb(212 58 58 / 0.12);
+  --track: rgb(19 19 22 / 0.09);
+  --shadow-sm: 0 1px 2px rgb(30 25 10 / 0.05), 0 2px 8px rgb(30 25 10 / 0.05);
+  --shadow-md: 0 1px 2px rgb(30 25 10 / 0.06), 0 12px 32px -8px rgb(30 25 10 / 0.12);
+  --nav-bg: rgb(255 255 255 / 0.88);
+  /* Hero-kort: mørkt blæk med en iris-glød – samme i begge temaer */
+  --hero-base: #1d1a2c;
+  --hero-glow: rgb(124 96 255 / 0.45);
+  --hero-text: #ffffff;
+  --hero-text-secondary: rgb(255 255 255 / 0.74);
+  --hero-danger: #ffa3a3;
+  --hero-track: rgb(255 255 255 / 0.16);
+  --hero-fill: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #09090b;
+    --surface-primary: #141417;
+    --surface-secondary: #1c1c21;
+    --surface-tertiary: #27272d;
+    --surface-elevated: #24242a;
+    --surface-sheet: #17171b;
+    --surface-accent: rgb(148 131 255 / 0.16);
+    --surface-inverse: #f3f2ee;
+    --text-primary: #f3f2ee;
+    --text-secondary: #b6b4ad;
+    --text-muted: #96948e;
+    --text-on-accent: #0d0a22;
+    --text-on-inverse: #131316;
+    --border-subtle: rgb(255 255 255 / 0.08);
+    --border-strong: rgb(255 255 255 / 0.4);
+    --accent: #9483ff;
+    --accent-text: #ad9fff;
+    --positive: #52dba8;
+    --positive-soft: rgb(82 219 168 / 0.13);
+    --notice: #f4c062;
+    --notice-soft: rgb(244 192 98 / 0.13);
+    --warning: #ff9e6a;
+    --warning-soft: rgb(255 158 106 / 0.13);
+    --danger: #ff8080;
+    --danger-soft: rgb(255 128 128 / 0.13);
+    --track: rgb(255 255 255 / 0.1);
+    --shadow-sm: 0 0 0 1px rgb(255 255 255 / 0.04);
+    --shadow-md: 0 0 0 1px rgb(255 255 255 / 0.05), 0 16px 40px -12px rgb(0 0 0 / 0.6);
+    --nav-bg: rgb(16 16 19 / 0.88);
+    --hero-base: #221d3d;
+    --hero-glow: rgb(148 131 255 / 0.38);
+    --hero-text: #ffffff;
+    --hero-text-secondary: rgb(255 255 255 / 0.72);
+    --hero-danger: #ffa3a3;
+    --hero-track: rgb(255 255 255 / 0.14);
+    --hero-fill: #ffffff;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #09090b;
+  --surface-primary: #141417;
+  --surface-secondary: #1c1c21;
+  --surface-tertiary: #27272d;
+  --surface-elevated: #24242a;
+  --surface-sheet: #17171b;
+  --surface-accent: rgb(148 131 255 / 0.16);
+  --surface-inverse: #f3f2ee;
+  --text-primary: #f3f2ee;
+  --text-secondary: #b6b4ad;
+  --text-muted: #96948e;
+  --text-on-accent: #0d0a22;
+  --text-on-inverse: #131316;
+  --border-subtle: rgb(255 255 255 / 0.08);
+  --border-strong: rgb(255 255 255 / 0.4);
+  --accent: #9483ff;
+  --accent-text: #ad9fff;
+  --positive: #52dba8;
+  --positive-soft: rgb(82 219 168 / 0.13);
+  --notice: #f4c062;
+  --notice-soft: rgb(244 192 98 / 0.13);
+  --warning: #ff9e6a;
+  --warning-soft: rgb(255 158 106 / 0.13);
+  --danger: #ff8080;
+  --danger-soft: rgb(255 128 128 / 0.13);
+  --track: rgb(255 255 255 / 0.1);
+  --shadow-sm: 0 0 0 1px rgb(255 255 255 / 0.04);
+  --shadow-md: 0 0 0 1px rgb(255 255 255 / 0.05), 0 16px 40px -12px rgb(0 0 0 / 0.6);
+  --nav-bg: rgb(16 16 19 / 0.88);
+  --hero-base: #221d3d;
+  --hero-glow: rgb(148 131 255 / 0.38);
+  --hero-text: #ffffff;
+  --hero-text-secondary: rgb(255 255 255 / 0.72);
+  --hero-danger: #ffa3a3;
+  --hero-track: rgb(255 255 255 / 0.14);
+  --hero-fill: #ffffff;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface-primary: var(--surface-primary);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-surface-tertiary: var(--surface-tertiary);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-sheet: var(--surface-sheet);
+  --color-surface-accent: var(--surface-accent);
+  --color-surface-inverse: var(--surface-inverse);
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-muted: var(--text-muted);
+  --color-on-accent: var(--text-on-accent);
+  --color-on-inverse: var(--text-on-inverse);
+  --color-subtle: var(--border-subtle);
+  --color-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-positive: var(--positive);
+  --color-positive-soft: var(--positive-soft);
+  --color-notice: var(--notice);
+  --color-notice-soft: var(--notice-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-track: var(--track);
+  --color-hero-text: var(--hero-text);
+  --color-hero-text-secondary: var(--hero-text-secondary);
+  --color-hero-danger: var(--hero-danger);
+  --font-sans: 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --radius-card: 1.5rem;
+  --radius-card-lg: 1.875rem;
+  --shadow-card: var(--shadow-sm);
+  --shadow-raised: var(--shadow-md);
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* -------------------------------------------------------------------------
+   Grundlæggende app-adfærd
+   ------------------------------------------------------------------------- */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    background: var(--bg);
+  }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    /* Inter: enkeltetages "a" og tydeligere tal */
+    font-feature-settings: 'cv11', 'ss01';
+    letter-spacing: -0.011em;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+  }
+  /* Undgå at iOS zoomer ind på inputfelter (kræver min. 16px) */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  button {
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+/* Tal står pænt under hinanden */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum', 'cv11', 'ss01';
+}
+
+@utility glass {
+  background: var(--nav-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  backdrop-filter: saturate(180%) blur(24px);
+}
+
+@utility hero-surface {
+  background:
+    radial-gradient(120% 90% at 100% 0%, var(--hero-glow) 0%, transparent 55%),
+    linear-gradient(160deg, var(--hero-base) 0%, #121116 100%);
+  color: var(--hero-text);
+}
+
+@utility pressable {
+  transition: transform 160ms var(--ease-spring), background-color 160ms;
+  &:active {
+    transform: scale(0.975);
+  }
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility px-safe {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+/* -------------------------------------------------------------------------
+   Mikroanimationer – korte og diskrete
+   ------------------------------------------------------------------------- */
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes draw-line {
+  from {
+    stroke-dashoffset: var(--len, 1000);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes scan {
+  from {
+    top: -10%;
+  }
+  to {
+    top: 85%;
+  }
+}
+@keyframes pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes shimmer {
+  0% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.55;
+  }
+}
+
+@utility animate-page {
+  animation: page-in 220ms var(--ease-spring) both;
+}
+@utility animate-grow {
+  transform-origin: left center;
+  animation: grow-x 700ms var(--ease-spring) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
