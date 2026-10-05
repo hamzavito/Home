@@ -14,6 +14,10 @@ Disse trin kræver din egen konto hos Supabase og Vercel. Alt sker på gratis-pl
    1. `20261004000001_household_core.sql`
    2. `20261005000001_budgets_transactions.sql`
    3. `20261006000001_receipts.sql` (opretter også den private Storage-bucket `receipts`)
+   4. `20261007000001_fixed_economy.sql`
+   5. `20261008000001_upcoming_savings.sql`
+   6. `20261009000001_home.sql` (slår også Realtime til for indkøbslisten)
+   7. `20261010000001_settings_export.sql`
    (Alternativ med CLI: `npx supabase link --project-ref <ref>` og `npx supabase db push`.)
 4. **Opret jer to brugere:** *Authentication → Users → Add user → Create new user*.
    Udfyld e-mail og adgangskode, og sæt flueben i **Auto Confirm User**.
@@ -41,7 +45,7 @@ Disse trin kræver din egen konto hos Supabase og Vercel. Alt sker på gratis-pl
    Inviter derfor også din kones e-mail til organisationen (*Organization → Team*). Gratis.
    Alternativet er en egen SMTP-udbyder, men det gør vi kun efter aftale.
 
-8. **Daglig oprydning af kvitteringsbilleder** (fase 3):
+8. **Daglig oprydning af kvitteringsbilleder:**
    1. *Database → Extensions*: slå **pg_cron** og **pg_net** til.
    2. Deploy Edge Function og sæt en hemmelighed (kræver Supabase CLI, `npx` er nok):
       ```bash
@@ -59,6 +63,8 @@ Disse trin kræver din egen konto hos Supabase og Vercel. Alt sker på gratis-pl
 
    Oprydningen sletter kun billedfiler: udløbne billeder, forladte uploads (> 24 t) og forældreløse filer.
    Transaktioner og kvitteringsoplysninger bevares altid. Den kan køres flere gange uden problemer.
+
+9. **Backup:** følg [docs/BACKUP.md](BACKUP.md) (to GitHub-secrets, ca. 5 minutter).
 
 > **Custom SMTP senere:** Appen bruger kun Supabase Auth-kaldene (`resetPasswordForEmail`, `verifyOtp`,
 > `updateUser`). Skift af mailserver sker under *Authentication → Emails → SMTP Settings* og kræver
@@ -80,7 +86,7 @@ Disse trin kræver din egen konto hos Supabase og Vercel. Alt sker på gratis-pl
    - `VITE_SUPABASE_ANON_KEY`
 4. Deploy. Uden variablerne viser appen en side om, at konfigurationen mangler. Det er forventet.
 5. *Settings → Git → Production Branch*: vælg den branch, der skal være "live"
-   (fx `main`, når fase 1 er merget).
+   (fx `main`, når branchen er merget).
 6. Tilbage i Supabase: *Authentication → URL Configuration → Site URL* = jeres Vercel-URL.
 
 ## 3. Installér på iPhone

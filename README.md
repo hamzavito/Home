@@ -4,7 +4,7 @@ Privat PWA til vores husstand: økonomi, budgetter, kvitteringer, opsparing, ind
 
 **Stack:** Vite · React · TypeScript · Tailwind · TanStack Query · Supabase (Postgres, Auth, Storage) · Vercel
 
-Arkitektur og byggeplan: [`docs/PLAN.md`](docs/PLAN.md) · Opsætning: [`docs/SETUP.md`](docs/SETUP.md)
+Arkitektur: [`docs/PLAN.md`](docs/PLAN.md) · Opsætning: [`docs/SETUP.md`](docs/SETUP.md) · Backup: [`docs/BACKUP.md`](docs/BACKUP.md) · Design: [`docs/DESIGN.md`](docs/DESIGN.md)
 
 ## Udvikling
 
@@ -20,8 +20,11 @@ npm run dev
 | `npm run build` | Typecheck + produktionsbuild |
 | `npm run lint` | ESLint |
 | `npm test` | Enhedstests (Vitest) |
-| `npm run test:db` | Migrations + RLS-tests mod en midlertidig lokal Postgres |
-| `npm run icons` | Generér PNG-ikoner fra `public/icons/icon.svg` |
+| `npm run test:db` | Migrations, RLS-/sikkerhedsrevision, samtidighed og backup→gendannelse mod en midlertidig lokal Postgres |
+| `npm run test:e2e` | Playwright-tests (iPhone 13, lyst + mørkt, axe-kontrast) mod appen med en demo-backend i browseren |
+| `npm run check:contrast` | WCAG AA-tjek af alle farvetokens |
+| `npm run check:pwa` | Tjek af manifest, ikoner, startskærme, service worker og at ingen hemmeligheder er i bundlen (efter build) |
+| `npm run icons` | Generér ikoner og iOS-startskærme fra `public/icons/icon.svg` |
 
 ## Struktur
 
