@@ -1,19 +1,30 @@
 // Edge Function: daglig oprydning af kvitteringsbilleder.
 // Kaldes af Supabase Cron (pg_cron + pg_net) med headeren x-cleanup-secret.
+// Hemmeligheden ligger i Supabase Vault og kontrolleres via verify_cleanup_secret
+// (kun service role). Er CLEANUP_SECRET sat som Edge Function-secret, bruges den i stedet.
 // Bruger service role-nøglen, som KUN findes i Supabase (aldrig i frontend).
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { runCleanup, safeEqual, type ClaimedRow } from './cleanup.ts'
 
 Deno.serve(async (req) => {
-  const secret = Deno.env.get('CLEANUP_SECRET') ?? ''
   const given = req.headers.get('x-cleanup-secret') ?? ''
-  if (!secret || !safeEqual(secret, given)) {
-    return new Response('Unauthorized', { status: 401 })
-  }
-
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
+
+  const envSecret = Deno.env.get('CLEANUP_SECRET') ?? ''
+  let authorized = false
+  if (given.length >= 32) {
+    if (envSecret) {
+      authorized = safeEqual(envSecret, given)
+    } else {
+      const { data, error } = await supabase.rpc('verify_cleanup_secret', { p_secret: given })
+      authorized = !error && data === true
+    }
+  }
+  if (!authorized) {
+    return new Response('Unauthorized', { status: 401 })
+  }
 
   const rpc = async <T>(fn: string, limit: number): Promise<T[]> => {
     const { data, error } = await supabase.rpc(fn, { p_limit: limit })

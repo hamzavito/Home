@@ -23,6 +23,10 @@ grant usage on schema public to anon, authenticated, service_role;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
 
+-- Vault (forenklet): kun den dekrypterede visning, som funktionerne læser.
+create schema vault;
+create table vault.decrypted_secrets (id uuid primary key default gen_random_uuid(), name text unique, decrypted_secret text);
+
 -- Storage (forenklet): buckets og objects med RLS, som i Supabase.
 create schema storage;
 grant usage on schema storage to anon, authenticated, service_role;
