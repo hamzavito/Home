@@ -10,8 +10,8 @@ export function clearPrivateDeviceData() {
     // ingen adgang til lagring
   }
   try {
-    // Supabase-sessionen fjernes af signOut – her tages evt. rester med
-    for (const k of Object.keys(localStorage)) if (k.startsWith('sb-') && k.endsWith('-auth-token')) localStorage.removeItem(k)
+    // Supabase-sessionen fjernes af signOut – her tages evt. rester med (fx ved netværksfejl)
+    for (const k of Object.keys(localStorage)) if (k.startsWith('hjem.auth') || k.startsWith('sb-')) localStorage.removeItem(k)
   } catch {
     // ingen adgang til lagring
   }

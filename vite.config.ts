@@ -33,9 +33,11 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // Brugeren bekræfter opdateringen (se UpdatePrompt), så intet input går tabt
+      registerType: 'prompt',
       includeAssets: ['icons/favicon-32.png', 'icons/apple-touch-icon.png', 'icons/icon.svg'],
       manifest: {
+        id: '/',
         name: 'Hjem',
         short_name: 'Hjem',
         description: 'Vores fælles overblik over hjem, økonomi og hverdag',
@@ -59,7 +61,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         // OCR-filerne (flere MB) precaches ikke – de hentes første gang der scannes
         // og gemmes derefter lokalt (CacheFirst), så næste scanning er hurtig.
-        globIgnores: ['ocr/**'],
+        // Startskærmene hentes af iOS ved installation og skal ikke precaches.
+        globIgnores: ['ocr/**', 'splash/**'],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/ocr/'),

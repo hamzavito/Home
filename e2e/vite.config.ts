@@ -9,9 +9,25 @@ import { defineConfig, type Plugin } from 'vite'
 const target = process.env.DEMO_TARGET === 'artifact' ? 'artifact' : 'test'
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url))
 
+const PWA_STUB = `import { useState } from 'react'
+// Demo: ingen service worker. localStorage 'hjem-demo-update' = '1' simulerer en ny version.
+export function useRegisterSW() {
+  const [need] = useState(() => { try { return localStorage.getItem('hjem-demo-update') === '1' } catch { return false } })
+  return { needRefresh: [need, () => {}], offlineReady: [false, () => {}], updateServiceWorker: async () => { localStorage.removeItem('hjem-demo-update'); location.reload() } }
+}
+`
+
 const demoPatches = (): Plugin => ({
   name: 'demo-patches',
   enforce: 'pre',
+  resolveId(id) {
+    if (id === 'virtual:pwa-register/react') return '\0pwa-stub'
+    return null
+  },
+  load(id) {
+    if (id === '\0pwa-stub') return PWA_STUB
+    return null
+  },
   transform(code, id) {
     if (id.endsWith('/src/lib/env.ts')) return "export const env = { supabaseUrl: 'http://demo.local', supabaseAnonKey: 'demo' }\nexport const isConfigured = true\n"
     if (target !== 'artifact') return null

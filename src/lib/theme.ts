@@ -1,6 +1,8 @@
 // Temavalg pr. enhed: følg systemet, altid lyst eller altid mørkt.
 export type ThemePreference = 'system' | 'light' | 'dark'
 const KEY = 'hjem.theme'
+const LIGHT_BG = '#f4f3ef'
+const DARK_BG = '#09090b'
 
 export function getThemePreference(): ThemePreference {
   try {
@@ -21,10 +23,17 @@ export function applyTheme(pref: ThemePreference) {
   } catch {
     // Ingen lagring (fx privat tilstand) – temaet gælder blot denne session.
   }
-  // Statuslinjens farve følger appens baggrund.
-  const dark = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
-  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
-    m.setAttribute('content', dark ? '#09090b' : '#f4f3ef')
-    if (pref !== 'system') m.removeAttribute('media')
+  // Statuslinjens farve følger appens baggrund. "System" bruger media queries,
+  // så farven skifter automatisk med telefonens lyse/mørke tilstand.
+  const metas = document.querySelectorAll('meta[name="theme-color"]')
+  metas.forEach((m, i) => {
+    const forDark = i === 1
+    if (pref === 'system') {
+      m.setAttribute('media', `(prefers-color-scheme: ${forDark ? 'dark' : 'light'})`)
+      m.setAttribute('content', forDark ? DARK_BG : LIGHT_BG)
+    } else {
+      m.removeAttribute('media')
+      m.setAttribute('content', pref === 'dark' ? DARK_BG : LIGHT_BG)
+    }
   })
 }
