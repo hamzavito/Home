@@ -18,6 +18,11 @@ export function encodePaidBy(kind: PaidByKind, userId: string | null) {
   return kind === 'shared' ? 'shared' : `member:${userId}`
 }
 
+/** Forslag til "Betalt af" ud fra brugerens indstilling */
+export function defaultPaidBy(me: HouseholdMember) {
+  return me.defaultPaidBy === 'shared' ? 'shared' : encodePaidBy('member', me.userId)
+}
+
 export function decodePaidBy(value: string): { kind: PaidByKind; userId: string | null } {
   return value.startsWith('member:') ? { kind: 'member', userId: value.slice(7) } : { kind: 'shared', userId: null }
 }

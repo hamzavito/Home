@@ -15,6 +15,8 @@ export type FixedKind = 'income' | 'expense'
 export type Frequency = 'monthly' | 'quarterly' | 'yearly'
 export type UpcomingStatus = 'upcoming' | 'paid' | 'cancelled'
 export type MovementKind = 'deposit' | 'withdrawal'
+export type DefaultRetention = '30d' | '3m' | '6m' | '1y' | 'permanent'
+export type DefaultPaidBy = 'me' | 'shared'
 export type TaskStatus = 'open' | 'in_progress' | 'done'
 export type TaskPriority = 'low' | 'normal' | 'high'
 export type Recurrence = 'none' | 'daily' | 'weekly' | 'monthly'
@@ -26,15 +28,15 @@ export type Database = {
   public: {
     Tables: {
       households: {
-        Row: { id: string; name: string; created_at: string; updated_at: string }
+        Row: { id: string; name: string; default_receipt_retention: DefaultRetention; created_at: string; updated_at: string }
         Insert: { id?: string; name: string; created_at?: string; updated_at?: string }
-        Update: { name?: string }
+        Update: { name?: string; default_receipt_retention?: DefaultRetention }
         Relationships: []
       }
       profiles: {
-        Row: { id: string; display_name: string; color: string | null; created_at: string; updated_at: string }
+        Row: { id: string; display_name: string; color: string | null; default_paid_by: DefaultPaidBy; created_at: string; updated_at: string }
         Insert: { id: string; display_name: string; color?: string | null }
-        Update: { display_name?: string; color?: string | null }
+        Update: { display_name?: string; color?: string | null; default_paid_by?: DefaultPaidBy }
         Relationships: []
       }
       household_members: {
@@ -448,6 +450,7 @@ export type Database = {
       }
       undo_upcoming_payment: { Args: { p_id: string }; Returns: undefined }
       ensure_shopping_list: { Args: Record<PropertyKey, never>; Returns: string }
+      export_household_data: { Args: Record<PropertyKey, never>; Returns: Record<string, unknown> }
       set_task_status: { Args: { p_task_id: string; p_status: TaskStatus }; Returns: string | null }
       savings_goal_progress: {
         Args: Record<PropertyKey, never>

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createContext, use, type ReactNode } from 'react'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { supabase } from '@/lib/supabase'
-import type { HouseholdRole } from '@/types/database'
+import type { DefaultPaidBy, DefaultRetention, HouseholdRole } from '@/types/database'
 
 export type HouseholdMember = {
   userId: string
@@ -10,11 +10,13 @@ export type HouseholdMember = {
   displayName: string
   color: string | null
   isMe: boolean
+  defaultPaidBy: DefaultPaidBy
 }
 
 export type Household = {
   id: string
   name: string
+  defaultRetention: DefaultRetention
   members: HouseholdMember[]
   me: HouseholdMember
 }
@@ -29,10 +31,10 @@ async function fetchHousehold(userId: string): Promise<Household | null> {
   if (!membership) return null
 
   const [{ data: household, error: hErr }, { data: members, error: mErr }] = await Promise.all([
-    supabase.from('households').select('id, name').eq('id', membership.household_id).single(),
+    supabase.from('households').select('id, name, default_receipt_retention').eq('id', membership.household_id).single(),
     supabase
       .from('household_members')
-      .select('user_id, role, created_at, profiles ( display_name, color )')
+      .select('user_id, role, created_at, profiles ( display_name, color, default_paid_by )')
       .eq('household_id', membership.household_id)
       .order('created_at'),
   ])
@@ -45,10 +47,11 @@ async function fetchHousehold(userId: string): Promise<Household | null> {
     displayName: m.profiles?.display_name ?? 'Ukendt',
     color: m.profiles?.color ?? null,
     isMe: m.user_id === userId,
+    defaultPaidBy: m.profiles?.default_paid_by ?? 'me',
   }))
   const me = mapped.find((m) => m.isMe)
   if (!me) return null
-  return { id: household.id, name: household.name, members: mapped, me }
+  return { id: household.id, name: household.name, defaultRetention: household.default_receipt_retention ?? '30d', members: mapped, me }
 }
 
 export const householdQueryKey = (userId: string | undefined) => ['household', userId] as const

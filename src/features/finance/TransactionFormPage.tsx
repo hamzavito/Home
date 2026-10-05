@@ -14,7 +14,7 @@ import { formatLongDate, fromIsoDate, toIsoDate } from '@/lib/dates'
 import { parseKr, toInputValue } from '@/lib/money'
 import { errorMessage, today, useCategories, useDeleteTransaction, useSaveTransaction, useTransaction, type Transaction } from './api'
 import { CategoryPicker } from './CategoryPicker'
-import { decodePaidBy, encodePaidBy, paidByLabel, paidByOptions } from './paidBy'
+import { decodePaidBy, defaultPaidBy, encodePaidBy, paidByLabel, paidByOptions } from './paidBy'
 import { useReceiptForTransaction, useSignedUrls } from '@/features/receipts/api'
 import { ReceiptThumb } from '@/features/receipts/ReceiptThumb'
 import { retentionBadge } from '@/lib/retention'
@@ -45,7 +45,7 @@ function TransactionForm({ existing, categories }: { existing: Transaction | nul
   const [amount, setAmount] = useState(existing ? toInputValue(existing.amount_ore) : '')
   const [description, setDescription] = useState(existing?.description ?? '')
   const [date, setDate] = useState(existing?.occurred_on ?? today())
-  const [paidBy, setPaidBy] = useState(existing ? encodePaidBy(existing.paid_by_kind, existing.paid_by_user_id) : encodePaidBy('member', me.userId))
+  const [paidBy, setPaidBy] = useState(existing ? encodePaidBy(existing.paid_by_kind, existing.paid_by_user_id) : defaultPaidBy(me))
   const [note, setNote] = useState(existing?.note ?? '')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [touched, setTouched] = useState(false)

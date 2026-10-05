@@ -29,6 +29,7 @@ for (const [name, path, waitFor] of PAGES) {
     if (path === '/login') {
       await page.goto('/indstillinger')
       await page.getByRole('button', { name: 'Log ud' }).click()
+  await page.locator('dialog[open]').getByRole('button', { name: 'Log ud' }).click()
     } else {
       await page.goto(path)
     }

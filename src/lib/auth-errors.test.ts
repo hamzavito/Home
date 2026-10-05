@@ -10,6 +10,7 @@ describe('authErrorMessage', () => {
     expect(authErrorMessage({ status: 429 })).toMatch(/For mange/)
     expect(authErrorMessage({ code: 'over_email_send_rate_limit' })).toMatch(/For mange/)
   })
+  it('kræver nyt login', () => expect(authErrorMessage({ code: 'reauthentication_needed' })).toMatch(/logge ind igen/))
   it('svag adgangskode', () => expect(authErrorMessage({ code: 'weak_password' })).toMatch(/svag/))
   it('ukendt fejl afslører intet', () => expect(authErrorMessage({ status: 400, message: 'User not found' })).toMatch(/Noget gik galt/))
 })

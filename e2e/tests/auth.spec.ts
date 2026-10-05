@@ -27,6 +27,7 @@ test('nulstil adgangskode med kode: neutral besked, cooldown, forkert kode, ny a
 test('log ud og ind igen', async ({ page }) => {
   await page.goto('/indstillinger')
   await page.getByRole('button', { name: 'Log ud' }).click()
+  await page.locator('dialog[open]').getByRole('button', { name: 'Log ud' }).click()
   await expect(page.getByRole('heading', { name: 'Velkommen hjem' })).toBeVisible()
   await page.getByPlaceholder('E-mail').fill('hamza@demo.dk')
   await page.getByPlaceholder('Adgangskode').fill('hemmelig')

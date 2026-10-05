@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js'
 import { useQueryClient } from '@tanstack/react-query'
 import { createContext, use, useEffect, useState, type ReactNode } from 'react'
+import { clearPrivateDeviceData } from '@/lib/device-data'
 import { supabase } from '@/lib/supabase'
 import { setRememberMe } from '@/lib/session-storage'
 
@@ -48,8 +49,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     // 'local' logger kun denne enhed ud, så partnerens/andre enheders login bevares.
-    await supabase.auth.signOut({ scope: 'local' })
-    queryClient.clear()
+    try {
+      await supabase.auth.signOut({ scope: 'local' })
+    } finally {
+      // Fjern alt privat fra enheden – også hvis netværket fejler
+      queryClient.clear()
+      clearPrivateDeviceData()
+    }
   }
 
   return <AuthContext value={{ session, loading, signIn, signOut }}>{children}</AuthContext>

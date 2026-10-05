@@ -9,14 +9,14 @@ import { Money } from '@/components/ui/Money'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { useCategories } from '@/features/finance/api'
 import { CategoryPicker } from '@/features/finance/CategoryPicker'
-import { decodePaidBy, encodePaidBy, paidByOptions } from '@/features/finance/paidBy'
+import { decodePaidBy, defaultPaidBy, paidByOptions } from '@/features/finance/paidBy'
 import { useHousehold } from '@/features/household/HouseholdProvider'
 import { cn } from '@/lib/cn'
 import { formatLongDate, fromIsoDate, toIsoDate } from '@/lib/dates'
 import { compressReceiptImage } from '@/lib/image'
 import { parseKr, toInputValue } from '@/lib/money'
 import { parseReceiptText, type Confidence, type ParsedReceipt } from '@/lib/receipt-parser'
-import { DEFAULT_RETENTION, deleteDateFor, type Retention } from '@/lib/retention'
+import { deleteDateFor, type Retention } from '@/lib/retention'
 import {
   createPendingReceipt,
   discardPendingReceipt,
@@ -36,7 +36,7 @@ type Pending = { receiptId: string; path: string; upload: Promise<void> }
 
 export function ScanPage() {
   const navigate = useNavigate()
-  const { me, members } = useHousehold()
+  const { me, members, defaultRetention: householdRetention } = useHousehold()
   const categories = useCategories()
   const approve = useApproveReceipt()
 
@@ -58,8 +58,8 @@ export function ScanPage() {
   const [confidence, setConfidence] = useState<{ merchant?: Confidence; amount?: Confidence; date?: Confidence }>({})
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [suggestedFrom, setSuggestedFrom] = useState<string | null>(null)
-  const [paidBy, setPaidBy] = useState(encodePaidBy('member', me.userId))
-  const [retention, setRetention] = useState<Retention>(DEFAULT_RETENTION)
+  const [paidBy, setPaidBy] = useState(defaultPaidBy(me))
+  const [retention, setRetention] = useState<Retention>(householdRetention)
   const [customDate, setCustomDate] = useState<string | null>(null)
   const [result, setResult] = useState<{ amountOre: number; merchant: string; category: string } | null>(null)
 

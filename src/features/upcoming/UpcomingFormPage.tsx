@@ -12,7 +12,7 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { FullScreenLoader } from '@/components/ui/Spinner'
 import { today, useCategories } from '@/features/finance/api'
 import { CategoryPicker } from '@/features/finance/CategoryPicker'
-import { decodePaidBy, encodePaidBy, paidByOptions } from '@/features/finance/paidBy'
+import { decodePaidBy, defaultPaidBy, paidByOptions } from '@/features/finance/paidBy'
 import { useHousehold } from '@/features/household/HouseholdProvider'
 import { formatLongDate, fromIsoDate } from '@/lib/dates'
 import { formatAmount, parseKr, toInputValue } from '@/lib/money'
@@ -173,7 +173,7 @@ function PayForm({ u, onDone }: { u: Upcoming; onDone: () => void }) {
   const setStatus = useSetUpcomingStatus()
   const [amount, setAmount] = useState(toInputValue(u.amount_ore))
   const [paidOn, setPaidOn] = useState(today())
-  const [paidBy, setPaidBy] = useState(encodePaidBy('member', me.userId))
+  const [paidBy, setPaidBy] = useState(defaultPaidBy(me))
   const ore = parseKr(amount)
   return (
     <>

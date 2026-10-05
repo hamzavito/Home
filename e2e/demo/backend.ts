@@ -18,11 +18,12 @@ const URL_BASE = 'http://demo.local'
 export const HID = '11111111-1111-4111-8111-111111111111'
 export const ME = '00000000-0000-4000-8000-0000000000a1'
 export const WIFE = '00000000-0000-4000-8000-0000000000a2'
-const DB_KEY = 'hjem-demo-db-v2'
+const DB_KEY = 'hjem-demo-db-v3'
 const FILES_KEY = 'hjem-demo-files-v2'
 const MODE_KEY = 'hjem-demo-mode' // 'empty' = start uden demodata (bruges af tests)
 
 const TABLES = [
+  'households',
   'profiles',
   'budget_categories',
   'budget_category_defaults',
@@ -145,9 +146,10 @@ function drawReceipt(lines: string[]): Promise<Blob> {
 function baseDb(): Db {
   const d = emptyDb()
   const created = '2026-01-01T09:00:00.000Z'
+  d.households = [{ id: HID, name: 'Vores hjem', default_receipt_retention: '30d', created_at: created, updated_at: created }]
   d.profiles = [
-    { id: ME, display_name: 'Hamza', color: null, default_paid_by: null, default_retention: '30d', created_at: created, updated_at: created },
-    { id: WIFE, display_name: 'Sumaya', color: null, default_paid_by: null, default_retention: '30d', created_at: created, updated_at: created },
+    { id: ME, display_name: 'Hamza', color: null, default_paid_by: 'me', created_at: created, updated_at: created },
+    { id: WIFE, display_name: 'Sumaya', color: null, default_paid_by: 'me', created_at: created, updated_at: created },
   ]
   return d
 }
@@ -717,11 +719,7 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
     // ---------------- Husstand
     if (p === '/rest/v1/household_members') {
       if (url.searchParams.get('select') === 'household_id') return json([{ household_id: HID }])
-      return json(db.profiles!.map((pr, i) => ({ user_id: pr.id, role: 'owner', created_at: `2026-01-0${i + 1}`, profiles: { display_name: pr.display_name, color: pr.color } })))
-    }
-    if (p === '/rest/v1/households') {
-      const h = { id: HID, name: 'Vores hjem' }
-      return json(accept.includes('object') ? h : [h])
+      return json(db.profiles!.map((pr, i) => ({ user_id: pr.id, role: 'owner', created_at: `2026-01-0${i + 1}`, profiles: { display_name: pr.display_name, color: pr.color, default_paid_by: pr.default_paid_by } })))
     }
 
     // ---------------- RPC
