@@ -1,6 +1,7 @@
 import { CheckSquare, Minus, Plus, Trash2, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { useParams } from 'react-router'
+import { useGoBack } from '@/app/useGoBack'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -13,19 +14,19 @@ import { useHousehold } from '@/features/household/HouseholdProvider'
 import { formatLongDate, fromIsoDate, toIsoDate } from '@/lib/dates'
 import { nextDue, recurrenceLabel } from '@/lib/home'
 import type { Recurrence, TaskPriority, TaskStatus } from '@/types/database'
-import { homeErrorMessage, useDeleteTask, useSaveTask, useSetTaskStatus, useTasks, type Task } from './api'
+import { homeErrorMessage, useDeleteTask, useSaveTask, useSetTaskStatus, useTask, type Task } from './api'
 import { priorityLabels, statusLabels } from './meta'
 
 export function TaskFormPage() {
   const { id } = useParams()
-  const tasks = useTasks()
-  if (tasks.isPending) return <FullScreenLoader />
-  const existing = id ? [...(tasks.data?.active ?? []), ...(tasks.data?.done ?? [])].find((t) => t.id === id) : undefined
+  const task = useTask(id)
+  if (id && task.isPending) return <FullScreenLoader />
+  const existing = task.data ?? undefined
   if (id && !existing)
     return (
       <>
         <PageHeader title="Opgave" back="/hjemmet" />
-        <EmptyState icon={CheckSquare} title="Opgaven findes ikke" text="Den kan være slettet, eller den er udført for længe siden." />
+        <EmptyState icon={CheckSquare} title="Opgaven findes ikke" text="Den kan være slettet på den anden telefon." />
       </>
     )
   return <TaskForm key={id ?? 'new'} existing={existing} />
@@ -34,7 +35,7 @@ export function TaskFormPage() {
 const unitLabel: Record<Exclude<Recurrence, 'none'>, [string, string]> = { daily: ['dag', 'dage'], weekly: ['uge', 'uger'], monthly: ['måned', 'måneder'] }
 
 function TaskForm({ existing }: { existing?: Task }) {
-  const navigate = useNavigate()
+  const goBack = useGoBack()
   const { members } = useHousehold()
   const save = useSaveTask()
   const del = useDeleteTask()
@@ -70,7 +71,7 @@ function TaskForm({ existing }: { existing?: Task }) {
         id: existing?.id,
         input: { title, description, assigneeId: assignee === 'none' ? null : assignee, dueOn: due || null, priority, recurrence, interval },
       })
-      navigate('/hjemmet', { replace: true })
+      goBack('/hjemmet')
     } catch {
       // vises nedenfor
     }
@@ -188,7 +189,7 @@ function TaskForm({ existing }: { existing?: Task }) {
           <Button variant="secondary" onClick={() => setConfirmDelete(false)}>
             Annullér
           </Button>
-          <Button variant="danger" loading={del.isPending} onClick={() => existing && del.mutate(existing.id, { onSuccess: () => navigate('/hjemmet', { replace: true }) })}>
+          <Button variant="danger" loading={del.isPending} onClick={() => existing && del.mutate(existing.id, { onSuccess: () => goBack('/hjemmet') })}>
             Slet
           </Button>
         </div>

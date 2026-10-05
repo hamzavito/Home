@@ -1,6 +1,7 @@
 import { CalendarClock, Check, ExternalLink, RotateCcw, Trash2, XCircle } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { useGoBack } from '@/app/useGoBack'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -37,6 +38,7 @@ export function UpcomingFormPage() {
 
 function UpcomingForm({ existing }: { existing?: Upcoming }) {
   const navigate = useNavigate()
+  const goBack = useGoBack()
   const categories = useCategories()
   const save = useSaveUpcoming()
   const del = useDeleteUpcoming()
@@ -62,7 +64,7 @@ function UpcomingForm({ existing }: { existing?: Upcoming }) {
     if (!valid) return
     try {
       await save.mutateAsync({ id: existing?.id, input: { title, amountOre: ore!, dueOn: due, categoryId: categoryId!, note } })
-      navigate('/okonomi/kommende', { replace: true })
+      goBack('/okonomi/kommende')
     } catch {
       // vises nedenfor
     }
@@ -157,7 +159,7 @@ function UpcomingForm({ existing }: { existing?: Upcoming }) {
               <Button variant="secondary" onClick={() => setSheet(null)}>
                 Annullér
               </Button>
-              <Button variant="danger" loading={del.isPending} onClick={() => del.mutate(existing.id, { onSuccess: () => navigate('/okonomi/kommende', { replace: true }) })}>
+              <Button variant="danger" loading={del.isPending} onClick={() => del.mutate(existing.id, { onSuccess: () => goBack('/okonomi/kommende') })}>
                 Slet
               </Button>
             </div>

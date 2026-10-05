@@ -1,6 +1,7 @@
 import { Archive, ArchiveRestore, Landmark, Pause, Pencil, Play, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { useGoBack } from '@/app/useGoBack'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -57,6 +58,7 @@ export function FixedItemPage() {
 
 function FixedItemDetail({ item }: { item: FixedItem }) {
   const navigate = useNavigate()
+  const goBack = useGoBack()
   const { members } = useHousehold()
   const groups = useFixedGroups()
   const versions = useFixedVersions(item.id)
@@ -175,7 +177,7 @@ function FixedItemDetail({ item }: { item: FixedItem }) {
         {sheet === 'stop' && <StopForm item={item} onDone={() => setSheet(null)} />}
       </BottomSheet>
       <BottomSheet open={sheet === 'delete'} onClose={() => setSheet(null)} title="Slet fast post?">
-        {sheet === 'delete' && <DeleteForm item={item} onDone={() => navigate('/okonomi/faste', { replace: true })} onCancel={() => setSheet(null)} />}
+        {sheet === 'delete' && <DeleteForm item={item} onDone={() => goBack('/okonomi/faste')} onCancel={() => setSheet(null)} />}
       </BottomSheet>
     </>
   )

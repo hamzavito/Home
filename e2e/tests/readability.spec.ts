@@ -19,7 +19,7 @@ const PAGES: Array<[string, string, string?]> = [
   ['kalender', '/hjemmet/kalender', 'Kommende'],
   ['ny-aftale', '/hjemmet/kalender/ny', 'Hele dagen'],
   ['mere', '/mere', 'Mere'],
-  ['indstillinger', '/indstillinger', 'Udseende'],
+  ['indstillinger', '/indstillinger', 'Standardvalg'],
   ['login', '/login'],
   ['glemt-adgangskode', '/glemt-adgangskode', 'Nulstil adgangskode'],
 ]

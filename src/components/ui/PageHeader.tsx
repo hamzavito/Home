@@ -1,12 +1,14 @@
 import { ChevronLeft } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
+import { useGoBack } from '@/app/useGoBack'
 
 type Props = { title: string; eyebrow?: string; back?: boolean | string; action?: ReactNode }
 
-/** Sidehoved. `back` viser en rund tilbage-knap (true = historik, streng = sti). */
+/** Sidehoved. `back` viser en rund tilbage-knap (true = historik, streng = sti hvis der ingen historik er). */
 export function PageHeader({ title, eyebrow, back, action }: Props) {
   const navigate = useNavigate()
+  const goBack = useGoBack()
   return (
     <header className="pb-3 pt-3">
       {back && (
@@ -14,7 +16,7 @@ export function PageHeader({ title, eyebrow, back, action }: Props) {
           <button
             type="button"
             aria-label="Tilbage"
-            onClick={() => (typeof back === 'string' ? navigate(back) : navigate(-1))}
+            onClick={() => (typeof back === 'string' ? goBack(back) : navigate(-1))}
             className="pressable -ml-1 flex size-10 items-center justify-center rounded-full bg-surface-primary shadow-card"
           >
             <ChevronLeft className="size-5" strokeWidth={2.5} />

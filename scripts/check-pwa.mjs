@@ -1,7 +1,7 @@
 // Tjekker det byggede PWA-output (kør efter `npm run build`).
 // Fejler hvis noget, der er vigtigt for installation på iPhone eller for
 // privatlivet (ingen data i service worker-cachen), er gået i stykker.
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 
 const fail = []
 const ok = (cond, msg) => (cond ? console.log('✓', msg) : fail.push(msg))
@@ -25,6 +25,10 @@ const sw = readFileSync('dist/sw.js', 'utf8')
 ok(!/supabase\.co/.test(sw), 'service worker: cacher ikke Supabase-data')
 ok(!sw.includes('splash/') && !sw.includes('ocr/dan'), 'service worker: precacher ikke startskærme eller OCR-data')
 ok(sw.includes('index.html'), 'service worker: app-skal precaches (offline-start)')
+
+// Ingen hemmeligheder i det, der sendes til browseren
+const bundle = readdirSync('dist/assets').filter((f) => f.endsWith('.js')).map((f) => readFileSync(`dist/assets/${f}`, 'utf8')).join('\n')
+ok(!/service_role|SERVICE_ROLE_KEY|CLEANUP_SECRET|BACKUP_PASSPHRASE|SUPABASE_DB_URL/.test(bundle), 'bundle: ingen service role-nøgle eller andre hemmeligheder')
 
 if (fail.length) {
   console.error('\n✗ PWA-tjek fejlede:\n  ' + fail.join('\n  '))

@@ -1,6 +1,7 @@
 import { CalendarDays, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router'
+import { useParams, useSearchParams } from 'react-router'
+import { useGoBack } from '@/app/useGoBack'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -30,7 +31,7 @@ export function EventFormPage() {
 }
 
 function EventForm({ existing }: { existing?: CalendarEvent }) {
-  const navigate = useNavigate()
+  const goBack = useGoBack()
   const [params] = useSearchParams()
   const { members } = useHousehold()
   const save = useSaveEvent()
@@ -67,7 +68,7 @@ function EventForm({ existing }: { existing?: CalendarEvent }) {
         id: existing?.id,
         input: { title, date, endDate: multiDay ? endDate : null, allDay, startTime: allDay ? null : start, endTime: allDay ? null : end || null, description, type },
       })
-      navigate(back, { replace: true })
+      goBack(back)
     } catch {
       // vises nedenfor
     }
@@ -184,7 +185,7 @@ function EventForm({ existing }: { existing?: CalendarEvent }) {
           <Button variant="secondary" onClick={() => setConfirmDelete(false)}>
             Annullér
           </Button>
-          <Button variant="danger" loading={del.isPending} onClick={() => existing && del.mutate(existing.id, { onSuccess: () => navigate('/hjemmet/kalender', { replace: true }) })}>
+          <Button variant="danger" loading={del.isPending} onClick={() => existing && del.mutate(existing.id, { onSuccess: () => goBack('/hjemmet/kalender') })}>
             Slet
           </Button>
         </div>

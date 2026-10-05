@@ -1,12 +1,13 @@
 import { ChevronRight, Trash2, WalletCards } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { sections } from '@/app/sections'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { AmountInput, Field, TextArea, TextInput } from '@/components/ui/Field'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { useGoBack } from '@/app/useGoBack'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { FullScreenLoader } from '@/components/ui/Spinner'
 import { useHousehold } from '@/features/household/HouseholdProvider'
@@ -37,7 +38,6 @@ export function TransactionFormPage() {
 
 function TransactionForm({ existing, categories }: { existing: Transaction | null; categories: NonNullable<ReturnType<typeof useCategories>['data']> }) {
   const navigate = useNavigate()
-  const location = useLocation()
   const { members, me } = useHousehold()
   const save = useSaveTransaction()
   const del = useDeleteTransaction()
@@ -63,7 +63,8 @@ function TransactionForm({ existing, categories }: { existing: Transaction | nul
   }
   const valid = !errors.amount && !errors.description && !errors.category
 
-  const goBack = () => (location.key === 'default' ? navigate('/okonomi') : navigate(-1))
+  const back = useGoBack()
+  const goBack = () => back('/okonomi')
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()

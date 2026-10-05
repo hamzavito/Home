@@ -150,6 +150,18 @@ export function useTasks() {
   })
 }
 
+export function useTask(id: string | undefined) {
+  return useQuery({
+    queryKey: ['home', 'task', id],
+    enabled: Boolean(id),
+    queryFn: async () => {
+      const { data, error } = await supabase.from('household_tasks').select('*').eq('id', id!).maybeSingle()
+      if (error) throw error
+      return data
+    },
+  })
+}
+
 export type TaskInput = {
   title: string
   description: string | null
