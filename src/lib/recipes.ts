@@ -176,3 +176,70 @@ export function withSuggestions(suggestions: string[], used: Iterable<string>): 
 export function cleanTag(tag: string): string {
   return tag.trim().replace(/\s+/g, ' ').slice(0, 30).trim()
 }
+
+// ------------------------------------------------------------------ ingredienslinjer (fra links)
+// Danske og engelske stavemåder → appens enheder
+const UNIT_WORDS: Array<[RegExp, Unit]> = [
+  [/^(g|gr|gram|grams?)\.?$/i, 'g'],
+  [/^(kg|kilo|kilogram)\.?$/i, 'kg'],
+  [/^(ml|milliliter)\.?$/i, 'ml'],
+  [/^(dl|deciliter)\.?$/i, 'dl'],
+  [/^(l|ltr|liter|litre)\.?$/i, 'l'],
+  [/^(stk|styk|stykker|pcs)\.?$/i, 'stk'],
+  [/^(spsk|spiseske|spiseskeer|spsk\.|tbsp|el)\.?$/i, 'spsk'],
+  [/^(tsk|teske|teskeer|tsp|tl)\.?$/i, 'tsk'],
+  [/^(fed)$/i, 'fed'],
+  [/^(dåse|dåser|ds)\.?$/i, 'dåse'],
+  [/^(pakke|pakker|pk)\.?$/i, 'pakke'],
+  [/^(pose|poser)$/i, 'pose'],
+  [/^(bundt|bundter|bdt)\.?$/i, 'bundt'],
+  [/^(skive|skiver)$/i, 'skive'],
+  [/^(knsp|knivspids|knivsspids)\.?$/i, 'knsp'],
+]
+
+export type ParsedIngredient = { name: string; amount_milli: number | null; unit: Unit | null; note: string | null }
+
+/**
+ * "700 g kyllingebryst" · "2 løg, hakket" · "½ tsk salt" · "1,5 dl fløde" · "2-3 fed hvidløg" · "Salt og peber".
+ * Kan mængden ikke læses sikkert, bliver hele linjen navnet (intet gæt).
+ */
+export function parseIngredientLine(line: string): ParsedIngredient {
+  let s = line.replace(/\s+/g, ' ').replace(/^[-•*·]\s*/, '').trim()
+  let note: string | null = null
+  // "(ca. 400 g)" og alt efter første komma er en note
+  const paren = /\s*\(([^)]*)\)\s*/.exec(s)
+  if (paren) {
+    note = paren[1]!.trim() || null
+    s = (s.slice(0, paren.index) + ' ' + s.slice(paren.index + paren[0].length)).trim()
+  }
+  // Første komma der ikke er et decimalkomma (1,5 dl)
+  const comma = [...s].findIndex((ch, i) => ch === ',' && !(/\d/.test(s[i - 1] ?? '') && /\d/.test(s[i + 1] ?? '')))
+  if (comma > 0) {
+    const rest = s.slice(comma + 1).trim()
+    s = s.slice(0, comma).trim()
+    note = [rest, note].filter(Boolean).join(' – ') || null
+  }
+  s = s.replace(/^ca\.?\s+/i, '')
+
+  // Mængde: tal, decimal, brøk, "1 ½", interval "2-3" (første tal bruges)
+  const m = /^(\d+(?:[.,]\d+)?(?:\s?[½¼¾⅓⅔])?|[½¼¾⅓⅔]|\d+\/\d+|\d+ \d+\/\d+)(?:\s?[-–]\s?\d+(?:[.,]\d+)?)?\s*(.*)$/.exec(s)
+  if (!m) return { name: cap(s), amount_milli: null, unit: null, note }
+  const amount = parseAmount(m[1]!.replace(/(\d)([½¼¾⅓⅔])/, '$1 $2'))
+  if (amount === undefined || amount === null) return { name: cap(s), amount_milli: null, unit: null, note }
+  let rest = m[2]!.trim()
+  let unit: Unit | null = null
+  // Første ord er enheden, hvis det er en kendt enhed ("500g" virker også – tallet er allerede taget)
+  const word = [rest.split(' ')[0] ?? '', rest.split(' ').slice(1).join(' ')]
+  const hit = UNIT_WORDS.find(([re]) => re.test(word[0]!))
+  if (hit && word[1]) {
+    unit = hit[1]
+    rest = word[1].trim()
+  }
+  if (!rest) return { name: cap(s), amount_milli: null, unit: null, note }
+  return { name: cap(rest), amount_milli: amount, unit: unit ?? 'stk', note }
+}
+
+function cap(s: string) {
+  const t = s.trim()
+  return t.charAt(0).toLocaleUpperCase('da-DK') + t.slice(1)
+}

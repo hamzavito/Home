@@ -125,7 +125,23 @@ export function RecipePage() {
         <>
           <SectionHeader title="Note" />
           <Card variant="tonal">
-            <p className="whitespace-pre-wrap text-[15px]">{r.note}</p>
+            <p className="whitespace-pre-wrap break-words text-[15px]">
+              {r.note.split(/(https?:\/\/\S+)/g).map((part, i) =>
+                /^https?:\/\//.test(part) ? (
+                  <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="font-semibold text-accent-text underline">
+                    {(() => {
+                      try {
+                        return new URL(part).hostname.replace(/^www\./, '')
+                      } catch {
+                        return part
+                      }
+                    })()}
+                  </a>
+                ) : (
+                  part
+                ),
+              )}
+            </p>
           </Card>
         </>
       )}

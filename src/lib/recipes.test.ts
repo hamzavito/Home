@@ -118,3 +118,42 @@ describe('uger', () => {
     expect(withSuggestions(['Kylling', 'Fisk'], ['fisk', 'Tapas', ' '])).toEqual(['Kylling', 'Fisk', 'Tapas'])
   })
 })
+
+import { parseIngredientLine } from './recipes'
+
+describe('ingrediens fra tekstlinje (opskrift fra link)', () => {
+  it.each([
+    ['700 g kyllingebryst', { name: 'Kyllingebryst', amount_milli: 700000, unit: 'g', note: null }],
+    ['500g hakket oksekød', { name: 'Hakket oksekød', amount_milli: 500000, unit: 'g', note: null }],
+    ['2 løg, hakket', { name: 'Løg', amount_milli: 2000, unit: 'stk', note: 'hakket' }],
+    ['½ tsk salt', { name: 'Salt', amount_milli: 500, unit: 'tsk', note: null }],
+    ['1,5 dl fløde', { name: 'Fløde', amount_milli: 1500, unit: 'dl', note: null }],
+    ['2-3 fed hvidløg', { name: 'Hvidløg', amount_milli: 2000, unit: 'fed', note: null }],
+    ['1 dåse hakkede tomater (400 g)', { name: 'Hakkede tomater', amount_milli: 1000, unit: 'dåse', note: '400 g' }],
+    ['2 spiseskeer olie', { name: 'Olie', amount_milli: 2000, unit: 'spsk', note: null }],
+    ['1 kilo kartofler', { name: 'Kartofler', amount_milli: 1000, unit: 'kg', note: null }],
+    ['ca. 1 liter vand', { name: 'Vand', amount_milli: 1000, unit: 'l', note: null }],
+    ['1 ½ dl ris', { name: 'Ris', amount_milli: 1500, unit: 'dl', note: null }],
+    ['4 æg', { name: 'Æg', amount_milli: 4000, unit: 'stk', note: null }],
+    ['salt og peber', { name: 'Salt og peber', amount_milli: null, unit: null, note: null }],
+    ['- 1 bundt persille', { name: 'Persille', amount_milli: 1000, unit: 'bundt', note: null }],
+  ])('"%s"', (line, expected) => {
+    expect(parseIngredientLine(line)).toEqual(expected)
+  })
+})
+
+describe('rigtige ingredienslinjer (Arla, Kylling i karry)', () => {
+  it('fortolkes til mængde, enhed, navn og note', () => {
+    const lines = ['25 g smør', '2 tsk karry', '3 finthakkede løg', '400 g grøntsager i mindre stykker, fx blomkål, gulerødder og forårsløg', '2½ dl grøntsagsbouillon', '1½ tsk groft salt', 'friskkværnet peber', '4 dl løse ris, parboiled - koges']
+    expect(lines.map(parseIngredientLine)).toEqual([
+      { name: 'Smør', amount_milli: 25000, unit: 'g', note: null },
+      { name: 'Karry', amount_milli: 2000, unit: 'tsk', note: null },
+      { name: 'Finthakkede løg', amount_milli: 3000, unit: 'stk', note: null },
+      { name: 'Grøntsager i mindre stykker', amount_milli: 400000, unit: 'g', note: 'fx blomkål, gulerødder og forårsløg' },
+      { name: 'Grøntsagsbouillon', amount_milli: 2500, unit: 'dl', note: null },
+      { name: 'Groft salt', amount_milli: 1500, unit: 'tsk', note: null },
+      { name: 'Friskkværnet peber', amount_milli: null, unit: null, note: null },
+      { name: 'Løse ris', amount_milli: 4000, unit: 'dl', note: 'parboiled - koges' },
+    ])
+  })
+})

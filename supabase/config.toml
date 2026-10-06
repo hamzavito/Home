@@ -18,3 +18,7 @@ verify_jwt = false
 # Kaldes af private.push_tick() (pg_net) med en delt hemmelighed (x-push-secret).
 [functions.send-push]
 verify_jwt = false
+
+# Kræver login (JWT); funktionen tjekker desuden selv, at det er en rigtig bruger.
+[functions.import-recipe]
+verify_jwt = true

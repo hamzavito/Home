@@ -816,6 +816,25 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
       return json(db.profiles!.map((pr, i) => ({ user_id: pr.id, role: 'owner', created_at: `2026-01-0${i + 1}`, profiles: { display_name: pr.display_name, color: pr.color, default_paid_by: pr.default_paid_by } })))
     }
 
+    // ---------------- Edge Function: opskrift fra link (demo: fast eksempel)
+    if (p === '/functions/v1/import-recipe') {
+      const link = String(body?.url ?? '')
+      if (!/^https?:\/\/[^/]+\.[a-z]{2,}/i.test(link)) return json({ ok: false, error: 'invalid_url' })
+      if (!link.includes('kylling')) return json({ ok: false, error: 'no_recipe' })
+      return json({
+        ok: true,
+        source: link,
+        recipe: {
+          name: 'Kylling i karry',
+          description: 'Mild og cremet familieret',
+          servings: 4,
+          prepMinutes: 45,
+          ingredients: ['25 g smør', '2 tsk karry', '3 finthakkede løg', '300 g kyllingeinderfileter', '2½ dl grøntsagsbouillon', 'friskkværnet peber', '4 dl løse ris, parboiled - koges'],
+          steps: '1. Smelt smørret og svits karry.\n2. Tilsæt løg og kylling.',
+        },
+      })
+    }
+
     // ---------------- RPC
     if (p.startsWith('/rest/v1/rpc/')) {
       const fn = rpcs[p.slice('/rest/v1/rpc/'.length)]

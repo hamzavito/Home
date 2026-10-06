@@ -250,3 +250,34 @@ export function useSetGroceryCategory() {
     onSuccess: () => qc.invalidateQueries({ queryKey: householdQueryKey(session?.user.id) }),
   })
 }
+
+// ---------------------------------------------------------------- opskrift fra link
+export type ImportedRecipe = {
+  name: string
+  description: string | null
+  servings: number | null
+  prepMinutes: number | null
+  ingredients: string[]
+  steps: string | null
+}
+
+type ImportResult = { ok: true; recipe: ImportedRecipe; source: string } | { ok: false; error: 'invalid_url' | 'no_recipe' | 'fetch_failed' | 'unauthorized' }
+
+export function importErrorMessage(code: string): string {
+  if (code === 'invalid_url') return 'Det ligner ikke et gyldigt link. Kopiér adressen fra opskriftssiden og prøv igen.'
+  if (code === 'no_recipe') return 'Vi kunne ikke finde en opskrift på siden. Nogle sider viser ikke opskriften i et format, appen kan læse – så må den skrives ind.'
+  if (code === 'unauthorized') return 'Du er ikke logget ind. Log ind igen og prøv igen.'
+  return 'Siden kunne ikke hentes lige nu. Tjek linket eller prøv igen om lidt.'
+}
+
+/** Hent en opskrift fra et link (via Edge Functionen import-recipe) */
+export function useImportRecipe() {
+  return useMutation({
+    mutationFn: async (url: string): Promise<{ recipe: ImportedRecipe; source: string }> => {
+      const { data, error } = await supabase.functions.invoke<ImportResult>('import-recipe', { body: { url } })
+      if (error || !data) throw new Error((error as { context?: { status?: number } } | null)?.context?.status === 401 ? 'unauthorized' : 'fetch_failed')
+      if (!data.ok) throw new Error(data.error)
+      return { recipe: data.recipe, source: data.source }
+    },
+  })
+}

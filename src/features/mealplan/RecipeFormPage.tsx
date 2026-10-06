@@ -1,4 +1,4 @@
-import { BookOpen, Plus, Trash2, X } from 'lucide-react'
+import { BookOpen, Link2, Plus, Trash2, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { BottomSheet } from '@/components/ui/BottomSheet'
@@ -10,8 +10,8 @@ import { FullScreenLoader } from '@/components/ui/Spinner'
 import { Stepper } from '@/components/ui/Stepper'
 import { Toggle } from '@/components/ui/Toggle'
 import { cn } from '@/lib/cn'
-import { CATEGORY_SUGGESTIONS, cleanTag, formatAmount, normalizeName, parseAmount, TAG_SUGGESTIONS, UNITS, withSuggestions } from '@/lib/recipes'
-import { mealErrorMessage, useArchiveRecipe, useRecipe, useRecipes, useSaveRecipe, type RecipeWithIngredients } from './api'
+import { CATEGORY_SUGGESTIONS, cleanTag, formatAmount, normalizeName, parseAmount, parseIngredientLine, TAG_SUGGESTIONS, UNITS, withSuggestions } from '@/lib/recipes'
+import { importErrorMessage, mealErrorMessage, useArchiveRecipe, useImportRecipe, useRecipe, useRecipes, useSaveRecipe, type ImportedRecipe, type RecipeWithIngredients } from './api'
 
 type Row = { key: number; amount: string; unit: string; name: string; note: string }
 
@@ -53,6 +53,9 @@ function RecipeForm({ existing }: { existing?: RecipeWithIngredients }) {
   const [note, setNote] = useState(existing?.note ?? '')
   const [favorite, setFavorite] = useState(existing?.is_favorite ?? false)
   const [touched, setTouched] = useState(false)
+  const [link, setLink] = useState('')
+  const [imported, setImported] = useState<string | null>(null)
+  const importRecipe = useImportRecipe()
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const usedCategories = (all.data ?? []).map((r) => r.category).filter((c): c is string => Boolean(c))
@@ -68,6 +71,23 @@ function RecipeForm({ existing }: { existing?: RecipeWithIngredients }) {
     amounts: amountErrors.some(Boolean),
   }
   const valid = !errors.name && !errors.prep && !errors.amounts
+
+  /** Udfyld formularen med en opskrift fra et link – brugeren tjekker og gemmer selv */
+  function fillFrom(r: ImportedRecipe, source: string) {
+    setName(r.name)
+    setDescription(r.description ?? '')
+    if (r.servings) setServings(r.servings)
+    setPrep(r.prepMinutes ? String(r.prepMinutes) : '')
+    setSteps(r.steps ?? '')
+    setNote((n) => [n.trim(), `Kilde: ${source}`].filter(Boolean).join('\n'))
+    const parsed = r.ingredients.map(parseIngredientLine)
+    setRows(
+      parsed.length
+        ? parsed.map((p) => ({ key: rowKey++, amount: p.amount_milli === null ? '' : formatAmount(p.amount_milli), unit: p.unit ?? '', name: p.name.slice(0, 80), note: (p.note ?? '').slice(0, 200) }))
+        : [emptyRow(), emptyRow(), emptyRow()],
+    )
+    setImported(new URL(source).hostname.replace(/^www\./, ''))
+  }
 
   function updateRow(key: number, patch: Partial<Row>) {
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)))
@@ -125,6 +145,42 @@ function RecipeForm({ existing }: { existing?: RecipeWithIngredients }) {
           )
         }
       />
+
+      {!existing && (
+        <div className="mb-5 rounded-card bg-notice-soft p-4">
+          <p className="flex items-center gap-2 text-[15px] font-semibold">
+            <Link2 className="size-4.5 text-notice" /> Hent fra link
+          </p>
+          <p className="mt-0.5 text-[13px] text-secondary">Indsæt linket til en opskrift, fx fra Arla eller Valdemarsro. Du tjekker den, før den gemmes.</p>
+          <form
+            className="mt-3 flex gap-2"
+            noValidate
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (!link.trim() || importRecipe.isPending) return
+              setImported(null)
+              importRecipe.mutate(link.trim(), { onSuccess: ({ recipe, source }) => fillFrom(recipe, source) })
+            }}
+          >
+            <TextInput
+              type="url"
+              inputMode="url"
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              placeholder="https://…"
+              aria-label="Link til opskrift"
+              autoCapitalize="none"
+              autoCorrect="off"
+              className="flex-1"
+            />
+            <Button type="submit" className="h-13 shrink-0" disabled={!link.trim()} loading={importRecipe.isPending}>
+              Hent
+            </Button>
+          </form>
+          {importRecipe.isError && <p className="mt-2 text-[13px] font-medium text-danger">{importErrorMessage(importRecipe.error.message)}</p>}
+          {imported && <p className="mt-2 text-[13px] font-semibold text-positive">Hentet fra {imported}. Tjek ingredienserne og gem.</p>}
+        </div>
+      )}
 
       <form onSubmit={onSubmit} className="space-y-5" noValidate>
         <Field label="Navn" error={touched ? errors.name : null}>
