@@ -105,8 +105,64 @@ describe('parseReceiptText', () => {
     expect(r.total).toEqual({ ore: 12000, confidence: 'high' })
   })
 
+  it('Rema: "NETTO" i momslinjen er ikke butikken, og nettobeløbet er ikke totalen', () => {
+    const r = parseReceiptText('REMA 1000\nAGURK 8,00\nOST 42,00\nTOTAL 50,00\nKORT 50,00\nMOMS 25% 10,00\nNETTO 40,00', today)
+    expect(r.merchant?.value).toBe('Rema 1000')
+    expect(r.total).toEqual({ ore: 5000, confidence: 'high' })
+  })
+
+  it('OCR-fejl i nøgleordet: T0TAL, IOTAL og I AIT', () => {
+    expect(parseReceiptText('VARE 10,00\nT0TAL 99,00\nDANKORT 99,00', today).total?.ore).toBe(9900)
+    expect(parseReceiptText('VARE 10,00\nIOTAL 99,00', today).total?.ore).toBe(9900)
+    expect(parseReceiptText('VARE 10,00\nI AIT 99,00', today).total?.ore).toBe(9900)
+  })
+
+  it('"TOTAL 12 STK" og "TOTAL INKL. PANT" er totalen; antal/pant alene er ikke', () => {
+    expect(parseReceiptText('MÆLK 10,00\nTOTAL 12 STK 187,85', today).total?.ore).toBe(18785)
+    expect(parseReceiptText('MÆLK 10,00\nPANT 3,00\nTOTAL INKL. PANT 13,00', today).total?.ore).toBe(1300)
+  })
+
+  it('bonus, saldo og "sparet i år" er aldrig totalen', () => {
+    const text = 'COOP 365\nBRØD 20,00\nMÆLK 12,00\nTOTAL 32,00\nMOBILEPAY 32,00\nBonus i alt 0,64\nDu har sparet i år 1.245,50\nBonussaldo 312,40'
+    const r = parseReceiptText(text, today)
+    expect(r.total).toEqual({ ore: 3200, confidence: 'high' })
+    expect(r.alternatives).not.toContain(124550)
+  })
+
+  it('kontant: "Givet" og byttepenge er ikke totalen', () => {
+    const r = parseReceiptText('VARE 45,00\nI ALT 45,00\nGivet 100,00\nByttepenge 55,00', today)
+    expect(r.total).toEqual({ ore: 4500, confidence: 'high' })
+  })
+
+  it('totalen kan ikke læses: betalingslinjen bruges', () => {
+    const r = parseReceiptText('VARE A 20,00\nVARE B 30,00\nT*T#L\nDankort-Contactless 50,00', today)
+    expect(r.total?.ore).toBe(5000)
+  })
+
+  it('uden nøgleord: beløbet der står flere gange vinder over det største', () => {
+    const r = parseReceiptText('VARE 12,00\nVARE 48,50\n60,50\nKUNDEKLUB 2.000,00\n60,50', today)
+    expect(r.total).toEqual({ ore: 6050, confidence: 'medium' })
+    expect(r.alternatives).toContain(200000)
+  })
+
+  it('summen af varerne bekræfter totalen (også med rabat)', () => {
+    const r = parseReceiptText('KAFFE 49,95\nKYLLING 59,00\nRABAT KYLLING -10,00\nTOTAL 98,95', today)
+    expect(r.total).toEqual({ ore: 9895, confidence: 'high' })
+  })
+
+  it('giver andre sandsynlige beløb at vælge imellem', () => {
+    const r = parseReceiptText('VARE 10,00\nSUM 10,00\nTOTAL 120,00\nBELØB 12,00', today)
+    expect(r.total?.ore).toBe(12000)
+    expect(r.alternatives.length).toBeGreaterThan(0)
+    expect(r.alternatives).not.toContain(12000)
+  })
+
+  it('semikolon fra OCR i stedet for komma', () => {
+    expect(amountsInLine('TOTAL 219;35')).toEqual([21935])
+  })
+
   it('ingen tekst', () => {
-    expect(parseReceiptText('', today)).toEqual({ merchant: null, merchantHint: null, date: null, total: null })
+    expect(parseReceiptText('', today)).toEqual({ merchant: null, merchantHint: null, date: null, total: null, alternatives: [] })
   })
 })
 

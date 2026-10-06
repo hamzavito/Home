@@ -7,14 +7,15 @@ import { Card } from '@/components/ui/Card'
 import { AmountInput, Field, TextInput } from '@/components/ui/Field'
 import { Money } from '@/components/ui/Money'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
-import { useCategories } from '@/features/finance/api'
+import { Toggle } from '@/components/ui/Toggle'
+import { useCategories, useSaveTransaction } from '@/features/finance/api'
 import { CategoryPicker } from '@/features/finance/CategoryPicker'
 import { decodePaidBy, defaultPaidBy, paidByOptions } from '@/features/finance/paidBy'
 import { useHousehold } from '@/features/household/HouseholdProvider'
 import { cn } from '@/lib/cn'
 import { formatLongDate, fromIsoDate, toIsoDate } from '@/lib/dates'
 import { compressReceiptImage } from '@/lib/image'
-import { parseKr, toInputValue } from '@/lib/money'
+import { formatKr, parseKr, toInputValue } from '@/lib/money'
 import { parseReceiptText, type Confidence, type ParsedReceipt } from '@/lib/receipt-parser'
 import { deleteDateFor, type Retention } from '@/lib/retention'
 import {
@@ -39,6 +40,7 @@ export function ScanPage() {
   const { me, members, defaultRetention: householdRetention } = useHousehold()
   const categories = useCategories()
   const approve = useApproveReceipt()
+  const saveTransaction = useSaveTransaction()
 
   const [phase, setPhase] = useState<Phase>('pick')
   const [error, setError] = useState<string | null>(null)
@@ -54,6 +56,7 @@ export function ScanPage() {
   const [merchant, setMerchant] = useState('')
   const [merchantHint, setMerchantHint] = useState<string | null>(null)
   const [amount, setAmount] = useState('')
+  const [amountChoices, setAmountChoices] = useState<number[]>([])
   const [date, setDate] = useState(toIsoDate(new Date()))
   const [confidence, setConfidence] = useState<{ merchant?: Confidence; amount?: Confidence; date?: Confidence }>({})
   const [categoryId, setCategoryId] = useState<string | null>(null)
@@ -61,7 +64,9 @@ export function ScanPage() {
   const [paidBy, setPaidBy] = useState(defaultPaidBy(me))
   const [retention, setRetention] = useState<Retention>(householdRetention)
   const [customDate, setCustomDate] = useState<string | null>(null)
-  const [result, setResult] = useState<{ amountOre: number; merchant: string; category: string } | null>(null)
+  // Fra: kun udgiften gemmes, billedet slettes med det samme
+  const [keepImage, setKeepImage] = useState(true)
+  const [result, setResult] = useState<{ amountOre: number; merchant: string; category: string; imageKept: boolean } | null>(null)
 
   const pending = useRef<Pending | null>(null)
   const blobRef = useRef<Blob | null>(null)
@@ -127,6 +132,7 @@ export function ScanPage() {
     if (parsed.merchant) setMerchant(parsed.merchant.value)
     setMerchantHint(parsed.merchantHint)
     if (parsed.total) setAmount(toInputValue(parsed.total.ore))
+    setAmountChoices(parsed.total ? [parsed.total.ore, ...parsed.alternatives] : parsed.alternatives)
     if (parsed.date) setDate(parsed.date.value)
     setConfidence({ merchant: parsed.merchant?.confidence, amount: parsed.total?.confidence, date: parsed.date?.confidence })
     if (parsed.merchant) {
@@ -194,11 +200,14 @@ export function ScanPage() {
   }
   const reviewValid = !reviewErrors.merchant && !reviewErrors.amount && !reviewErrors.date
   const deleteIso = deleteDateFor(retention, toIsoDate(new Date()), customDate)
-  const detailsValid = Boolean(categoryId) && (retention !== 'custom' || Boolean(customDate && customDate > toIsoDate(new Date())))
+  const detailsValid = Boolean(categoryId) && (!keepImage || retention !== 'custom' || Boolean(customDate && customDate > toIsoDate(new Date())))
+  const saving = approve.isPending || saveTransaction.isPending
 
   async function onApprove() {
     const p = pending.current
-    if (!p || !categoryId || !amountOre || approving.current) return
+    if (!categoryId || !amountOre || approving.current) return
+    if (!keepImage) return onSaveWithoutImage()
+    if (!p) return
     approving.current = true
     setError(null)
     try {
@@ -216,7 +225,28 @@ export function ScanPage() {
       })
       approved.current = true
       const cat = activeCategories.find((c) => c.id === categoryId)
-      setResult({ amountOre, merchant: merchant.trim(), category: cat?.name ?? '' })
+      setResult({ amountOre, merchant: merchant.trim(), category: cat?.name ?? '', imageKept: true })
+      setPhase('done')
+    } catch (e) {
+      setError(receiptErrorMessage(e))
+    } finally {
+      approving.current = false
+    }
+  }
+
+  /** Kun udgiften gemmes – billedet (og den midlertidige kvittering) slettes med det samme */
+  async function onSaveWithoutImage() {
+    if (!categoryId || !amountOre) return
+    approving.current = true
+    setError(null)
+    try {
+      await saveTransaction.mutateAsync({
+        input: { categoryId, amountOre, occurredOn: date, description: merchant, note: null, paidBy: decodePaidBy(paidBy) },
+      })
+      // Udgiften er gemt: fjern billedet. Fejler det, rydder den daglige oprydning op.
+      await discard()
+      const cat = activeCategories.find((c) => c.id === categoryId)
+      setResult({ amountOre, merchant: merchant.trim(), category: cat?.name ?? '', imageKept: false })
       setPhase('done')
     } catch (e) {
       setError(receiptErrorMessage(e))
@@ -341,6 +371,31 @@ export function ScanPage() {
                 aria-label="Beløb i kroner"
               />
               <FieldNote confidence={confidence.amount} missing={!amount} what="beløbet" />
+              {amountChoices.length > 1 && (
+                <div className="mt-2.5">
+                  <p className="mb-1.5 px-1 text-[13px] text-secondary">Beløb på kvitteringen – tryk for at vælge</p>
+                  <div role="radiogroup" aria-label="Beløb på kvitteringen" className="flex flex-wrap gap-2">
+                    {amountChoices.map((ore) => (
+                      <button
+                        key={ore}
+                        type="button"
+                        role="radio"
+                        aria-checked={amountOre === ore}
+                        onClick={() => {
+                          setAmount(toInputValue(ore))
+                          setConfidence((c) => ({ ...c, amount: 'high' }))
+                        }}
+                        className={cn(
+                          'pressable tabular h-10 rounded-full px-4 text-[15px] font-semibold transition-colors',
+                          amountOre === ore ? 'bg-accent text-on-accent' : 'bg-surface-primary text-primary shadow-card',
+                        )}
+                      >
+                        {formatKr(ore, { decimals: 'always' })}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <Field label="Butik" error={null}>
@@ -424,20 +479,34 @@ export function ScanPage() {
             </div>
 
             <div>
-              <p className="mb-1.5 px-1 text-[13px] font-semibold text-secondary">Gem kvitteringsbilledet</p>
-              <RetentionPicker value={retention} customDate={customDate} onChange={(r, d) => {
-                  setRetention(r)
-                  setCustomDate(d)
-                }} deleteIso={deleteIso} />
+              <div className="mb-3 overflow-hidden rounded-2xl bg-surface-primary shadow-card ring-1 ring-subtle">
+                <Toggle
+                  label="Gem kvitteringsbilledet"
+                  hint={keepImage ? undefined : 'Kun udgiften gemmes. Billedet slettes med det samme.'}
+                  checked={keepImage}
+                  onChange={setKeepImage}
+                />
+              </div>
+              {keepImage && (
+                <RetentionPicker
+                  value={retention}
+                  customDate={customDate}
+                  onChange={(r, d) => {
+                    setRetention(r)
+                    setCustomDate(d)
+                  }}
+                  deleteIso={deleteIso}
+                />
+              )}
             </div>
           </div>
 
           {error && <ErrorBox className="mt-4">{error}</ErrorBox>}
           <StickyAction>
-            <Button block disabled={!detailsValid || !reviewValid || uploadStatus !== 'done'} loading={approve.isPending} onClick={onApprove}>
-              {uploadStatus === 'running' ? 'Gemmer billede …' : 'Godkend og gem'}
+            <Button block disabled={!detailsValid || !reviewValid || (keepImage && uploadStatus !== 'done')} loading={saving} onClick={onApprove}>
+              {!keepImage ? 'Gem udgift uden billede' : uploadStatus === 'running' ? 'Gemmer billede …' : 'Godkend og gem'}
             </Button>
-            {uploadStatus === 'error' && (
+            {keepImage && uploadStatus === 'error' && (
               <Button block variant="ghost" className="mt-1" onClick={retryUpload}>
                 Prøv upload igen
               </Button>
@@ -453,18 +522,20 @@ export function ScanPage() {
             <span className="flex size-20 items-center justify-center rounded-full bg-positive-soft [animation:pop_420ms_var(--ease-spring)_both]">
               <Check className="size-10 text-positive" strokeWidth={3} />
             </span>
-            <h2 className="mt-5 text-[26px] font-bold tracking-tight">Kvitteringen er gemt</h2>
+            <h2 className="mt-5 text-[26px] font-bold tracking-tight">{result.imageKept ? 'Kvitteringen er gemt' : 'Udgiften er gemt'}</h2>
             <p className="mt-2 text-[15px] text-secondary">
               <Money ore={result.amountOre} size="sm" /> fra {result.merchant} er trukket fra {result.category}.
             </p>
-            <p className="mt-1 text-[13px] text-muted">{deleteIso ? `Billedet slettes automatisk ${formatLongDate(fromIsoDate(deleteIso))}.` : 'Billedet beholdes permanent.'}</p>
+            <p className="mt-1 text-[13px] text-muted">
+              {!result.imageKept ? 'Kvitteringsbilledet er ikke gemt.' : deleteIso ? `Billedet slettes automatisk ${formatLongDate(fromIsoDate(deleteIso))}.` : 'Billedet beholdes permanent.'}
+            </p>
           </div>
           <div className="mt-10 space-y-3">
             <Button block onClick={() => navigate('/', { replace: true })}>
               Til forsiden
             </Button>
-            <Button block variant="surface" onClick={() => navigate('/kvitteringer', { replace: true })}>
-              Se kvitteringer
+            <Button block variant="surface" onClick={() => navigate(result.imageKept ? '/kvitteringer' : '/okonomi/transaktioner', { replace: true })}>
+              {result.imageKept ? 'Se kvitteringer' : 'Se udgifter'}
             </Button>
           </div>
         </>

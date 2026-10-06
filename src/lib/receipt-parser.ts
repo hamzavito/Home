@@ -9,6 +9,8 @@ export type ParsedReceipt = {
   merchantHint: string | null
   date: { value: string; confidence: Confidence } | null
   total: { ore: number; confidence: Confidence } | null
+  /** Andre sandsynlige totaler (højst 3), mest sandsynlige først */
+  alternatives: number[]
 }
 
 // ------------------------------------------------------------------ butikker
@@ -58,20 +60,28 @@ const CHAINS: Array<[string, RegExp]> = [
 const NOT_MERCHANT = /CVR|TLF|TEL\b|MOMS|KVITTERING|BON\b|KASSE|EKSPEDIENT|WWW|HTTP|@|VEJ\b|GADE\b|ALLE\b|PLADS\b|\d{4}\s+[A-ZÆØÅ]/
 
 // ------------------------------------------------------------------ beløb
-// Nøgleord for totalen, med prioritet (højere = stærkere)
+// Nøgleord for totalen, med vægt. Tåler typiske OCR-fejl (T0TAL, IOTAL, I AIT …).
 const TOTAL_KEYWORDS: Array<[RegExp, number]> = [
-  [/\bAT\s*BETALE\b/, 5],
-  [/\bTOTALT?\b/, 4],
-  [/\bI\s*ALT\b|\bIALT\b/, 4],
-  [/\bBEL[ØO0]B\b/, 3],
+  [/\bAT\s*BETALE\b/, 6],
+  [/\b[TI1][O0ØQ]T[A4][L1I]T?\b/, 5],
+  [/\bI\s*A[L1I]T\b|\bIA[L1I]T\b/, 5],
+  // Betalingslinjer bekræfter totalen (betalt beløb = total ved kortbetaling)
+  [/DANKORT|\bVISA\b|MASTER\s*CARD|MAESTRO|MOBILE\s*PAY|KORTBETALING|BETALINGSKORT|KREDITKORT|\bKORT\b|CONTACTLESS|APPLE\s*PAY|\bBETALT\b/, 3],
+  [/\bBEL[ØO0]B\b|\bK[ØO0]B\b|K[ØO0]BSBEL[ØO0]B/, 3],
   [/\bSUM\b/, 2],
 ]
-// Linjer der ligner totalen, men ikke er det
-const NOT_TOTAL = /SUBTOTAL|MOMS|RABAT|BESPAR|BYTTEPENGE|RETUR|TILBAGE|PANT|ANTAL|STK\b|KONTANT\s*MODTAGET|POINT/
+const STRONG = /\bAT\s*BETALE\b|\b[TI1][O0ØQ]T[A4][L1I]T?\b|\bI\s*A[L1I]T\b|\bIA[L1I]T\b/
+// Linjer med beløb, der aldrig er totalen (moms, rabat, byttepenge, bonus, "sparet i år" …).
+// Tåler OCR-fejl som MONS for MOMS.
+const NOT_TOTAL =
+  /SUBTOTAL|MELLEMSUM|\bM[O0][MN]S|RABAT|BESPAR|SPARE[TD]|BYTTEPENGE|RETUR|TILBAGE|MODTAGET|\bGIVET\b|POINT|BONUS|SALDO|\bI\s*[AÅ]R\b/
+// Kun totalen, hvis linjen også siger TOTAL/I ALT ("TOTAL 12 STK", "TOTAL INKL. PANT").
+// Ellers fx nettobeløb uden moms, antal varer eller pant alene.
+const NOT_TOTAL_ALONE = /\bNETTO\b|ANTAL|STK\b|\bPANT\b/
 
 // Beløb: "638,75", "1.234,50", "638.75", "638, 75". Kun punktum som tusindtalsseparator
 // (mellemrum ville forveksle "antal 1 499,95" med 1.499,95). Ingen lookbehind (ældre iOS).
-const AMOUNT_RE = /(^|[^\d,.])(\d{1,3}(?:\.\d{3})+|\d+)\s?[,.]\s?(\d{2})(?!\d)(?![.\-/]\d)(?!\s*%)/g
+const AMOUNT_RE = /(^|[^\d,.])(-?)\s?(\d{1,3}(?:\.\d{3})+|\d+)\s?[,.;]\s?(\d{2})(?!\d)(?![.\-/]\d)(?!\s*%)/g
 
 /** Retter typiske OCR-fejl i tal: O→0 og l/I/|→1 – kun i "ord" der i forvejen indeholder cifre */
 function fixDigits(s: string): string {
@@ -86,55 +96,82 @@ function normalizeLine(s: string): string {
     .trim()
 }
 
-/** Alle beløb i en linje, i øre */
-export function amountsInLine(line: string): number[] {
+function signedAmounts(line: string): number[] {
   const out: number[] = []
   for (const m of fixDigits(line).matchAll(AMOUNT_RE)) {
-    const whole = m[2]!.replace(/\./g, '')
-    const ore = Number(whole) * 100 + Number(m[3])
-    if (Number.isFinite(ore) && ore > 0 && ore < 10_000_000_00) out.push(ore)
+    const whole = m[3]!.replace(/\./g, '')
+    const ore = Number(whole) * 100 + Number(m[4])
+    if (Number.isFinite(ore) && ore > 0 && ore < 10_000_000_00) out.push(m[2] ? -ore : ore)
   }
   return out
 }
 
-function findTotal(lines: string[]): ParsedReceipt['total'] {
-  type Cand = { ore: number; prio: number; index: number }
-  const cands: Cand[] = []
-  const all: number[] = []
+/** Alle beløb i en linje, i øre (uden fortegn) */
+export function amountsInLine(line: string): number[] {
+  return signedAmounts(line).map(Math.abs)
+}
+
+function isExcluded(line: string) {
+  return NOT_TOTAL.test(line) || (NOT_TOTAL_ALONE.test(line) && !STRONG.test(line))
+}
+
+function findTotal(lines: string[]): { total: ParsedReceipt['total']; alternatives: number[] } {
+  // Beløb → bedste nøgleordsvægt og antal forskellige nøgleordslinjer
+  const keyword = new Map<number, { prio: number; lines: number; first: number }>()
+  const counts = new Map<number, number>()
+  let firstKeywordLine = -1
 
   lines.forEach((line, i) => {
+    if (isExcluded(line)) return
     const amounts = amountsInLine(line)
-    // Byttepenge, kontant modtaget, moms osv. tæller ikke med i sammenligningen
-    if (NOT_TOTAL.test(line)) return
-    all.push(...amounts)
-    for (const [re, prio] of TOTAL_KEYWORDS) {
-      if (!re.test(line)) continue
-      // Beløbet står normalt på samme linje; ellers på næste linje
-      let found = amounts
-      if (found.length === 0 && i + 1 < lines.length && !NOT_TOTAL.test(lines[i + 1]!)) found = amountsInLine(lines[i + 1]!)
-      if (found.length > 0) cands.push({ ore: found.at(-1)!, prio, index: i })
-      break
-    }
+    for (const a of amounts) counts.set(a, (counts.get(a) ?? 0) + 1)
+    const hit = TOTAL_KEYWORDS.find(([re]) => re.test(line))
+    if (!hit) return
+    // Beløbet står normalt på samme linje; ellers på næste linje
+    let found = amounts
+    if (found.length === 0 && i + 1 < lines.length && !isExcluded(lines[i + 1]!)) found = amountsInLine(lines[i + 1]!)
+    const a = found.at(-1)
+    if (a === undefined) return
+    if (firstKeywordLine < 0 && hit[1] >= 5) firstKeywordLine = i
+    const cur = keyword.get(a)
+    keyword.set(a, { prio: Math.max(cur?.prio ?? 0, hit[1]), lines: (cur?.lines ?? 0) + 1, first: cur?.first ?? i })
   })
 
-  if (cands.length === 0) {
-    if (all.length === 0) return null
-    // Fallback: største beløb på kvitteringen – altid lav sikkerhed
-    return { ore: Math.max(...all), confidence: 'low' }
+  // Summen af varelinjerne før totalen (sidste beløb pr. linje, rabatter trækkes fra)
+  let itemSum = 0
+  const sumEnd = firstKeywordLine >= 0 ? firstKeywordLine : lines.length
+  for (const line of lines.slice(0, sumEnd)) {
+    if (/SUBTOTAL|MELLEMSUM|\bM[O0][MN]S/.test(line)) continue
+    const a = signedAmounts(line).at(-1)
+    if (a !== undefined) itemSum += a
   }
 
-  const bestPrio = Math.max(...cands.map((c) => c.prio))
-  const top = cands.filter((c) => c.prio === bestPrio)
-  // Ved flere kandidater med samme prioritet: det beløb der går igen flest gange, ellers det største
-  const counts = new Map<number, number>()
-  for (const c of cands) counts.set(c.ore, (counts.get(c.ore) ?? 0) + 1)
-  const chosen = [...top].sort((a, b) => (counts.get(b.ore)! - counts.get(a.ore)!) || b.ore - a.ore)[0]!
+  const scored = [...keyword.entries()].map(([ore, k]) => {
+    let score = k.prio + 1.5 * (k.lines - 1) + ((counts.get(ore) ?? 0) >= 2 ? 1 : 0)
+    if (itemSum > 0 && itemSum === ore) score += 2
+    return { ore, score, prio: k.prio, corroborated: k.lines >= 2 || (counts.get(ore) ?? 0) >= 2 || itemSum === ore }
+  })
+  scored.sort((a, b) => b.score - a.score || b.ore - a.ore)
 
-  const occurrences = all.filter((a) => a === chosen.ore).length
-  const isMax = chosen.ore >= Math.max(...all)
-  const corroborated = occurrences >= 2 || (counts.get(chosen.ore) ?? 0) >= 2
-  const confidence: Confidence = corroborated && isMax ? 'high' : isMax || corroborated ? 'medium' : 'low'
-  return { ore: chosen.ore, confidence }
+  const all = [...counts.keys()]
+  // Andre sandsynlige beløb, som brugeren kan vælge med ét tryk
+  const others = (chosen: number) => {
+    const repeated = all.filter((a) => (counts.get(a) ?? 0) >= 2).sort((a, b) => b - a)
+    const largest = [...all].sort((a, b) => b - a)
+    return [...new Set([...scored.map((c) => c.ore), ...repeated, ...largest])].filter((a) => a !== chosen).slice(0, 3)
+  }
+
+  const best = scored[0]
+  if (best) {
+    const isMax = best.ore >= Math.max(...all)
+    const confidence: Confidence = best.prio >= 5 && best.corroborated && isMax ? 'high' : (best.prio >= 5 && isMax) || best.corroborated ? 'medium' : 'low'
+    return { total: { ore: best.ore, confidence }, alternatives: others(best.ore) }
+  }
+  if (all.length === 0) return { total: null, alternatives: [] }
+  // Uden nøgleord: største beløb der står flere gange (typisk total + betaling), ellers største
+  const repeated = all.filter((a) => (counts.get(a) ?? 0) >= 2)
+  const ore = Math.max(...(repeated.length ? repeated : all))
+  return { total: { ore, confidence: repeated.length ? 'medium' : 'low' }, alternatives: others(ore) }
 }
 
 // ------------------------------------------------------------------ dato
@@ -190,9 +227,9 @@ function findDate(text: string, today: Date): ParsedReceipt['date'] {
 function findMerchant(lines: string[]): Pick<ParsedReceipt, 'merchant' | 'merchantHint'> {
   const head = lines.slice(0, 8).join(' ')
   const whole = lines.join(' ')
-  for (const [name, re] of CHAINS) {
-    if (re.test(head)) return { merchant: { value: name, confidence: 'high' }, merchantHint: null }
-  }
+  // Den kæde der står først (fx "REMA 1000" øverst og "NETTO 99,16" i momslinjen)
+  const inHead = CHAINS.map(([name, re]) => ({ name, at: head.search(re) })).filter((c) => c.at >= 0).sort((a, b) => a.at - b.at)[0]
+  if (inHead) return { merchant: { value: inHead.name, confidence: 'high' }, merchantHint: null }
   for (const [name, re] of CHAINS) {
     if (re.test(whole)) return { merchant: { value: name, confidence: 'medium' }, merchantHint: null }
   }
@@ -216,9 +253,11 @@ export function parseReceiptText(text: string, today: Date = new Date()): Parsed
     .split(/\r?\n/)
     .map(normalizeLine)
     .filter((l) => l.length > 0)
+  const { total, alternatives } = findTotal(lines)
   return {
     ...findMerchant(lines),
     date: findDate(text, today),
-    total: findTotal(lines),
+    total,
+    alternatives,
   }
 }

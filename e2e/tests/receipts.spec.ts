@@ -95,3 +95,42 @@ test('annulleret scanning efterlader ingen kvittering', async ({ page }) => {
   const pending = await page.evaluate(() => JSON.parse(localStorage.getItem('hjem-demo-db-v2') ?? '{}').receipts?.length ?? 0)
   expect(pending).toBe(0)
 })
+
+test('scan uden at gemme billedet: rigtig total, valg af beløb, kun udgiften gemmes', async ({ page }) => {
+  await startEmpty(page, '/okonomi/budgetter')
+  await page.getByRole('button', { name: 'Opret forslag' }).click()
+  await expect(page.getByRole('link', { name: /Dagligvarer/ })).toBeVisible()
+  // "Sparet i år" og bonussaldo er større end totalen, men er ikke totalen
+  const png = await receiptImage(page, [
+    'COOP 365', 'BRØD                   20,00', 'MÆLK                   12,00', 'TOTAL                  32,00', 'MOBILEPAY              32,00',
+    'Du har sparet i år  1.245,50', 'Bonussaldo            312,40', yesterdayDk(),
+  ])
+  await page.goto('/kvitteringer/scan')
+  await page.locator('label', { hasText: 'Vælg fra billeder' }).locator('input').setInputFiles({ name: 'k.png', mimeType: 'image/png', buffer: png })
+  await expect(page.getByRole('heading', { name: 'Kontrollér' })).toBeVisible({ timeout: 90_000 })
+  await expect(page.getByLabel('Beløb i kroner')).toHaveValue('32')
+
+  // Andre beløb kan vælges med ét tryk – og tilbage igen
+  const choices = page.getByRole('radiogroup', { name: 'Beløb på kvitteringen' })
+  await expect(choices.getByRole('radio', { name: '32,00 kr.' })).toHaveAttribute('aria-checked', 'true')
+  await choices.getByRole('radio').nth(1).click()
+  await expect(page.getByLabel('Beløb i kroner')).not.toHaveValue('32')
+  await choices.getByRole('radio', { name: '32,00 kr.' }).click()
+  await expect(page.getByLabel('Beløb i kroner')).toHaveValue('32')
+
+  await page.getByRole('button', { name: 'Videre' }).click()
+  await page.getByRole('radiogroup', { name: 'Kategori' }).getByText('Dagligvarer').click()
+  await page.getByRole('switch', { name: /Gem kvitteringsbilledet/ }).click()
+  await expect(page.getByText('Kun udgiften gemmes. Billedet slettes med det samme.')).toBeVisible()
+  await expect(page.getByRole('radiogroup', { name: 'Opbevaringstid' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Gem udgift uden billede' }).click()
+  await expect(page.getByText('Udgiften er gemt')).toBeVisible()
+  await expect(page.getByText('Kvitteringsbilledet er ikke gemt.')).toBeVisible()
+
+  // Udgiften findes, men ingen kvittering
+  await page.getByRole('button', { name: 'Se udgifter' }).click()
+  await expect(page.locator('main')).toContainText(/32(,00)?\s?kr\./)
+  await expect(page.getByText('· Kvittering')).toHaveCount(0)
+  await page.goto('/kvitteringer')
+  await expect(page.getByText('Ingen kvitteringer endnu')).toBeVisible()
+})
