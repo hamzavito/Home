@@ -81,7 +81,8 @@ const NOT_TOTAL_ALONE = /\bNETTO\b|ANTAL|STK\b|\bPANT\b/
 
 // Beløb: "638,75", "1.234,50", "638.75", "638, 75". Kun punktum som tusindtalsseparator
 // (mellemrum ville forveksle "antal 1 499,95" med 1.499,95). Ingen lookbehind (ældre iOS).
-const AMOUNT_RE = /(^|[^\d,.])(-?)\s?(\d{1,3}(?:\.\d{3})+|\d+)\s?[,.;]\s?(\d{2})(?!\d)(?![.\-/]\d)(?!\s*%)/g
+// Negative beløb (rabat) står som "-10,00" eller – hos fx Netto – "18,96-".
+const AMOUNT_RE = /(^|[^\d,.])(-?)\s?(\d{1,3}(?:\.\d{3})+|\d+)\s?[,.;]\s?(\d{2})(?!\d)(?![.\-/]\d)(?!\s*%)(-?)/g
 
 /** Retter typiske OCR-fejl i tal: O→0 og l/I/|→1 – kun i "ord" der i forvejen indeholder cifre */
 function fixDigits(s: string): string {
@@ -101,7 +102,7 @@ function signedAmounts(line: string): number[] {
   for (const m of fixDigits(line).matchAll(AMOUNT_RE)) {
     const whole = m[3]!.replace(/\./g, '')
     const ore = Number(whole) * 100 + Number(m[4])
-    if (Number.isFinite(ore) && ore > 0 && ore < 10_000_000_00) out.push(m[2] ? -ore : ore)
+    if (Number.isFinite(ore) && ore > 0 && ore < 10_000_000_00) out.push(m[2] || m[5] ? -ore : ore)
   }
   return out
 }
@@ -191,6 +192,11 @@ function findDate(text: string, today: Date): ParsedReceipt['date'] {
   const t = fixDigits(text).toUpperCase()
   // 04.10.2026 · 04-10-26 · 4/10/2026
   for (const m of t.matchAll(/(^|\D)(\d{1,2})\s?[.\-/]\s?(\d{1,2})\s?[.\-/]\s?(\d{4}|\d{2})(?!\d)/g)) {
+    const v = validDate(Number(m[4]), Number(m[3]), Number(m[2]))
+    if (v) found.push(v)
+  }
+  // Netto/Salling: "1086 06 10 26 19:14" (dag måned år med mellemrum, efterfulgt af klokkeslæt)
+  for (const m of t.matchAll(/(^|\D)(\d{2}) (\d{2}) (\d{2}) {1,3}\d{1,2}[:.]\d{2}(?!\d)/g)) {
     const v = validDate(Number(m[4]), Number(m[3]), Number(m[2]))
     if (v) found.push(v)
   }

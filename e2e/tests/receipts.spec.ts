@@ -2,9 +2,13 @@ import { expect, test, type Page } from '@playwright/test'
 import { norm, startEmpty } from './helpers'
 
 /** Genererer et billede af en dansk kvittering (som et foto af papir). */
-async function receiptImage(page: Page, lines: string[]): Promise<Buffer> {
+async function receiptImage(page: Page, lines: string[], opts: { photo?: boolean } = {}): Promise<Buffer> {
   const gen = await page.context().newPage()
-  await gen.setContent(`<body style="margin:0;background:#9a9a9a;padding:30px"><pre id="r" style="background:#fdfdf8;font:22px/1.45 'DejaVu Sans Mono',monospace;padding:30px;margin:0;color:#222">${lines.join('\n')}</pre></body>`)
+  // photo: som et rigtigt foto – kvitteringen holdt i hånden over et mørkt gulv, let skæv
+  const paper = opts.photo
+    ? `<div id="r" style="background:#3b3631;padding:120px 160px;width:max-content;position:relative"><div style="position:absolute;left:60px;top:380px;width:190px;height:120px;border-radius:60px;background:#c9a58c"></div><pre style="background:#fbfaf5;font:22px/1.45 'DejaVu Sans Mono',monospace;padding:40px 34px;margin:0;color:#333;transform:rotate(-1.5deg)">${lines.join('\n')}</pre></div>`
+    : `<pre id="r" style="background:#fdfdf8;font:22px/1.45 'DejaVu Sans Mono',monospace;padding:30px;margin:0;color:#222">${lines.join('\n')}</pre>`
+  await gen.setContent(`<body style="margin:0;background:#9a9a9a;padding:30px">${paper}</body>`)
   const png = await gen.locator('#r').screenshot({ type: 'png' })
   await gen.close()
   return png
@@ -133,4 +137,31 @@ test('scan uden at gemme billedet: rigtig total, valg af beløb, kun udgiften ge
   await expect(page.getByText('· Kvittering')).toHaveCount(0)
   await page.goto('/kvitteringer')
   await expect(page.getByText('Ingen kvitteringer endnu')).toBeVisible()
+})
+
+test('foto af Netto-kvittering: rabat med minus efter beløbet, total og dato læses rigtigt', async ({ page }) => {
+  await startEmpty(page, '/okonomi/budgetter')
+  await page.getByRole('button', { name: 'Opret forslag' }).click()
+  await expect(page.getByRole('link', { name: /Dagligvarer/ })).toBeVisible()
+  const d = new Date()
+  d.setDate(d.getDate() - 1)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const png = await receiptImage(
+    page,
+    [
+      '            Netto', '      Bjerggårds Alle 4', '      5240 Odense NØ', '',
+      'DANONINO 6X50G', '2 x 18,95                37,90', 'RABAT                    18,96-', 'CHEASY SKYR VAN. 1KG', '2 x 30,95                61,90',
+      'RABAT                    11,90-', 'ÆBLESKIVER 18 STK        20,00', 'VITAMIN WELL ANTIOXI     16,00', 'PANT                      3,00',
+      'PINK DONUT                7,00', 'Aftenrabat                3,50-', '', 'TOTAL                   111,44', 'BETALINGSKORT           111,44', '',
+      'MOMS UDGØR       22,29', '', `  41  1  1086 ${pad(d.getDate())} ${pad(d.getMonth() + 1)} ${String(d.getFullYear()).slice(2)} 19:14`,
+    ],
+    { photo: true },
+  )
+  await page.goto('/kvitteringer/scan')
+  await page.locator('label', { hasText: 'Vælg fra billeder' }).locator('input').setInputFiles({ name: 'k.png', mimeType: 'image/png', buffer: png })
+  await expect(page.getByRole('heading', { name: 'Kontrollér' })).toBeVisible({ timeout: 90_000 })
+  await expect(page.getByLabel('Beløb i kroner')).toHaveValue('111,44')
+  await expect(page.getByPlaceholder('Fx Bilka')).toHaveValue('Netto')
+  await expect(page.getByLabel('Købsdato')).toHaveValue(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`)
+  await expect(page.getByText('Kontrollér beløbet')).toHaveCount(0)
 })

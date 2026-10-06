@@ -51,7 +51,64 @@ VARE 2    48,50
 VARE 3    9,95
 `
 
+// Rigtig OCR-tekst (Tesseract, enkelt tekstblok) fra et foto af en Netto-kvittering.
+// OCR-fejl er bevaret: "axel 9195 17,90" er "2 x 18,95 37,90", rabatter står med minus EFTER beløbet.
+const NETTO_REAL = `
+Netto O
+ø
+Bjerggårds Alle 4
+5740 Odense NØ
+DANONINO 6X50G
+axel 9195              17,90
+RABAT  p                 18,96
+CHEASY SKYR VAN. 1KG
+2 x 30,95                61,90
+RABA [                                 11,90
+ÆBLESKIVER 18 STK         20,00
+VITAMIN WELL ANTIOXI        16,00
+PANT                     3,00
+PINK DONUT                 7,00
+Aftenrabat                3,50-
+TOTAL                  111,44
+BETALINGSKORT                    111,44
+MOMS UDGØR       22,29
+Du blev betjent af:
+Kassen
+at |  1086 06 10 26 19:14
+Butik 7574  MOMSNR. 35954716
+KIG FORBI WWW. NETTO. DK
+`
+
+// Samme kvittering, hvor beløbet er gledet ned på linjen under TOTAL (buet papir)
+const NETTO_REAL_SPLIT = `
+Netto 03
+DANONINO 6X50G
+CHEASY SKYR VAN. 1KG       19,20
+TOTAL                           11
+111,44
+BETAL INGSKORI                   $
+MOMS UDGØR       22,29
+41   1 1086 DD 10 26 19:14
+`
+
 describe('parseReceiptText', () => {
+  it('rigtig Netto-kvittering: total, butik og dato', () => {
+    const r = parseReceiptText(NETTO_REAL, new Date(2026, 9, 6, 21))
+    expect(r.total).toEqual({ ore: 11144, confidence: 'high' })
+    expect(r.merchant?.value).toBe('Netto')
+    expect(r.date?.value).toBe('2026-10-06')
+  })
+
+  it('rigtig Netto-kvittering hvor beløbet står på linjen under TOTAL', () => {
+    expect(parseReceiptText(NETTO_REAL_SPLIT, new Date(2026, 9, 6, 21)).total?.ore).toBe(11144)
+  })
+
+  it('rabat med minus efter beløbet ("18,96-") trækkes fra i varesummen', () => {
+    const r = parseReceiptText('VARE 2 x 18,95 37,90\nRABAT 18,96-\nVARE 20,00\nTOTAL 38,94', today)
+    expect(r.total).toEqual({ ore: 3894, confidence: 'high' })
+    expect(amountsInLine('RABAT 18,96-')).toEqual([1896])
+  })
+
   it('Bilka: butik, dato og total med høj sikkerhed', () => {
     const r = parseReceiptText(BILKA, today)
     expect(r.merchant).toEqual({ value: 'Bilka', confidence: 'high' })

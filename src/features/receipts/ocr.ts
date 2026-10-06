@@ -1,6 +1,7 @@
 // OCR i browseren med Tesseract.js. Alle filer hentes fra vores eget domæne
 // (/ocr – kopieret fra npm ved build), så intet billede eller tekst forlader telefonen.
 import type { Worker } from 'tesseract.js'
+import { cropToReceipt } from '@/lib/receipt-crop'
 
 type Progress = (p: number) => void
 
@@ -23,8 +24,9 @@ async function getWorker(): Promise<Worker> {
         },
       })
       await worker.setParameters({
-        // Én kolonne med varierende linjer – passer til kvitteringer (vare … pris)
-        tessedit_pageseg_mode: PSM.SINGLE_COLUMN,
+        // Én tekstblok: hver linje læses i hele bredden, så prisen i højre side følger
+        // varen/TOTAL. (SINGLE_COLUMN mistede priskolonnen på rigtige, let buede kvitteringer.)
+        tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
         preserve_interword_spaces: '1',
       })
       return worker
@@ -42,7 +44,9 @@ export async function recognizeReceipt(image: Blob, progress?: Progress): Promis
   onProgress = progress ?? null
   try {
     const worker = await getWorker()
-    const { data } = await worker.recognize(image)
+    // Kun selve papiret læses (hånd, bord og gulv forvirrer OCR). Fejler det, bruges hele billedet.
+    const receipt = await cropToReceipt(image).catch(() => image)
+    const { data } = await worker.recognize(receipt)
     return data.text
   } finally {
     onProgress = null
