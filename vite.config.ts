@@ -73,6 +73,8 @@ export default defineConfig({
             },
           },
         ],
+        // Notifikationer: push- og klik-håndtering (public/push-sw.js)
+        importScripts: ['push-sw.js'],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
       },

@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js'
 import { useQueryClient } from '@tanstack/react-query'
 import { createContext, use, useEffect, useState, type ReactNode } from 'react'
 import { clearPrivateDeviceData } from '@/lib/device-data'
+import { disablePush } from '@/lib/push'
 import { supabase } from '@/lib/supabase'
 import { setRememberMe } from '@/lib/session-storage'
 
@@ -48,6 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signOut = async () => {
+    // Ingen notifikationer til en telefon, der er logget ud (højst 3 sek. – også uden net)
+    await Promise.race([disablePush().catch(() => {}), new Promise((r) => setTimeout(r, 3000))])
     // 'local' logger kun denne enhed ud, så partnerens/andre enheders login bevares.
     try {
       await supabase.auth.signOut({ scope: 'local' })

@@ -19,6 +19,8 @@ Disse trin kræver din egen konto hos Supabase og Vercel. Alt sker på gratis-pl
    6. `20261009000001_home.sql` (slår også Realtime til for indkøbslisten)
    7. `20261010000001_settings_export.sql`
    8. `20261011000001_cleanup_secret.sql`
+   9. `20261012000001_calendar_for_user.sql`
+   10. `20261013000001_push_notifications.sql`
    (Alternativ med CLI: `npx supabase link --project-ref <ref>` og `npx supabase db push`.)
 4. **Opret jer to brugere:** *Authentication → Users → Add user → Create new user*.
    Udfyld e-mail og adgangskode, og sæt flueben i **Auto Confirm User**.
@@ -58,7 +60,17 @@ Disse trin kræver din egen konto hos Supabase og Vercel. Alt sker på gratis-pl
    Oprydningen sletter kun billedfiler: udløbne billeder, forladte uploads (> 24 t) og forældreløse filer.
    Transaktioner og kvitteringsoplysninger bevares altid. Den kan køres flere gange uden problemer.
 
-9. **Backup:** følg [docs/BACKUP.md](BACKUP.md) (to GitHub-secrets, ca. 5 minutter).
+9. **Notifikationer (påmindelser om aftaler og nye varer på indkøbslisten):**
+   1. Kør migration `20261013000001_push_notifications.sql` (følger med de øvrige migrations).
+   2. Deploy Edge Function `send-push` med **verify_jwt slået fra** (den tjekker selv headeren
+      `x-push-secret`): `npx supabase functions deploy send-push --no-verify-jwt`.
+   3. Ret projektets ref og appens adresse øverst i `supabase/setup/schedule_push.sql` og kør scriptet
+      i *SQL Editor*. Det gemmer en hemmelighed i Vault, planlægger et cron-job hvert minut (kalder kun
+      Edge Functionen, når der er noget at sende) og laver VAPID-nøglerne. Intet skal kopieres.
+   4. På iPhone: Hjem skal være føjet til hjemmeskærmen (iOS 16.4+). Slå til under
+      *Indstillinger → Notifikationer → På denne telefon* og tryk *Send en testnotifikation*.
+
+10. **Backup:** følg [docs/BACKUP.md](BACKUP.md) (to GitHub-secrets, ca. 5 minutter).
 
 > **Custom SMTP senere:** Appen bruger kun Supabase Auth-kaldene (`resetPasswordForEmail`, `verifyOtp`,
 > `updateUser`). Skift af mailserver sker under *Authentication → Emails → SMTP Settings* og kræver

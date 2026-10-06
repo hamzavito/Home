@@ -48,3 +48,18 @@ create table storage.objects (
 alter table storage.objects enable row level security;
 grant select, insert, update, delete on storage.objects to authenticated, service_role;
 grant select on storage.buckets to authenticated, service_role;
+
+-- Vault: oprettelse af hemmeligheder (bruges af init_push_vapid_keys)
+create function vault.create_secret(new_secret text, new_name text default null, new_description text default '')
+returns uuid language sql as $$
+  insert into vault.decrypted_secrets (name, decrypted_secret) values (new_name, new_secret) returning id
+$$;
+
+-- pg_net (forenklet): kald registreres i en tabel i stedet for at blive sendt
+create schema net;
+create table net.requests (id bigserial primary key, url text, body jsonb, headers jsonb, created_at timestamptz default now());
+create function net.http_post(url text, body jsonb default '{}'::jsonb, params jsonb default '{}'::jsonb,
+  headers jsonb default '{}'::jsonb, timeout_milliseconds integer default 5000)
+returns bigint language sql as $$
+  insert into net.requests (url, body, headers) values (url, body, headers) returning id
+$$;

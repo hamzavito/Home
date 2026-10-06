@@ -15,6 +15,7 @@ import { cn } from '@/lib/cn'
 import { retentionOptions } from '@/lib/retention'
 import { applyTheme, getThemePreference, type ThemePreference } from '@/lib/theme'
 import type { DefaultPaidBy, DefaultRetention } from '@/types/database'
+import { NotificationSettings } from './NotificationSettings'
 import { useChangePassword, useExportData, useUpdateProfile, useUpdateRetentionDefault } from './api'
 
 const themes: Array<{ value: ThemePreference; label: string }> = [
@@ -106,6 +107,8 @@ export function SettingsPage() {
       <ListGroup className="mt-3">
         <ListRow icon={Lock} iconColor="var(--text-secondary)" title="Valuta" subtitle="Alle beløb er i danske kroner" trailing={<span className="text-[15px] font-semibold text-secondary">DKK</span>} />
       </ListGroup>
+
+      <NotificationSettings />
 
       <SectionHeader title="Husstand" />
       <ListGroup>

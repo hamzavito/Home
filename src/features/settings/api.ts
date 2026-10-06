@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { householdQueryKey, useHousehold } from '@/features/household/HouseholdProvider'
 import { supabase } from '@/lib/supabase'
@@ -70,6 +70,53 @@ export function useExportData() {
       a.click()
       a.remove()
       setTimeout(() => URL.revokeObjectURL(url), 10_000)
+    },
+  })
+}
+
+export type NotificationPrefs = { notify_calendar: boolean; notify_shopping: boolean }
+
+const prefsKey = (userId: string) => ['notification-prefs', userId] as const
+
+/** Hvad jeg vil have besked om (gælder alle mine telefoner) */
+export function useNotificationPrefs() {
+  const { me } = useHousehold()
+  return useQuery({
+    queryKey: prefsKey(me.userId),
+    queryFn: async (): Promise<NotificationPrefs> => {
+      const { data, error } = await supabase.from('profiles').select('notify_calendar, notify_shopping').eq('id', me.userId).single()
+      if (error) throw error
+      return data
+    },
+  })
+}
+
+export function useUpdateNotificationPrefs() {
+  const { me } = useHousehold()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (values: Partial<NotificationPrefs>) => {
+      const { error } = await supabase.from('profiles').update(values).eq('id', me.userId)
+      if (error) throw error
+    },
+    // Kontakten skifter med det samme; ved fejl rulles tilbage
+    onMutate: async (values) => {
+      await qc.cancelQueries({ queryKey: prefsKey(me.userId) })
+      const before = qc.getQueryData<NotificationPrefs>(prefsKey(me.userId))
+      if (before) qc.setQueryData(prefsKey(me.userId), { ...before, ...values })
+      return { before }
+    },
+    onError: (_e, _v, ctx) => ctx?.before && qc.setQueryData(prefsKey(me.userId), ctx.before),
+    onSettled: () => qc.invalidateQueries({ queryKey: prefsKey(me.userId) }),
+  })
+}
+
+export function useSendTestNotification() {
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc('send_test_notification')
+      if (error) throw error
+      return data
     },
   })
 }

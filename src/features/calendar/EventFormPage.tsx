@@ -5,7 +5,7 @@ import { useGoBack } from '@/app/useGoBack'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { Field, TextArea, TextInput } from '@/components/ui/Field'
+import { Field, SelectInput, TextArea, TextInput } from '@/components/ui/Field'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { FullScreenLoader } from '@/components/ui/Spinner'
 import { homeErrorMessage, useDeleteEvent, useEvent, useSaveEvent, type CalendarEvent } from '@/features/home/api'
@@ -16,7 +16,9 @@ import { formatLongDate, formatWeekday, fromIsoDate, toIsoDate } from '@/lib/dat
 import { addDaysIso, timeInputValue } from '@/lib/home'
 import type { EventType } from '@/types/database'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
+import { Toggle } from '@/components/ui/Toggle'
 import { sharedLabel } from './forWhom'
+import { defaultReminder, reminderAfterAllDayChange, reminderChoices } from './reminders'
 
 const SHARED = 'shared'
 
@@ -52,6 +54,7 @@ function EventForm({ existing }: { existing?: CalendarEvent }) {
   const [type, setType] = useState<EventType>(existing?.type ?? 'family')
   // Tidligere medlem eller tomt felt vises som fælles
   const [forUser, setForUser] = useState(existing?.for_user_id && members.some((m) => m.userId === existing.for_user_id) ? existing.for_user_id : SHARED)
+  const [reminder, setReminder] = useState<number | null>(existing ? existing.reminder_minutes : defaultReminder(false))
   const [description, setDescription] = useState(existing?.description ?? '')
   const [touched, setTouched] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -64,6 +67,8 @@ function EventForm({ existing }: { existing?: CalendarEvent }) {
   }
   const valid = !errors.title && !errors.start && !errors.end
   const creator = members.find((m) => m.userId === existing?.created_by)
+  const forMember = members.find((m) => m.userId === forUser)
+  const reminderTo = forMember ? (forMember.isMe ? 'dig' : forMember.displayName) : members.length === 2 ? 'jer begge' : 'alle i husstanden'
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -82,6 +87,7 @@ function EventForm({ existing }: { existing?: CalendarEvent }) {
           description,
           type,
           forUserId: forUser === SHARED ? null : forUser,
+          reminderMinutes: reminder,
         },
       })
       goBack(back)
@@ -159,7 +165,14 @@ function EventForm({ existing }: { existing?: CalendarEvent }) {
         </Field>
 
         <div className="divide-y divide-subtle overflow-hidden rounded-2xl bg-surface-primary shadow-card ring-1 ring-subtle">
-          <Toggle label="Hele dagen" checked={allDay} onChange={setAllDay} />
+          <Toggle
+            label="Hele dagen"
+            checked={allDay}
+            onChange={(v) => {
+              setAllDay(v)
+              setReminder((r) => reminderAfterAllDayChange(r, v))
+            }}
+          />
           <Toggle
             label="Flere dage"
             checked={multiDay}
@@ -187,6 +200,16 @@ function EventForm({ existing }: { existing?: CalendarEvent }) {
             </Field>
           </div>
         )}
+
+        <Field label="Påmindelse" hint={reminder === null ? 'Ingen notifikation' : `Sendes til ${reminderTo}, hvis notifikationer er slået til`}>
+          <SelectInput value={reminder === null ? 'none' : String(reminder)} onChange={(e) => setReminder(e.target.value === 'none' ? null : Number(e.target.value))}>
+            {reminderChoices(allDay, reminder).map((c) => (
+              <option key={String(c.value)} value={c.value === null ? 'none' : String(c.value)}>
+                {c.label}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
 
         <Field label="Beskrivelse (valgfri)">
           <TextArea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000} rows={3} />
@@ -217,16 +240,5 @@ function EventForm({ existing }: { existing?: CalendarEvent }) {
         </div>
       </BottomSheet>
     </>
-  )
-}
-
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} className="flex min-h-[56px] w-full items-center justify-between px-4 text-left">
-      <span className="text-[16px] font-medium">{label}</span>
-      <span className={cn('relative h-[31px] w-[51px] shrink-0 rounded-full transition-colors', checked ? 'bg-positive' : 'bg-surface-tertiary')}>
-        <span className={cn('absolute top-[2px] size-[27px] rounded-full bg-white shadow-raised transition-transform duration-200', checked ? 'translate-x-[22px]' : 'translate-x-[2px]')} />
-      </span>
-    </button>
   )
 }

@@ -263,6 +263,8 @@ export type EventInput = {
   type: EventType
   /** NULL = Begge/Fælles */
   forUserId: string | null
+  /** Minutter før start, NULL = ingen påmindelse */
+  reminderMinutes: number | null
 }
 
 export function useSaveEvent() {
@@ -280,6 +282,7 @@ export function useSaveEvent() {
         description: input.description?.trim() || null,
         type: input.type,
         for_user_id: input.forUserId,
+        reminder_minutes: input.reminderMinutes,
       }
       if (id) {
         const { error } = await supabase.from('calendar_events').update(values).eq('id', id)

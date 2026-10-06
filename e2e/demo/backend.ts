@@ -18,7 +18,7 @@ const URL_BASE = 'http://demo.local'
 export const HID = '11111111-1111-4111-8111-111111111111'
 export const ME = '00000000-0000-4000-8000-0000000000a1'
 export const WIFE = '00000000-0000-4000-8000-0000000000a2'
-const DB_KEY = 'hjem-demo-db-v4'
+const DB_KEY = 'hjem-demo-db-v5'
 const FILES_KEY = 'hjem-demo-files-v2'
 const MODE_KEY = 'hjem-demo-mode' // 'empty' = start uden demodata (bruges af tests)
 
@@ -148,8 +148,8 @@ function baseDb(): Db {
   const created = '2026-01-01T09:00:00.000Z'
   d.households = [{ id: HID, name: 'Vores hjem', default_receipt_retention: '30d', created_at: created, updated_at: created }]
   d.profiles = [
-    { id: ME, display_name: 'Hamza', color: null, default_paid_by: 'me', created_at: created, updated_at: created },
-    { id: WIFE, display_name: 'Sumaya', color: null, default_paid_by: 'me', created_at: created, updated_at: created },
+    { id: ME, display_name: 'Hamza', color: null, default_paid_by: 'me', notify_calendar: true, notify_shopping: true, created_at: created, updated_at: created },
+    { id: WIFE, display_name: 'Sumaya', color: null, default_paid_by: 'me', notify_calendar: true, notify_shopping: true, created_at: created, updated_at: created },
   ]
   return d
 }
@@ -304,7 +304,7 @@ function seedHome(d: Db, catId: Record<string, string>) {
   task('Rengøre ovn', null, 'normal', null, 'none')
 
   const ev = (title: string, days: number, start: string | null, end: string | null, type: string, by: string, forUser: string | null) =>
-    d.calendar_events!.push({ id: uuid(), household_id: HID, title, event_date: addDays(t, days), end_date: type === 'vacation' ? addDays(t, days + 6) : null, start_time: start, end_time: end, all_day: start === null, description: null, type, for_user_id: forUser, created_by: by, created_at: created, updated_at: created })
+    d.calendar_events!.push({ id: uuid(), household_id: HID, title, event_date: addDays(t, days), end_date: type === 'vacation' ? addDays(t, days + 6) : null, start_time: start, end_time: end, all_day: start === null, description: null, type, for_user_id: forUser, reminder_minutes: start === null ? null : 60, created_by: by, created_at: created, updated_at: created })
   ev('Lægetid – Adam', 2, '09:30', '10:00', 'doctor', ME, WIFE)
   ev('Middag hos svigerforældre', 5, '18:00', '21:00', 'family', ME, null)
   ev('Tandlæge', 8, '10:30', '11:00', 'doctor', WIFE, ME)
@@ -460,6 +460,8 @@ function nextDue(due: string, recurrence: string, interval: number): string {
 }
 
 // ------------------------------------------------------------------ RPC
+const pushSubscriptions = new Map<string, boolean>()
+
 const rpcs: Record<string, (a: Row) => unknown> = {
   current_household_id: () => HID,
   budget_month_summary: (a) => budgetMonthSummary(a.p_month),
@@ -588,6 +590,15 @@ const rpcs: Record<string, (a: Row) => unknown> = {
       const cur = mv.reduce((s, m) => s + (m.kind === 'deposit' ? m.amount_ore : -m.amount_ore), 0)
       return { goal_id: g.id, current_ore: cur, movement_count: mv.length, last_movement_on: mv.map((m) => m.occurred_on).sort().at(-1) ?? null }
     }),
+  // Notifikationer: demoen har ingen push-tjeneste – tilmeldinger gemmes kun i hukommelsen
+  push_public_key: () => 'BDemoDemoDemoDemoDemoDemoDemoDemoDemoDemoDemoDemoDemoDemoDemoDemoDemoDemoDemoDemoDemoDemoDemoA',
+  save_push_subscription: (a) => {
+    pushSubscriptions.set(String(a.p_endpoint), true)
+  },
+  disable_push_subscription: (a) => {
+    pushSubscriptions.delete(String(a.p_endpoint))
+  },
+  send_test_notification: () => pushSubscriptions.size > 0,
   ensure_shopping_list: () => {
     let l = db.shopping_lists!.find((x) => !x.archived_at)
     if (!l) {
@@ -636,7 +647,7 @@ const DEFAULTS: Record<string, () => Row> = {
   fixed_groups: () => ({ archived_at: null, sort_order: 0 }),
   shopping_items: () => ({ is_checked: false, checked_by: null, checked_at: null, note: null, quantity: null, sort_order: 0 }),
   household_tasks: () => ({ status: 'open', priority: 'normal', recurrence: 'none', recurrence_interval: 1, completed_at: null, completed_by: null, previous_task_id: null, archived_at: null, description: null, assignee_id: null, due_on: null }),
-  calendar_events: () => ({ start_time: null, end_time: null, end_date: null, all_day: false, description: null, type: 'family', for_user_id: null }),
+  calendar_events: () => ({ start_time: null, end_time: null, end_date: null, all_day: false, description: null, type: 'family', for_user_id: null, reminder_minutes: null }),
   transactions: () => ({ note: null, paid_by_kind: 'shared', paid_by_user_id: null, source: 'manual' }),
 }
 

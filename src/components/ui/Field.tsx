@@ -1,4 +1,5 @@
-import { forwardRef, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react'
+import { ChevronDown } from 'lucide-react'
+import { forwardRef, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react'
 import { cn } from '@/lib/cn'
 
 const control =
@@ -23,6 +24,18 @@ export const TextInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLIn
 
 export function TextArea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea className={cn(control, 'min-h-24 py-3', className)} {...props} />
+}
+
+/** Native rullemenu (på iPhone: hjulvælger) med samme udseende som tekstfelterne */
+export function SelectInput({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <span className="relative block">
+      <select className={cn(control, 'h-13 appearance-none pr-11', className)} {...props}>
+        {children}
+      </select>
+      <ChevronDown aria-hidden className="pointer-events-none absolute top-1/2 right-4 size-5 -translate-y-1/2 text-secondary" />
+    </span>
+  )
 }
 
 /** Stort beløbsfelt: tallet er hovedpersonen. */

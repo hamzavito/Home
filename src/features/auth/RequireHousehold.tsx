@@ -1,6 +1,8 @@
+import { useEffect } from 'react'
 import { Navigate, Outlet } from 'react-router'
 import { FullScreenLoader } from '@/components/ui/Spinner'
 import { HouseholdProvider, useHouseholdQuery } from '@/features/household/HouseholdProvider'
+import { refreshPushSubscription } from '@/lib/push'
 import { useAuth } from './AuthProvider'
 import { LoadErrorScreen, NoHouseholdScreen } from './StatusScreens'
 
@@ -8,6 +10,12 @@ import { LoadErrorScreen, NoHouseholdScreen } from './StatusScreens'
 export function RequireHousehold() {
   const { session, loading } = useAuth()
   const household = useHouseholdQuery()
+  const userId = session?.user.id
+
+  // Forny telefonens tilmelding til notifikationer ved start (gør intet uden tilladelse)
+  useEffect(() => {
+    if (userId) void refreshPushSubscription().catch(() => {})
+  }, [userId])
 
   if (loading) return <FullScreenLoader />
   if (!session) return <Navigate to="/login" replace />

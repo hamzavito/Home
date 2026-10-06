@@ -25,6 +25,8 @@ const sw = readFileSync('dist/sw.js', 'utf8')
 ok(!/supabase\.co/.test(sw), 'service worker: cacher ikke Supabase-data')
 ok(!sw.includes('splash/') && !sw.includes('ocr/dan'), 'service worker: precacher ikke startskærme eller OCR-data')
 ok(sw.includes('index.html'), 'service worker: app-skal precaches (offline-start)')
+ok(sw.includes('importScripts("push-sw.js")') || sw.includes("importScripts('push-sw.js')"), 'service worker: indlæser notifikationer (push-sw.js)')
+ok(existsSync('dist/push-sw.js') && readFileSync('dist/push-sw.js', 'utf8').includes('showNotification'), 'push-sw.js: viser notifikationer')
 
 // Ingen hemmeligheder i det, der sendes til browseren
 const bundle = readdirSync('dist/assets').filter((f) => f.endsWith('.js')).map((f) => readFileSync(`dist/assets/${f}`, 'utf8')).join('\n')

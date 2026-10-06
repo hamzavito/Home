@@ -34,9 +34,18 @@ export type Database = {
         Relationships: []
       }
       profiles: {
-        Row: { id: string; display_name: string; color: string | null; default_paid_by: DefaultPaidBy; created_at: string; updated_at: string }
+        Row: {
+          id: string
+          display_name: string
+          color: string | null
+          default_paid_by: DefaultPaidBy
+          notify_calendar: boolean
+          notify_shopping: boolean
+          created_at: string
+          updated_at: string
+        }
         Insert: { id: string; display_name: string; color?: string | null }
-        Update: { display_name?: string; color?: string | null; default_paid_by?: DefaultPaidBy }
+        Update: { display_name?: string; color?: string | null; default_paid_by?: DefaultPaidBy; notify_calendar?: boolean; notify_shopping?: boolean }
         Relationships: []
       }
       household_members: {
@@ -349,6 +358,8 @@ export type Database = {
           description: string | null
           type: EventType
           for_user_id: string | null
+          /** Minutter før start (heldag: fra midnat). NULL = ingen påmindelse */
+          reminder_minutes: number | null
           created_by: string
           created_at: string
           updated_at: string
@@ -364,6 +375,7 @@ export type Database = {
           description?: string | null
           type?: EventType
           for_user_id?: string | null
+          reminder_minutes?: number | null
         }
         Update: {
           title?: string
@@ -375,6 +387,7 @@ export type Database = {
           description?: string | null
           type?: EventType
           for_user_id?: string | null
+          reminder_minutes?: number | null
         }
         Relationships: []
       }
@@ -455,6 +468,10 @@ export type Database = {
       ensure_shopping_list: { Args: Record<PropertyKey, never>; Returns: string }
       export_household_data: { Args: Record<PropertyKey, never>; Returns: Record<string, unknown> }
       set_task_status: { Args: { p_task_id: string; p_status: TaskStatus }; Returns: string | null }
+      push_public_key: { Args: Record<PropertyKey, never>; Returns: string | null }
+      save_push_subscription: { Args: { p_endpoint: string; p_p256dh: string; p_auth: string }; Returns: undefined }
+      disable_push_subscription: { Args: { p_endpoint: string }; Returns: undefined }
+      send_test_notification: { Args: Record<PropertyKey, never>; Returns: boolean }
       savings_goal_progress: {
         Args: Record<PropertyKey, never>
         Returns: Array<{ goal_id: string; current_ore: number; movement_count: number; last_movement_on: string | null }>

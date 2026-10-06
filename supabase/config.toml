@@ -14,3 +14,7 @@ enable_confirmations = false
 # Kaldes af Supabase Cron med en delt hemmelighed (x-cleanup-secret), ikke med en brugers JWT.
 [functions.cleanup-receipts]
 verify_jwt = false
+
+# Kaldes af private.push_tick() (pg_net) med en delt hemmelighed (x-push-secret).
+[functions.send-push]
+verify_jwt = false
