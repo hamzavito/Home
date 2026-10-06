@@ -109,6 +109,10 @@ insert into public.shopping_items (household_id, list_id, name, added_by) values
 insert into public.household_tasks (household_id, title, created_by) values ('11111111-1111-1111-1111-111111111111', 'Støvsuge', '00000000-0000-0000-0000-0000000000a1');
 insert into public.calendar_events (household_id, title, event_date, all_day, created_by) values ('11111111-1111-1111-1111-111111111111', 'Læge', '2026-10-10', true, '00000000-0000-0000-0000-0000000000a1');
 insert into public.receipts (household_id, status, storage_path, uploaded_by, id) values ('11111111-1111-1111-1111-111111111111', 'pending', '11111111-1111-1111-1111-111111111111/7e000000-0000-0000-0000-0000000000a1.jpg', '00000000-0000-0000-0000-0000000000a1', '7e000000-0000-0000-0000-0000000000a1');
+insert into public.recipes (id, household_id, name, created_by) values ('8e000000-0000-0000-0000-0000000000a1', '11111111-1111-1111-1111-111111111111', 'Karry', '00000000-0000-0000-0000-0000000000a1');
+insert into public.recipe_ingredients (household_id, recipe_id, name, amount_milli, unit) values ('11111111-1111-1111-1111-111111111111', '8e000000-0000-0000-0000-0000000000a1', 'Løg', 2000, 'stk');
+insert into public.meal_plan_entries (household_id, plan_date, recipe_id, title, created_by) values ('11111111-1111-1111-1111-111111111111', '2026-10-05', '8e000000-0000-0000-0000-0000000000a1', 'Karry', '00000000-0000-0000-0000-0000000000a1');
+insert into public.ingredient_prices (household_id, name, price_ore, created_by) values ('11111111-1111-1111-1111-111111111111', 'Skyr', 3100, '00000000-0000-0000-0000-0000000000a1');
 
 create temp table audit_tables as
   select c.relname::text as t from pg_class c join pg_namespace n on n.oid = c.relnamespace join pg_attribute a on a.attrelid = c.oid

@@ -17,6 +17,8 @@ export type Household = {
   id: string
   name: string
   defaultRetention: DefaultRetention
+  /** Budgetkategorien for mad/dagligvarer (madplanen viser dens rest) */
+  groceryCategoryId: string | null
   members: HouseholdMember[]
   me: HouseholdMember
 }
@@ -31,7 +33,7 @@ async function fetchHousehold(userId: string): Promise<Household | null> {
   if (!membership) return null
 
   const [{ data: household, error: hErr }, { data: members, error: mErr }] = await Promise.all([
-    supabase.from('households').select('id, name, default_receipt_retention').eq('id', membership.household_id).single(),
+    supabase.from('households').select('id, name, default_receipt_retention, grocery_category_id').eq('id', membership.household_id).single(),
     supabase
       .from('household_members')
       .select('user_id, role, created_at, profiles ( display_name, color, default_paid_by )')
@@ -51,7 +53,7 @@ async function fetchHousehold(userId: string): Promise<Household | null> {
   }))
   const me = mapped.find((m) => m.isMe)
   if (!me) return null
-  return { id: household.id, name: household.name, defaultRetention: household.default_receipt_retention ?? '30d', members: mapped, me }
+  return { id: household.id, name: household.name, defaultRetention: household.default_receipt_retention ?? '30d', groceryCategoryId: household.grocery_category_id ?? null, members: mapped, me }
 }
 
 export const householdQueryKey = (userId: string | undefined) => ['household', userId] as const

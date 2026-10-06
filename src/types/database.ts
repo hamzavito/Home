@@ -23,14 +23,28 @@ export type Recurrence = 'none' | 'daily' | 'weekly' | 'monthly'
 export type EventType = 'family' | 'work' | 'doctor' | 'vacation' | 'kids' | 'other'
 export type ReceiptStatus = 'pending' | 'approved'
 export type ReceiptRetention = '30d' | '3m' | '6m' | '1y' | 'custom' | 'permanent'
+export type MealType = 'breakfast' | 'lunch' | 'dinner'
+export type ShoppingSource = 'manual' | 'meal_plan'
+export type RecipeInputJson = {
+  name: string
+  description: string | null
+  servings: number
+  prep_minutes: number | null
+  steps: string | null
+  category: string | null
+  tags: string[]
+  is_favorite: boolean
+  note: string | null
+}
+export type IngredientInputJson = { name: string; amount_milli: number | null; unit: string | null; note: string | null }
 
 export type Database = {
   public: {
     Tables: {
       households: {
-        Row: { id: string; name: string; default_receipt_retention: DefaultRetention; created_at: string; updated_at: string }
+        Row: { id: string; name: string; default_receipt_retention: DefaultRetention; grocery_category_id: string | null; created_at: string; updated_at: string }
         Insert: { id?: string; name: string; created_at?: string; updated_at?: string }
-        Update: { name?: string; default_receipt_retention?: DefaultRetention }
+        Update: { name?: string; default_receipt_retention?: DefaultRetention; grocery_category_id?: string | null }
         Relationships: []
       }
       profiles: {
@@ -295,11 +309,100 @@ export type Database = {
           checked_at: string | null
           added_by: string
           sort_order: number
+          /** 'meal_plan' = sendt fra ugeplanen */
+          source: ShoppingSource
+          source_key: string | null
+          meal_week: string | null
           created_at: string
           updated_at: string
         }
         Insert: { household_id: string; list_id: string; name: string; quantity?: string | null; note?: string | null; is_checked?: boolean; sort_order?: number }
         Update: { name?: string; quantity?: string | null; note?: string | null; is_checked?: boolean; sort_order?: number }
+        Relationships: []
+      }
+      recipes: {
+        Row: {
+          id: string
+          household_id: string
+          name: string
+          description: string | null
+          servings: number
+          prep_minutes: number | null
+          steps: string | null
+          category: string | null
+          tags: string[]
+          is_favorite: boolean
+          note: string | null
+          archived_at: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: never
+        Update: { is_favorite?: boolean; archived_at?: string | null }
+        Relationships: []
+      }
+      recipe_ingredients: {
+        Row: {
+          id: string
+          household_id: string
+          recipe_id: string
+          sort_order: number
+          name: string
+          /** Mængde ×1000 (0,5 → 500) */
+          amount_milli: number | null
+          unit: string | null
+          note: string | null
+          created_at: string
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      meal_plan_entries: {
+        Row: {
+          id: string
+          household_id: string
+          plan_date: string
+          meal: MealType
+          recipe_id: string | null
+          title: string
+          servings: number | null
+          note: string | null
+          sort_order: number
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          household_id: string
+          plan_date: string
+          meal?: MealType
+          recipe_id?: string | null
+          title: string
+          servings?: number | null
+          note?: string | null
+          sort_order?: number
+        }
+        Update: { plan_date?: string; meal?: MealType; recipe_id?: string | null; title?: string; servings?: number | null; note?: string | null; sort_order?: number }
+        Relationships: []
+      }
+      ingredient_prices: {
+        Row: {
+          id: string
+          household_id: string
+          name: string
+          price_ore: number
+          amount_milli: number | null
+          unit: string | null
+          store: string | null
+          observed_on: string
+          receipt_id: string | null
+          created_by: string
+          created_at: string
+        }
+        Insert: never
+        Update: never
         Relationships: []
       }
       household_tasks: {
@@ -468,6 +571,9 @@ export type Database = {
       ensure_shopping_list: { Args: Record<PropertyKey, never>; Returns: string }
       export_household_data: { Args: Record<PropertyKey, never>; Returns: Record<string, unknown> }
       set_task_status: { Args: { p_task_id: string; p_status: TaskStatus }; Returns: string | null }
+      save_recipe: { Args: { p_id: string | null; p_recipe: RecipeInputJson; p_ingredients: IngredientInputJson[] }; Returns: string }
+      copy_meal_week: { Args: { p_from: string; p_to: string }; Returns: number }
+      add_meal_ingredients_to_shopping: { Args: { p_week: string; p_items: Array<{ key: string; name: string; quantity: string }> }; Returns: number }
       push_public_key: { Args: Record<PropertyKey, never>; Returns: string | null }
       save_push_subscription: { Args: { p_endpoint: string; p_p256dh: string; p_auth: string }; Returns: undefined }
       disable_push_subscription: { Args: { p_endpoint: string }; Returns: undefined }

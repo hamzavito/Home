@@ -18,6 +18,9 @@ const PAGES: Array<[string, string, string?]> = [
   ['indkøb', '/indkob', 'Rugbrød'],
   ['kalender', '/hjemmet/kalender', 'Kommende'],
   ['ny-aftale', '/hjemmet/kalender/ny', 'Hele dagen'],
+  ['madplan', '/hjemmet/madplan', 'Kylling i karry'],
+  ['opskrifter', '/hjemmet/madplan?vis=opskrifter', 'Linsesuppe'],
+  ['ny-opskrift', '/hjemmet/madplan/opskrift/ny', 'Fremgangsmåde'],
   ['mere', '/mere', 'Mere'],
   ['indstillinger', '/indstillinger', 'Standardvalg'],
   ['login', '/login'],
@@ -55,4 +58,19 @@ test('læsbar: kategori-detalje og fast post', async ({ page }) => {
   await page.getByRole('link', { name: /Clever/ }).click()
   await expect(page.getByText('Beløb over tid')).toBeVisible()
   await expectReadable(page, 'fast-post')
+})
+
+test('læsbar: opskrift, ret-ark og indkøbsark', async ({ page }) => {
+  await page.goto('/hjemmet/madplan?vis=opskrifter')
+  await page.getByRole('link', { name: /Kylling i karry/ }).first().click()
+  await expect(page.getByRole('list', { name: 'Ingredienser' })).toBeVisible()
+  await expectReadable(page, 'opskrift')
+  await page.goto('/hjemmet/madplan')
+  await page.getByRole('button', { name: /Rester/ }).click()
+  await expect(page.locator('dialog[open]').getByLabel('Dag')).toBeVisible()
+  await expectReadable(page, 'ret-ark')
+  await page.locator('dialog[open]').getByRole('button', { name: 'Luk' }).click()
+  await page.getByRole('button', { name: 'Tilføj ugens ingredienser til indkøbslisten' }).click()
+  await expect(page.locator('dialog[open]').getByRole('list', { name: 'Ingredienser' })).toBeVisible()
+  await expectReadable(page, 'indkøbsark')
 })

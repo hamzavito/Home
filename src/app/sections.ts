@@ -2,6 +2,7 @@ import {
   Calendar,
   CalendarClock,
   Camera,
+  ChefHat,
   CheckSquare,
   PiggyBank,
   Receipt,
@@ -29,6 +30,7 @@ export const sections = {
   shopping: { path: '/indkob', title: 'Indkøb', icon: ShoppingCart, color: '#7fa82e' },
   tasks: { path: '/hjemmet', title: 'Opgaver', icon: CheckSquare, color: '#b08a5a' },
   calendar: { path: '/hjemmet/kalender', title: 'Kalender', icon: Calendar, color: '#d65a9c' },
+  mealplan: { path: '/hjemmet/madplan', title: 'Madplan', icon: ChefHat, color: '#e07b39' },
   settings: { path: '/indstillinger', title: 'Indstillinger', icon: Settings, color: '#5f6b7a' },
 } satisfies Record<string, Section>
 
@@ -39,4 +41,5 @@ export const addActions: Array<{ key: string; title: string; icon: LucideIcon; c
   { key: 'upcoming', title: 'Kommende udgift', icon: CalendarClock, color: '#3b8fd9', path: '/okonomi/kommende/ny' },
   { key: 'task', title: 'Ny opgave', icon: CheckSquare, color: '#b08a5a', path: '/hjemmet/ny' },
   { key: 'event', title: 'Kalenderaftale', icon: Calendar, color: '#d65a9c', path: '/hjemmet/kalender/ny' },
+  { key: 'recipe', title: 'Ny opskrift', icon: ChefHat, color: '#e07b39', path: '/hjemmet/madplan/opskrift/ny' },
 ]

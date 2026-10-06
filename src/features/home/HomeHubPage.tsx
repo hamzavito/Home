@@ -1,4 +1,4 @@
-import { CheckSquare, ChevronDown, Plus } from 'lucide-react'
+import { CheckSquare, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { sections } from '@/app/sections'
@@ -13,6 +13,8 @@ import { useHousehold } from '@/features/household/HouseholdProvider'
 import { cn } from '@/lib/cn'
 import { dayLabel, toIsoDate } from '@/lib/dates'
 import { addDaysIso, compareEvents, eventTimeLabel, taskBucket, type TaskBucket } from '@/lib/home'
+import { useWeek } from '@/features/mealplan/api'
+import { weekStart } from '@/lib/recipes'
 import { useEvents, useShopping, useTasks, type Task } from './api'
 import { TaskRow } from './TaskRow'
 
@@ -26,6 +28,8 @@ export function HomeHubPage() {
   const shopping = useShopping()
   const today = toIsoDate(new Date())
   const events = useEvents(today, addDaysIso(today, 30))
+  const meals = useWeek(weekStart(today))
+  const todaysMeals = (meals.data ?? []).filter((m) => m.plan_date === today)
   const [filter, setFilter] = useState<'all' | 'mine'>('all')
   const [showDone, setShowDone] = useState(false)
 
@@ -60,6 +64,18 @@ export function HomeHubPage() {
           text={events.isPending ? ' ' : nextEvent ? `${dayLabel(nextEvent.event_date < today ? today : nextEvent.event_date)}: ${nextEvent.title}` : 'Intet de næste 30 dage'}
           sub={nextEvent ? eventTimeLabel(nextEvent) : undefined}
         />
+        <Link to={sections.mealplan.path} className="pressable col-span-2 flex items-center gap-3 rounded-card bg-surface-primary p-4 shadow-card">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-[14px]" style={{ backgroundColor: `color-mix(in srgb, ${sections.mealplan.color} 16%, transparent)` }}>
+            <sections.mealplan.icon className="size-5" style={{ color: sections.mealplan.color }} strokeWidth={2.2} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[17px] font-bold tracking-tight">Madplan</span>
+            <span className="block text-[13px] text-secondary">
+              {meals.isPending ? ' ' : todaysMeals.length ? `I aften: ${todaysMeals.map((m) => m.title).join(', ')}` : 'Intet planlagt i aften'}
+            </span>
+          </span>
+          <ChevronRight className="size-5 shrink-0 text-muted" />
+        </Link>
       </div>
 
       <SectionHeader title="Opgaver" />

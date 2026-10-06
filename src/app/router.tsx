@@ -27,6 +27,9 @@ import { TaskFormPage } from '@/features/home/TaskFormPage'
 import { ShoppingPage } from '@/features/shopping/ShoppingPage'
 import { CalendarPage } from '@/features/calendar/CalendarPage'
 import { EventFormPage } from '@/features/calendar/EventFormPage'
+import { MealPlanPage } from '@/features/mealplan/MealPlanPage'
+import { RecipeFormPage } from '@/features/mealplan/RecipeFormPage'
+import { RecipePage } from '@/features/mealplan/RecipePage'
 import { MorePage } from '@/features/more/MorePage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { AppLayout } from './AppLayout'
@@ -68,6 +71,10 @@ export const router = createBrowserRouter([
           { path: '/hjemmet/kalender', element: <CalendarPage /> },
           { path: '/hjemmet/kalender/ny', element: <EventFormPage /> },
           { path: '/hjemmet/kalender/:id', element: <EventFormPage /> },
+          { path: '/hjemmet/madplan', element: <MealPlanPage /> },
+          { path: '/hjemmet/madplan/opskrift/ny', element: <RecipeFormPage /> },
+          { path: '/hjemmet/madplan/opskrift/:id', element: <RecipePage /> },
+          { path: '/hjemmet/madplan/opskrift/:id/rediger', element: <RecipeFormPage /> },
           { path: '/indkob', element: <ShoppingPage /> },
           { path: '/mere', element: <MorePage /> },
           { path: '/indstillinger', element: <SettingsPage /> },

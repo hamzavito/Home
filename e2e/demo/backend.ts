@@ -18,7 +18,7 @@ const URL_BASE = 'http://demo.local'
 export const HID = '11111111-1111-4111-8111-111111111111'
 export const ME = '00000000-0000-4000-8000-0000000000a1'
 export const WIFE = '00000000-0000-4000-8000-0000000000a2'
-const DB_KEY = 'hjem-demo-db-v5'
+const DB_KEY = 'hjem-demo-db-v6'
 const FILES_KEY = 'hjem-demo-files-v2'
 const MODE_KEY = 'hjem-demo-mode' // 'empty' = start uden demodata (bruges af tests)
 
@@ -40,6 +40,10 @@ const TABLES = [
   'shopping_items',
   'household_tasks',
   'calendar_events',
+  'recipes',
+  'recipe_ingredients',
+  'meal_plan_entries',
+  'ingredient_prices',
 ] as const
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -146,7 +150,7 @@ function drawReceipt(lines: string[]): Promise<Blob> {
 function baseDb(): Db {
   const d = emptyDb()
   const created = '2026-01-01T09:00:00.000Z'
-  d.households = [{ id: HID, name: 'Vores hjem', default_receipt_retention: '30d', created_at: created, updated_at: created }]
+  d.households = [{ id: HID, name: 'Vores hjem', default_receipt_retention: '30d', grocery_category_id: null, created_at: created, updated_at: created }]
   d.profiles = [
     { id: ME, display_name: 'Hamza', color: null, default_paid_by: 'me', notify_calendar: true, notify_shopping: true, created_at: created, updated_at: created },
     { id: WIFE, display_name: 'Sumaya', color: null, default_paid_by: 'me', notify_calendar: true, notify_shopping: true, created_at: created, updated_at: created },
@@ -216,6 +220,7 @@ async function seedDemo(): Promise<Db> {
       amount_ore: mode === 'amount' ? v : null, percent_bp: mode === 'percent' ? v : null, created_by: ME, created_at: created, updated_at: created,
     })
   })
+  d.households![0]!.grocery_category_id = catId.Mad
 
   const shops: Record<string, Array<[string, number, number]>> = {
     Mad: [['Netto', 9000, 32000], ['Føtex', 15000, 60000], ['Rema 1000', 8000, 30000], ['Lidl', 12000, 40000], ['Bilka', 30000, 90000]],
@@ -309,6 +314,27 @@ function seedHome(d: Db, catId: Record<string, string>) {
   ev('Middag hos svigerforældre', 5, '18:00', '21:00', 'family', ME, null)
   ev('Tandlæge', 8, '10:30', '11:00', 'doctor', WIFE, ME)
   ev('Efterårsferie', 12, null, null, 'vacation', ME, null)
+
+  // Madplan: et par opskrifter og denne uges aftensmad
+  const recipe = (name: string, category: string, servings: number, minutes: number, tags: string[], fav: boolean, ings: Array<[string, number | null, string | null]>) => {
+    const id = uuid()
+    d.recipes!.push({ id, household_id: HID, name, description: null, servings, prep_minutes: minutes, steps: '1. Forbered ingredienserne.\n2. Tilbered retten.', category, tags, is_favorite: fav, note: null, archived_at: null, created_by: ME, created_at: created, updated_at: created })
+    ings.forEach(([n, a, u], i) => d.recipe_ingredients!.push({ id: uuid(), household_id: HID, recipe_id: id, sort_order: i, name: n, amount_milli: a, unit: u, note: null, created_at: created }))
+    return { id, name, servings }
+  }
+  const karry = recipe('Kylling i karry', 'Kylling', 4, 40, ['Børnevenlig', 'Halal'], true, [['Kyllingebryst', 700000, 'g'], ['Ris', 400000, 'g'], ['Løg', 2000, 'stk'], ['Karry', 2000, 'tsk'], ['Salt', null, null]])
+  const bolognese = recipe('Pasta bolognese', 'Pasta', 4, 30, ['Hurtig', 'Børnevenlig'], false, [['Hakket oksekød', 500000, 'g'], ['Pasta', 500000, 'g'], ['Hakkede tomater', 2000, 'dåse'], ['Løg', 1000, 'stk']])
+  recipe('Linsesuppe', 'Suppe', 4, 35, ['Vegetar', 'Fryseegnet'], false, [['Røde linser', 300000, 'g'], ['Gulerødder', 3000, 'stk'], ['Løg', 1000, 'stk']])
+  const monday = (() => {
+    const dt = new Date()
+    dt.setDate(dt.getDate() - ((dt.getDay() + 6) % 7))
+    return iso(dt)
+  })()
+  const plan = (day: number, title: string, r: { id: string; servings: number } | null) =>
+    d.meal_plan_entries!.push({ id: uuid(), household_id: HID, plan_date: addDays(monday, day), meal: 'dinner', recipe_id: r?.id ?? null, title, servings: r?.servings ?? null, note: null, sort_order: 0, created_by: ME, created_at: created, updated_at: created })
+  plan(0, karry.name, karry)
+  plan(1, bolognese.name, bolognese)
+  plan(2, 'Rester', null)
 }
 
 function seedEmpty(): Db {
@@ -599,6 +625,60 @@ const rpcs: Record<string, (a: Row) => unknown> = {
     pushSubscriptions.delete(String(a.p_endpoint))
   },
   send_test_notification: () => pushSubscriptions.size > 0,
+  // Madplan (spejler save_recipe, copy_meal_week og add_meal_ingredients_to_shopping)
+  save_recipe: (a) => {
+    const r = a.p_recipe ?? {}
+    if (!String(r.name ?? '').trim()) throw new PgError('navn mangler', '23514')
+    const values = {
+      name: String(r.name).trim(), description: r.description || null, servings: r.servings ?? 4, prep_minutes: r.prep_minutes ?? null,
+      steps: r.steps || null, category: r.category || null, tags: r.tags ?? [], is_favorite: Boolean(r.is_favorite), note: r.note || null,
+    }
+    let id = a.p_id as string | null
+    if (id) {
+      const row = db.recipes!.find((x) => x.id === id)
+      if (!row) throw new PgError('Opskriften findes ikke', 'P0002')
+      Object.assign(row, values, { updated_at: nowIso() })
+      db.recipe_ingredients = db.recipe_ingredients!.filter((x) => x.recipe_id !== id)
+    } else {
+      id = uuid()
+      db.recipes!.push({ id, household_id: HID, ...values, archived_at: null, created_by: ME, created_at: nowIso(), updated_at: nowIso() })
+    }
+    ;((a.p_ingredients ?? []) as Row[])
+      .filter((i) => String(i.name ?? '').trim())
+      .forEach((i, n) => db.recipe_ingredients!.push({ id: uuid(), household_id: HID, recipe_id: id, sort_order: n, name: String(i.name).trim(), amount_milli: i.amount_milli ?? null, unit: i.unit || null, note: i.note || null, created_at: nowIso() }))
+    return id
+  },
+  copy_meal_week: (a) => {
+    const diff = Math.round((new Date(`${a.p_to}T12:00:00`).getTime() - new Date(`${a.p_from}T12:00:00`).getTime()) / 86_400_000)
+    const src = db.meal_plan_entries!.filter((e) => e.plan_date >= a.p_from && e.plan_date < addDays(a.p_from, 7))
+    let n = 0
+    for (const e of src) {
+      const date = addDays(e.plan_date, diff)
+      if (db.meal_plan_entries!.some((t) => t.plan_date === date && t.meal === e.meal)) continue
+      db.meal_plan_entries!.push({ ...e, id: uuid(), plan_date: date, created_by: ME, created_at: nowIso(), updated_at: nowIso() })
+      n++
+    }
+    return n
+  },
+  add_meal_ingredients_to_shopping: (a) => {
+    const list = (rpcs.ensure_shopping_list!({}) as string)
+    let order = db.shopping_items!.reduce((m, i) => Math.max(m, i.sort_order), 0)
+    let n = 0
+    for (const it of (a.p_items ?? []) as Row[]) {
+      const key = `meal:${a.p_week}:${String(it.key).toLowerCase()}`
+      const hit = db.shopping_items!.find((i) => i.list_id === list && i.source_key === key)
+      if (hit) {
+        if (!hit.is_checked) {
+          Object.assign(hit, { name: it.name, quantity: it.quantity || null, updated_at: nowIso() })
+          n++
+        }
+        continue
+      }
+      db.shopping_items!.push({ id: uuid(), household_id: HID, list_id: list, name: it.name, quantity: it.quantity || null, note: null, is_checked: false, checked_by: null, checked_at: null, added_by: ME, sort_order: ++order, source: 'meal_plan', source_key: key, meal_week: a.p_week, created_at: nowIso(), updated_at: nowIso() })
+      n++
+    }
+    return n
+  },
   ensure_shopping_list: () => {
     let l = db.shopping_lists!.find((x) => !x.archived_at)
     if (!l) {
@@ -645,8 +725,10 @@ const DEFAULTS: Record<string, () => Row> = {
   savings_movements: () => ({ occurred_on: today(), note: null }),
   budget_categories: () => ({ kind: 'spending', archived_at: null, icon: 'sparkles', color: '#6d5cff', sort_order: 0 }),
   fixed_groups: () => ({ archived_at: null, sort_order: 0 }),
-  shopping_items: () => ({ is_checked: false, checked_by: null, checked_at: null, note: null, quantity: null, sort_order: 0 }),
+  shopping_items: () => ({ is_checked: false, checked_by: null, checked_at: null, note: null, quantity: null, sort_order: 0, source: 'manual', source_key: null, meal_week: null }),
   household_tasks: () => ({ status: 'open', priority: 'normal', recurrence: 'none', recurrence_interval: 1, completed_at: null, completed_by: null, previous_task_id: null, archived_at: null, description: null, assignee_id: null, due_on: null }),
+  recipes: () => ({ description: null, servings: 4, prep_minutes: null, steps: null, category: null, tags: [], is_favorite: false, note: null, archived_at: null }),
+  meal_plan_entries: () => ({ meal: 'dinner', recipe_id: null, servings: null, note: null, sort_order: 0 }),
   calendar_events: () => ({ start_time: null, end_time: null, end_date: null, all_day: false, description: null, type: 'family', for_user_id: null, reminder_minutes: null }),
   transactions: () => ({ note: null, paid_by_kind: 'shared', paid_by_user_id: null, source: 'manual' }),
 }

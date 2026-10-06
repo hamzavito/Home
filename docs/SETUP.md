@@ -21,6 +21,7 @@ Disse trin kræver din egen konto hos Supabase og Vercel. Alt sker på gratis-pl
    8. `20261011000001_cleanup_secret.sql`
    9. `20261012000001_calendar_for_user.sql`
    10. `20261013000001_push_notifications.sql`
+   11. `20261014000001_meal_plan.sql` (madplan og opskrifter; vælger dagligvarekategorien som madbudget, hvis den findes)
    (Alternativ med CLI: `npx supabase link --project-ref <ref>` og `npx supabase db push`.)
 4. **Opret jer to brugere:** *Authentication → Users → Add user → Create new user*.
    Udfyld e-mail og adgangskode, og sæt flueben i **Auto Confirm User**.
