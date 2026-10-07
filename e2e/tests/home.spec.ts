@@ -107,12 +107,12 @@ test('kalender: opret heldags- og tidsaftale, se i måned og på forsiden, slet'
 
 test('kalender: "Gælder for" er adskilt fra "Oprettet af" og vises i oversigten', async ({ page }) => {
   await startEmpty(page, '/hjemmet/kalender/ny')
-  const who = page.getByRole('radiogroup', { name: 'Gælder for' })
+  const who = page.getByRole('group', { name: 'Gælder for' })
   // Standard er fælles; mulighederne kommer fra husstandens medlemmer
-  await expect(who.getByRole('radio', { name: 'Begge' })).toHaveAttribute('aria-checked', 'true')
-  await expect(who.getByRole('radio', { name: 'Hamza' })).toBeVisible()
+  await expect(who.getByRole('checkbox', { name: 'Begge' })).toHaveAttribute('aria-checked', 'true')
+  await expect(who.getByRole('checkbox', { name: 'Hamza' })).toBeVisible()
   await page.getByPlaceholder('Fx Lægetid').fill('Lægetid')
-  await who.getByRole('radio', { name: 'Sumaya' }).click()
+  await who.getByRole('checkbox', { name: 'Sumaya' }).click()
   await page.getByLabel('Start').fill('14:00')
   await page.getByRole('button', { name: 'Opret aftale' }).click()
   await expect(page.getByRole('link', { name: /Lægetid/ }).first()).toContainText(/Sumaya·?\s*14\.00/)
@@ -126,9 +126,9 @@ test('kalender: "Gælder for" er adskilt fra "Oprettet af" og vises i oversigten
   // Detaljevisning: oprettet af Hamza, gælder for Sumaya
   await page.getByRole('link', { name: /Lægetid/ }).first().click()
   await expect(page.getByText(/Oprettet af Hamza/)).toBeVisible()
-  await expect(page.getByRole('radiogroup', { name: 'Gælder for' }).getByRole('radio', { name: 'Sumaya' })).toHaveAttribute('aria-checked', 'true')
+  await expect(page.getByRole('group', { name: 'Gælder for' }).getByRole('checkbox', { name: 'Sumaya' })).toHaveAttribute('aria-checked', 'true')
   // Kan ændres til fælles
-  await page.getByRole('radiogroup', { name: 'Gælder for' }).getByRole('radio', { name: 'Begge' }).click()
+  await page.getByRole('group', { name: 'Gælder for' }).getByRole('checkbox', { name: 'Begge' }).click()
   await page.getByRole('button', { name: 'Gem ændringer' }).click()
   await expect(page.getByRole('link', { name: /Lægetid/ }).first()).toContainText(/Begge·?\s*14\.00/)
 })
@@ -137,7 +137,7 @@ test('kalender på smal skærm (iPhone SE): titel, hvem og tid afkortes ikke', a
   await page.setViewportSize({ width: 320, height: 640 })
   await startEmpty(page, '/hjemmet/kalender/ny')
   await page.getByPlaceholder('Fx Lægetid').fill('Forældremøde i børnehaven om sommerferien')
-  await page.getByRole('radiogroup', { name: 'Gælder for' }).getByRole('radio', { name: 'Sumaya' }).click()
+  await page.getByRole('group', { name: 'Gælder for' }).getByRole('checkbox', { name: 'Sumaya' }).click()
   await page.getByLabel('Start').fill('14:00')
   await page.getByLabel('Slut (valgfri)').fill('15:30')
   await page.getByRole('button', { name: 'Opret aftale' }).click()

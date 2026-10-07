@@ -5,7 +5,8 @@
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
-export type HouseholdRole = 'owner' | 'member'
+/** 'member' er den gamle betegnelse for voksen */
+export type HouseholdRole = 'owner' | 'adult' | 'child' | 'member'
 export type PaidByKind = 'member' | 'shared'
 export type TransactionSource = 'manual' | 'receipt' | 'upcoming'
 export type BudgetSource = 'override' | 'default' | 'none'
@@ -25,6 +26,7 @@ export type ReceiptStatus = 'pending' | 'approved'
 export type ReceiptRetention = '30d' | '3m' | '6m' | '1y' | 'custom' | 'permanent'
 export type MealType = 'breakfast' | 'lunch' | 'dinner'
 export type ShoppingSource = 'manual' | 'meal_plan'
+export type WalletKind = 'allowance' | 'deposit' | 'deduction' | 'purchase' | 'to_goal' | 'from_goal'
 export type RecipeInputJson = {
   name: string
   description: string | null
@@ -422,6 +424,8 @@ export type Database = {
           completed_at: string | null
           completed_by: string | null
           archived_at: string | null
+          /** Forberedt: frivillig belønning (øre) til et barn, når opgaven er færdig */
+          reward_ore: number | null
           created_by: string
           created_at: string
           updated_at: string
@@ -431,6 +435,7 @@ export type Database = {
           title: string
           description?: string | null
           assignee_id?: string | null
+          reward_ore?: number | null
           due_on?: string | null
           priority?: TaskPriority
           recurrence?: Recurrence
@@ -440,12 +445,49 @@ export type Database = {
           title?: string
           description?: string | null
           assignee_id?: string | null
+          reward_ore?: number | null
           due_on?: string | null
           priority?: TaskPriority
           recurrence?: Recurrence
           recurrence_interval?: number
           archived_at?: string | null
         }
+        Relationships: []
+      }
+      child_savings_goals: {
+        Row: {
+          id: string
+          household_id: string
+          child_id: string
+          name: string
+          target_ore: number
+          archived_at: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      child_wallet_transactions: {
+        Row: {
+          id: string
+          household_id: string
+          child_id: string
+          kind: WalletKind
+          amount_ore: number
+          note: string | null
+          goal_id: string | null
+          task_id: string | null
+          occurred_on: string
+          voided_at: string | null
+          voided_by: string | null
+          created_by: string
+          created_at: string
+        }
+        Insert: never
+        Update: never
         Relationships: []
       }
       calendar_events: {
@@ -461,6 +503,8 @@ export type Database = {
           description: string | null
           type: EventType
           for_user_id: string | null
+          /** Hvem aftalen gælder for. Tom = hele familien */
+          participant_ids: string[]
           /** Minutter før start (heldag: fra midnat). NULL = ingen påmindelse */
           reminder_minutes: number | null
           created_by: string
@@ -478,6 +522,7 @@ export type Database = {
           description?: string | null
           type?: EventType
           for_user_id?: string | null
+          participant_ids?: string[]
           reminder_minutes?: number | null
         }
         Update: {
@@ -490,6 +535,7 @@ export type Database = {
           description?: string | null
           type?: EventType
           for_user_id?: string | null
+          participant_ids?: string[]
           reminder_minutes?: number | null
         }
         Relationships: []
@@ -571,6 +617,14 @@ export type Database = {
       ensure_shopping_list: { Args: Record<PropertyKey, never>; Returns: string }
       export_household_data: { Args: Record<PropertyKey, never>; Returns: Record<string, unknown> }
       set_task_status: { Args: { p_task_id: string; p_status: TaskStatus }; Returns: string | null }
+      child_wallet_add: {
+        Args: { p_child: string; p_kind: WalletKind; p_amount_ore: number; p_note?: string | null; p_goal?: string | null; p_occurred_on?: string | null }
+        Returns: string
+      }
+      child_wallet_void: { Args: { p_tx: string }; Returns: undefined }
+      child_goal_create: { Args: { p_child: string; p_name: string; p_target_ore: number }; Returns: string }
+      child_goal_update: { Args: { p_goal: string; p_name: string | null; p_target_ore: number | null; p_archive?: boolean }; Returns: undefined }
+      set_member_role: { Args: { p_user: string; p_role: 'owner' | 'adult' | 'child' }; Returns: undefined }
       save_recipe: { Args: { p_id: string | null; p_recipe: RecipeInputJson; p_ingredients: IngredientInputJson[] }; Returns: string }
       copy_meal_week: { Args: { p_from: string; p_to: string }; Returns: number }
       add_meal_ingredients_to_shopping: { Args: { p_week: string; p_items: Array<{ key: string; name: string; quantity: string }> }; Returns: number }

@@ -23,7 +23,7 @@ import { useMonthParam } from './useMonthParam'
 export const memberColors = ['#5a3cf0', '#0f6e66', '#a8336a', '#1d5fae']
 
 export function OverviewPage() {
-  const { members } = useHousehold()
+  const { adults: members } = useHousehold()
   const [month, setMonth] = useMonthParam()
   const budget = useBudgetMonth(month)
   const txs = useMonthTransactions(month)

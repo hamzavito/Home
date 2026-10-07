@@ -31,6 +31,7 @@ import { MealPlanPage } from '@/features/mealplan/MealPlanPage'
 import { RecipeFormPage } from '@/features/mealplan/RecipeFormPage'
 import { RecipePage } from '@/features/mealplan/RecipePage'
 import { MorePage } from '@/features/more/MorePage'
+import { MemberPage } from '@/features/settings/MemberPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { AppLayout } from './AppLayout'
 import { FocusLayout } from './FocusLayout'
@@ -78,6 +79,7 @@ export const router = createBrowserRouter([
           { path: '/indkob', element: <ShoppingPage /> },
           { path: '/mere', element: <MorePage /> },
           { path: '/indstillinger', element: <SettingsPage /> },
+          { path: '/indstillinger/medlem/:id', element: <MemberPage /> },
           { path: '/okonomi/kommende', element: <UpcomingPage /> },
           { path: '/okonomi/kommende/ny', element: <UpcomingFormPage /> },
           { path: '/okonomi/kommende/:id', element: <UpcomingFormPage /> },

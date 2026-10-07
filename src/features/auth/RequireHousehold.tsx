@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Navigate, Outlet } from 'react-router'
 import { FullScreenLoader } from '@/components/ui/Spinner'
+import { ChildApp } from '@/features/child/ChildApp'
 import { HouseholdProvider, useHouseholdQuery } from '@/features/household/HouseholdProvider'
 import { refreshPushSubscription } from '@/lib/push'
 import { useAuth } from './AuthProvider'
@@ -25,7 +26,8 @@ export function RequireHousehold() {
 
   return (
     <HouseholdProvider household={household.data}>
-      <Outlet />
+      {/* Børn får deres egen, enklere app – uanset hvilken adresse de åbner */}
+      {household.data.me.isChild ? <ChildApp /> : <Outlet />}
     </HouseholdProvider>
   )
 }

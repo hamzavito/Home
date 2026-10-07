@@ -100,9 +100,12 @@ test('kalender: påmindelse vælges pr. aftale og gemmes', async ({ page }) => {
   // Standard: 1 time før, til begge ved fælles aftale
   await expect(reminder).toHaveValue('60')
   await expect(page.getByText('Sendes til jer begge, hvis notifikationer er slået til')).toBeVisible()
-  await page.getByRole('radiogroup', { name: 'Gælder for' }).getByRole('radio', { name: 'Sumaya' }).click()
+  await page.getByRole('group', { name: 'Gælder for' }).getByRole('checkbox', { name: 'Sumaya' }).click()
   await expect(page.getByText('Sendes til Sumaya, hvis notifikationer er slået til')).toBeVisible()
-  await page.getByRole('radiogroup', { name: 'Gælder for' }).getByRole('radio', { name: 'Hamza' }).click()
+  // Flere deltagere: påmindelsen går til dem alle
+  await page.getByRole('group', { name: 'Gælder for' }).getByRole('checkbox', { name: 'Hamza' }).click()
+  await expect(page.getByText(/Sendes til (dig og Sumaya|Sumaya og dig), hvis/)).toBeVisible()
+  await page.getByRole('group', { name: 'Gælder for' }).getByRole('checkbox', { name: 'Sumaya' }).click()
   await expect(page.getByText('Sendes til dig, hvis notifikationer er slået til')).toBeVisible()
 
   // Heldag har sine egne valg; standard er ingen

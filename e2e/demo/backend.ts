@@ -18,9 +18,22 @@ const URL_BASE = 'http://demo.local'
 export const HID = '11111111-1111-4111-8111-111111111111'
 export const ME = '00000000-0000-4000-8000-0000000000a1'
 export const WIFE = '00000000-0000-4000-8000-0000000000a2'
-const DB_KEY = 'hjem-demo-db-v6'
+const DB_KEY = 'hjem-demo-db-v7'
 const FILES_KEY = 'hjem-demo-files-v2'
 const MODE_KEY = 'hjem-demo-mode' // 'empty' = start uden demodata (bruges af tests)
+const KIDS_KEY = 'hjem-demo-kids' // '1' = husstanden har to børn (Noah og Lina)
+const AS_KEY = 'hjem-demo-as' // bruger-id der er logget ind (standard: Hamza)
+export const KID1 = '00000000-0000-4000-8000-0000000000b1'
+export const KID2 = '00000000-0000-4000-8000-0000000000b2'
+const readLs = (k: string) => {
+  try {
+    return localStorage.getItem(k)
+  } catch {
+    return null
+  }
+}
+/** Den indloggede bruger (alle "auth.uid()" i demoen) */
+const CUR: string = readLs(AS_KEY) ?? ME
 
 const TABLES = [
   'households',
@@ -44,6 +57,9 @@ const TABLES = [
   'recipe_ingredients',
   'meal_plan_entries',
   'ingredient_prices',
+  'household_members',
+  'child_savings_goals',
+  'child_wallet_transactions',
 ] as const
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -155,6 +171,15 @@ function baseDb(): Db {
     { id: ME, display_name: 'Hamza', color: null, default_paid_by: 'me', notify_calendar: true, notify_shopping: true, created_at: created, updated_at: created },
     { id: WIFE, display_name: 'Sumaya', color: null, default_paid_by: 'me', notify_calendar: true, notify_shopping: true, created_at: created, updated_at: created },
   ]
+  d.household_members = [
+    { household_id: HID, user_id: ME, role: 'owner', created_at: '2026-01-01T00:00:00Z' },
+    { household_id: HID, user_id: WIFE, role: 'adult', created_at: '2026-01-02T00:00:00Z' },
+  ]
+  if (readLs(KIDS_KEY) === '1')
+    for (const [i, [id, name]] of ([[KID1, 'Noah'], [KID2, 'Lina']] as const).entries()) {
+      d.profiles.push({ id, display_name: name, color: null, default_paid_by: 'me', notify_calendar: true, notify_shopping: true, created_at: created, updated_at: created })
+      d.household_members.push({ household_id: HID, user_id: id, role: 'child', created_at: `2026-01-0${i + 3}T00:00:00Z` })
+    }
   return d
 }
 
@@ -309,7 +334,7 @@ function seedHome(d: Db, catId: Record<string, string>) {
   task('Rengøre ovn', null, 'normal', null, 'none')
 
   const ev = (title: string, days: number, start: string | null, end: string | null, type: string, by: string, forUser: string | null) =>
-    d.calendar_events!.push({ id: uuid(), household_id: HID, title, event_date: addDays(t, days), end_date: type === 'vacation' ? addDays(t, days + 6) : null, start_time: start, end_time: end, all_day: start === null, description: null, type, for_user_id: forUser, reminder_minutes: start === null ? null : 60, created_by: by, created_at: created, updated_at: created })
+    d.calendar_events!.push({ id: uuid(), household_id: HID, title, event_date: addDays(t, days), end_date: type === 'vacation' ? addDays(t, days + 6) : null, start_time: start, end_time: end, all_day: start === null, description: null, type, participant_ids: forUser ? [forUser] : [], for_user_id: forUser, reminder_minutes: start === null ? null : 60, created_by: by, created_at: created, updated_at: created })
   ev('Lægetid – Adam', 2, '09:30', '10:00', 'doctor', ME, WIFE)
   ev('Middag hos svigerforældre', 5, '18:00', '21:00', 'family', ME, null)
   ev('Tandlæge', 8, '10:30', '11:00', 'doctor', WIFE, ME)
@@ -367,6 +392,43 @@ const ready: Promise<void> = (async () => {
     void saveFiles()
   }
 })()
+
+// ------------------------------------------------------------------ roller (spejler RLS)
+const roleOf = (uid: string) => db.household_members!.find((m) => m.user_id === uid)?.role as string | undefined
+const isAdult = () => roleOf(CUR) !== 'child'
+/** Hvad et barn må læse. Alt andet er usynligt for børn (som i databasen). */
+const CHILD_READ: Record<string, (r: Row) => boolean> = {
+  households: () => true,
+  profiles: () => true,
+  household_members: () => true,
+  meal_plan_entries: () => true,
+  recipes: () => true,
+  recipe_ingredients: () => true,
+  household_tasks: (r) => r.assignee_id === CUR,
+  calendar_events: (r) => (r.participant_ids ?? []).length === 0 || r.participant_ids.includes(CUR),
+  child_wallet_transactions: (r) => r.child_id === CUR,
+  child_savings_goals: (r) => r.child_id === CUR,
+}
+const visibleRows = (table: string, rows: Row[]) => (isAdult() ? rows : rows.filter((r) => CHILD_READ[table]?.(r) ?? false))
+const rlsError = () => new PgError('new row violates row-level security policy', '42501', 403)
+
+const walletEffect = (t: Row) => (['allowance', 'deposit', 'from_goal'].includes(t.kind) ? t.amount_ore : -t.amount_ore)
+const childBalance = (child: string) => db.child_wallet_transactions!.filter((t) => t.child_id === child && !t.voided_at).reduce((s2, t) => s2 + walletEffect(t), 0)
+const goalSavedDemo = (goal: string) =>
+  db.child_wallet_transactions!.filter((t) => t.goal_id === goal && !t.voided_at).reduce((s2, t) => s2 + (t.kind === 'to_goal' ? t.amount_ore : t.kind === 'from_goal' ? -t.amount_ore : 0), 0)
+function addWalletTx(child: string, kind: string, amount: number, note: string | null, goal: string | null, by = CUR) {
+  const id = uuid()
+  db.child_wallet_transactions!.push({ id, household_id: HID, child_id: child, kind, amount_ore: amount, note: note?.trim() || null, goal_id: goal, task_id: null, occurred_on: today(), voided_at: null, voided_by: null, created_by: by, created_at: nowIso() })
+  return id
+}
+
+/** Som triggeren private.calendar_participants: sortér, valider og hold for_user_id i takt */
+function syncParticipants(r: Row) {
+  const ids = [...new Set<string>(r.participant_ids ?? (r.for_user_id ? [r.for_user_id] : []))].sort()
+  if (ids.some((id) => !roleOf(id))) throw new PgError('Deltageren er ikke medlem af husstanden', '23503', 409)
+  r.participant_ids = ids
+  r.for_user_id = ids.length === 1 ? ids[0] : null
+}
 
 // ------------------------------------------------------------------ forretningslogik (spejler SQL)
 const monthlyEq = (amount: number, f: string) => (f === 'quarterly' ? Math.round(amount / 3) : f === 'yearly' ? Math.round(amount / 12) : amount)
@@ -495,13 +557,13 @@ const rpcs: Record<string, (a: Row) => unknown> = {
   fixed_items_month: (a) => fixedItemsMonth(a.p_month),
   create_budget_category: (a) => {
     if (db.budget_categories!.some((c) => !c.archived_at && c.name.toLowerCase() === String(a.p_name).toLowerCase())) throw new PgError('duplicate', '23505', 409)
-    const c = { id: uuid(), household_id: HID, name: a.p_name, icon: a.p_icon, color: a.p_color, kind: a.p_kind ?? 'spending', sort_order: db.budget_categories!.length, archived_at: null, created_by: ME, created_at: nowIso(), updated_at: nowIso() }
+    const c = { id: uuid(), household_id: HID, name: a.p_name, icon: a.p_icon, color: a.p_color, kind: a.p_kind ?? 'spending', sort_order: db.budget_categories!.length, archived_at: null, created_by: CUR, created_at: nowIso(), updated_at: nowIso() }
     db.budget_categories!.push(c)
     const vf = a.p_valid_from ? a.p_valid_from.slice(0, 8) + '01' : curMonth()
     if (a.p_mode === 'percent' && a.p_percent_bp != null)
-      db.budget_category_defaults!.push({ id: uuid(), household_id: HID, category_id: c.id, valid_from: vf, mode: 'percent', amount_ore: null, percent_bp: a.p_percent_bp, created_by: ME, created_at: nowIso(), updated_at: nowIso() })
+      db.budget_category_defaults!.push({ id: uuid(), household_id: HID, category_id: c.id, valid_from: vf, mode: 'percent', amount_ore: null, percent_bp: a.p_percent_bp, created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
     else if (a.p_default_amount_ore != null)
-      db.budget_category_defaults!.push({ id: uuid(), household_id: HID, category_id: c.id, valid_from: vf, mode: 'amount', amount_ore: a.p_default_amount_ore, percent_bp: null, created_by: ME, created_at: nowIso(), updated_at: nowIso() })
+      db.budget_category_defaults!.push({ id: uuid(), household_id: HID, category_id: c.id, valid_from: vf, mode: 'amount', amount_ore: a.p_default_amount_ore, percent_bp: null, created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
     return c.id
   },
   set_category_default: (a) => {
@@ -511,7 +573,7 @@ const rpcs: Record<string, (a: Row) => unknown> = {
     const values = { mode, amount_ore: mode === 'amount' ? a.p_amount_ore : null, percent_bp: mode === 'percent' ? a.p_percent_bp : null }
     const ex = db.budget_category_defaults!.find((x) => x.category_id === a.p_category_id && x.valid_from === vf)
     if (ex) Object.assign(ex, values)
-    else db.budget_category_defaults!.push({ id: uuid(), household_id: HID, category_id: a.p_category_id, valid_from: vf, ...values, created_by: ME, created_at: nowIso(), updated_at: nowIso() })
+    else db.budget_category_defaults!.push({ id: uuid(), household_id: HID, category_id: a.p_category_id, valid_from: vf, ...values, created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
     return null
   },
   set_monthly_budget: (a) => {
@@ -523,7 +585,7 @@ const rpcs: Record<string, (a: Row) => unknown> = {
   create_default_fixed_groups: () => {
     GROUPS.forEach((name, i) => {
       if (!db.fixed_groups!.some((g) => !g.archived_at && g.name.toLowerCase() === name.toLowerCase()))
-        db.fixed_groups!.push({ id: uuid(), household_id: HID, name, sort_order: i, archived_at: null, created_by: ME, created_at: nowIso(), updated_at: nowIso() })
+        db.fixed_groups!.push({ id: uuid(), household_id: HID, name, sort_order: i, archived_at: null, created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
     })
     return null
   },
@@ -535,9 +597,9 @@ const rpcs: Record<string, (a: Row) => unknown> = {
       id, household_id: HID, kind: a.p_kind, name: String(a.p_name).trim(), group_id: a.p_kind === 'expense' ? a.p_group_id : null,
       owner_kind: a.p_kind === 'income' ? (a.p_owner_kind ?? 'shared') : null, owner_user_id: a.p_kind === 'income' && a.p_owner_kind === 'member' ? a.p_owner_user_id : null,
       payment_day: a.p_payment_day ?? null, note: a.p_note ?? null, sort_order: db.fixed_items!.length, start_month: sm, end_month: null, archived_at: null,
-      created_by: ME, created_at: nowIso(), updated_at: nowIso(),
+      created_by: CUR, created_at: nowIso(), updated_at: nowIso(),
     })
-    db.fixed_item_versions!.push({ id: uuid(), household_id: HID, item_id: id, valid_from: sm, amount_ore: a.p_amount_ore, frequency: a.p_frequency ?? 'monthly', due_month: (a.p_frequency ?? 'monthly') === 'monthly' ? null : a.p_due_month, created_by: ME, created_at: nowIso(), updated_at: nowIso() })
+    db.fixed_item_versions!.push({ id: uuid(), household_id: HID, item_id: id, valid_from: sm, amount_ore: a.p_amount_ore, frequency: a.p_frequency ?? 'monthly', due_month: (a.p_frequency ?? 'monthly') === 'monthly' ? null : a.p_due_month, created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
     return id
   },
   set_fixed_item_amount: (a) => {
@@ -546,7 +608,7 @@ const rpcs: Record<string, (a: Row) => unknown> = {
     const values = { amount_ore: a.p_amount_ore, frequency: a.p_frequency ?? 'monthly', due_month: (a.p_frequency ?? 'monthly') === 'monthly' ? null : a.p_due_month }
     const ex = db.fixed_item_versions!.find((x) => x.item_id === a.p_item_id && x.valid_from === vf)
     if (ex) Object.assign(ex, values)
-    else db.fixed_item_versions!.push({ id: uuid(), household_id: HID, item_id: a.p_item_id, valid_from: vf, ...values, created_by: ME, created_at: nowIso(), updated_at: nowIso() })
+    else db.fixed_item_versions!.push({ id: uuid(), household_id: HID, item_id: a.p_item_id, valid_from: vf, ...values, created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
     return null
   },
   create_pending_receipt: () => {
@@ -641,7 +703,7 @@ const rpcs: Record<string, (a: Row) => unknown> = {
       db.recipe_ingredients = db.recipe_ingredients!.filter((x) => x.recipe_id !== id)
     } else {
       id = uuid()
-      db.recipes!.push({ id, household_id: HID, ...values, archived_at: null, created_by: ME, created_at: nowIso(), updated_at: nowIso() })
+      db.recipes!.push({ id, household_id: HID, ...values, archived_at: null, created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
     }
     ;((a.p_ingredients ?? []) as Row[])
       .filter((i) => String(i.name ?? '').trim())
@@ -655,7 +717,7 @@ const rpcs: Record<string, (a: Row) => unknown> = {
     for (const e of src) {
       const date = addDays(e.plan_date, diff)
       if (db.meal_plan_entries!.some((t) => t.plan_date === date && t.meal === e.meal)) continue
-      db.meal_plan_entries!.push({ ...e, id: uuid(), plan_date: date, created_by: ME, created_at: nowIso(), updated_at: nowIso() })
+      db.meal_plan_entries!.push({ ...e, id: uuid(), plan_date: date, created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
       n++
     }
     return n
@@ -674,7 +736,7 @@ const rpcs: Record<string, (a: Row) => unknown> = {
         }
         continue
       }
-      db.shopping_items!.push({ id: uuid(), household_id: HID, list_id: list, name: it.name, quantity: it.quantity || null, note: null, is_checked: false, checked_by: null, checked_at: null, added_by: ME, sort_order: ++order, source: 'meal_plan', source_key: key, meal_week: a.p_week, created_at: nowIso(), updated_at: nowIso() })
+      db.shopping_items!.push({ id: uuid(), household_id: HID, list_id: list, name: it.name, quantity: it.quantity || null, note: null, is_checked: false, checked_by: null, checked_at: null, added_by: CUR, sort_order: ++order, source: 'meal_plan', source_key: key, meal_week: a.p_week, created_at: nowIso(), updated_at: nowIso() })
       n++
     }
     return n
@@ -688,10 +750,10 @@ const rpcs: Record<string, (a: Row) => unknown> = {
     return l.id
   },
   set_task_status: (a) => {
-    const task = db.household_tasks!.find((x) => x.id === a.p_task_id)
+    const task = visibleRows('household_tasks', db.household_tasks!).find((x) => x.id === a.p_task_id)
     if (!task) throw new PgError('Opgaven findes ikke', 'P0002')
     if (a.p_status === 'done') {
-      if (task.status !== 'done') Object.assign(task, { status: 'done', completed_at: nowIso(), completed_by: ME })
+      if (task.status !== 'done') Object.assign(task, { status: 'done', completed_at: nowIso(), completed_by: CUR })
       if (task.recurrence === 'none') return null
       let next = db.household_tasks!.find((x) => x.previous_task_id === task.id)
       if (!next) {
@@ -704,7 +766,58 @@ const rpcs: Record<string, (a: Row) => unknown> = {
     Object.assign(task, { status: a.p_status, completed_at: null, completed_by: null })
     return null
   },
+  child_wallet_add: (a) => {
+    const adult = isAdult()
+    if (roleOf(a.p_child) !== 'child') throw new PgError('Barnet findes ikke', 'P0002')
+    if (!adult && (a.p_child !== CUR || !['purchase', 'to_goal', 'from_goal'].includes(a.p_kind))) throw new PgError('Ikke tilladt', '42501', 403)
+    if (!(a.p_amount_ore > 0)) throw new PgError('Beløbet skal være større end 0', '23514')
+    if (a.p_kind === 'to_goal' || a.p_kind === 'from_goal') {
+      const g = db.child_savings_goals!.find((x) => x.id === a.p_goal && x.child_id === a.p_child)
+      if (!g) throw new PgError('Målet findes ikke', 'P0002')
+      if (a.p_kind === 'to_goal' && g.archived_at) throw new PgError('Målet er afsluttet', '23514')
+      if (a.p_kind === 'from_goal' && a.p_amount_ore > goalSavedDemo(g.id)) throw new PgError('Der er ikke så mange penge på målet', '23514')
+    } else if (a.p_goal) throw new PgError('Kun flytning til/fra mål har et mål', '23514')
+    if (a.p_kind === 'to_goal' && a.p_amount_ore > childBalance(a.p_child)) throw new PgError('Der er ikke penge nok på saldoen', '23514')
+    if (a.p_kind === 'purchase' && !adult && a.p_amount_ore > childBalance(a.p_child)) throw new PgError('Der er ikke penge nok på saldoen', '23514')
+    return addWalletTx(a.p_child, a.p_kind, a.p_amount_ore, a.p_note ?? null, a.p_goal ?? null)
+  },
+  child_wallet_void: (a) => {
+    const t = db.child_wallet_transactions!.find((x) => x.id === a.p_tx)
+    if (!t || !isAdult()) throw new PgError('Bevægelsen findes ikke', 'P0002')
+    if (t.kind === 'to_goal' && goalSavedDemo(t.goal_id) - t.amount_ore < 0) throw new PgError('Pengene er allerede taget fra målet', '23514')
+    if (!t.voided_at) Object.assign(t, { voided_at: nowIso(), voided_by: CUR })
+    return null
+  },
+  child_goal_create: (a) => {
+    if (roleOf(a.p_child) !== 'child') throw new PgError('Barnet findes ikke', 'P0002')
+    if (!isAdult() && a.p_child !== CUR) throw new PgError('Ikke tilladt', '42501', 403)
+    if (db.child_savings_goals!.filter((g) => g.child_id === a.p_child && !g.archived_at).length >= 20) throw new PgError('Højst 20 aktive mål', '23514')
+    const id = uuid()
+    db.child_savings_goals!.push({ id, household_id: HID, child_id: a.p_child, name: String(a.p_name).trim(), target_ore: a.p_target_ore, archived_at: null, created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
+    return id
+  },
+  child_goal_update: (a) => {
+    const g = db.child_savings_goals!.find((x) => x.id === a.p_goal)
+    if (!g || !(isAdult() || g.child_id === CUR)) throw new PgError('Målet findes ikke', 'P0002')
+    const wasActive = !g.archived_at
+    Object.assign(g, { name: a.p_name?.trim() || g.name, target_ore: a.p_target_ore ?? g.target_ore, archived_at: a.p_archive ? (g.archived_at ?? nowIso()) : g.archived_at, updated_at: nowIso() })
+    if (a.p_archive && wasActive) {
+      const saved = goalSavedDemo(g.id)
+      if (saved > 0) addWalletTx(g.child_id, 'from_goal', saved, `Mål afsluttet: ${g.name}`, g.id)
+    }
+    return null
+  },
+  set_member_role: (a) => {
+    if (roleOf(CUR) !== 'owner') throw new PgError('Kun ejere kan ændre roller', '42501', 403)
+    if (a.p_user === CUR) throw new PgError('Du kan ikke ændre din egen rolle', '42501', 403)
+    if (!['owner', 'adult', 'child'].includes(a.p_role)) throw new PgError('Ugyldig rolle', '23514')
+    const m = db.household_members!.find((x) => x.user_id === a.p_user)
+    if (!m) throw new PgError('Medlemmet findes ikke', 'P0002')
+    m.role = a.p_role
+    return null
+  },
   export_household_data: () => {
+    if (!isAdult()) throw new PgError('Kun voksne kan eksportere', '42501', 403)
     const out: Row = { exported_at: nowIso(), household: { id: HID, name: 'Vores hjem' } }
     for (const t of TABLES) out[t] = db[t]
     return out
@@ -713,7 +826,7 @@ const rpcs: Record<string, (a: Row) => unknown> = {
 
 function insertTransaction(v: Row): Row {
   if (db.budget_categories!.find((c) => c.id === v.category_id)?.archived_at) throw new PgError('Kategorien er arkiveret', '23514')
-  const t = { id: uuid(), household_id: HID, note: null, paid_by_user_id: null, created_by: ME, created_at: nowIso(), updated_at: nowIso(), ...v }
+  const t = { id: uuid(), household_id: HID, note: null, paid_by_user_id: null, created_by: CUR, created_at: nowIso(), updated_at: nowIso(), ...v }
   db.transactions!.push(t)
   return t
 }
@@ -726,10 +839,10 @@ const DEFAULTS: Record<string, () => Row> = {
   budget_categories: () => ({ kind: 'spending', archived_at: null, icon: 'sparkles', color: '#6d5cff', sort_order: 0 }),
   fixed_groups: () => ({ archived_at: null, sort_order: 0 }),
   shopping_items: () => ({ is_checked: false, checked_by: null, checked_at: null, note: null, quantity: null, sort_order: 0, source: 'manual', source_key: null, meal_week: null }),
-  household_tasks: () => ({ status: 'open', priority: 'normal', recurrence: 'none', recurrence_interval: 1, completed_at: null, completed_by: null, previous_task_id: null, archived_at: null, description: null, assignee_id: null, due_on: null }),
+  household_tasks: () => ({ status: 'open', priority: 'normal', recurrence: 'none', recurrence_interval: 1, completed_at: null, completed_by: null, previous_task_id: null, archived_at: null, description: null, assignee_id: null, due_on: null, reward_ore: null }),
   recipes: () => ({ description: null, servings: 4, prep_minutes: null, steps: null, category: null, tags: [], is_favorite: false, note: null, archived_at: null }),
   meal_plan_entries: () => ({ meal: 'dinner', recipe_id: null, servings: null, note: null, sort_order: 0 }),
-  calendar_events: () => ({ start_time: null, end_time: null, end_date: null, all_day: false, description: null, type: 'family', for_user_id: null, reminder_minutes: null }),
+  calendar_events: () => ({ start_time: null, end_time: null, end_date: null, all_day: false, description: null, type: 'family', participant_ids: [], for_user_id: null, reminder_minutes: null }),
   transactions: () => ({ note: null, paid_by_kind: 'shared', paid_by_user_id: null, source: 'manual' }),
 }
 
@@ -780,8 +893,8 @@ const json = (body: unknown, status = 200, headers: Record<string, string> = {})
 const empty = (status = 204) => new Response(null, { status })
 const FAR = Math.floor(Date.now() / 1000) + 3600 * 24 * 365
 const b64 = (o: unknown) => btoa(JSON.stringify(o)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_')
-const jwt = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: ME, exp: FAR, role: 'authenticated', aud: 'authenticated' })}.demo`
-const user = { id: ME, email: 'hamza@demo.dk', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' }
+const jwt = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: CUR, exp: FAR, role: 'authenticated', aud: 'authenticated' })}.demo`
+const user = { id: CUR, email: CUR === ME ? 'hamza@demo.dk' : `${CUR.slice(-2)}@demo.dk`, aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' }
 const session = { access_token: jwt, token_type: 'bearer', expires_in: 3600 * 24 * 365, expires_at: FAR, refresh_token: 'demo', user }
 
 async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
@@ -813,7 +926,14 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
     // ---------------- Husstand
     if (p === '/rest/v1/household_members') {
       if (url.searchParams.get('select') === 'household_id') return json([{ household_id: HID }])
-      return json(db.profiles!.map((pr, i) => ({ user_id: pr.id, role: 'owner', created_at: `2026-01-0${i + 1}`, profiles: { display_name: pr.display_name, color: pr.color, default_paid_by: pr.default_paid_by } })))
+      return json(
+        [...db.household_members!]
+          .sort((a, b) => a.created_at.localeCompare(b.created_at))
+          .map((m) => {
+            const pr = db.profiles!.find((x) => x.id === m.user_id)!
+            return { user_id: m.user_id, role: m.role, created_at: m.created_at, profiles: { display_name: pr.display_name, color: pr.color, default_paid_by: pr.default_paid_by } }
+          }),
+      )
     }
 
     // ---------------- Edge Function: opskrift fra link (demo: fast eksempel)
@@ -869,18 +989,21 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
     const table = p.replace('/rest/v1/', '')
     const rows = db[table]
     if (rows) {
+      // Børn må kun skrive i egen profil – alt andet går via RPC'er (som i databasen)
+      if (method !== 'GET' && !isAdult() && table !== 'profiles') throw rlsError()
       if (method === 'GET') {
-        const out = withEmbeds(table, filterRows(rows, url.searchParams), url.searchParams.get('select'))
+        const out = withEmbeds(table, filterRows(visibleRows(table, rows), url.searchParams), url.searchParams.get('select'))
         return json(accept.includes('object') ? (out[0] ?? null) : out)
       }
       if (method === 'POST') {
         const list = (Array.isArray(body) ? body : [body]).map((b: Row): Row => ({
           id: uuid(), created_at: nowIso(), updated_at: nowIso(),
-          ...(table === 'shopping_items' ? { added_by: ME } : { created_by: ME }),
+          ...(table === 'shopping_items' ? { added_by: CUR } : { created_by: CUR }),
           ...(DEFAULTS[table]?.() ?? {}),
           ...b,
         }))
         for (const row of list) {
+          if (table === 'calendar_events') syncParticipants(row)
           if (table === 'transactions' && db.budget_categories!.find((c) => c.id === row.category_id)?.archived_at) throw new PgError('Kategorien er arkiveret', '23514')
           if (table === 'fixed_groups' && db.fixed_groups!.some((g) => !g.archived_at && g.name.toLowerCase() === String(row.name).toLowerCase())) throw new PgError('duplicate', '23505', 409)
           if (table === 'savings_movements' && row.kind === 'withdrawal') {
@@ -897,8 +1020,13 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
         const hit = filterRows(rows, url.searchParams)
         for (const r of hit) {
           if (table === 'shopping_items' && body && 'is_checked' in body && body.is_checked !== r.is_checked)
-            Object.assign(r, body.is_checked ? { checked_by: ME, checked_at: nowIso() } : { checked_by: null, checked_at: null })
+            Object.assign(r, body.is_checked ? { checked_by: CUR, checked_at: nowIso() } : { checked_by: null, checked_at: null })
           Object.assign(r, body, { updated_at: nowIso() })
+          if (table === 'calendar_events') {
+            // Ældre app-versioner sender kun for_user_id
+            if (body && !('participant_ids' in body) && 'for_user_id' in body) r.participant_ids = body.for_user_id ? [body.for_user_id] : []
+            syncParticipants(r)
+          }
         }
         save()
         return prefer.includes('return=representation') ? json(accept.includes('object') ? hit[0] : hit) : empty()
@@ -931,7 +1059,9 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
 
 // Log automatisk ind første gang, så demoen åbner direkte på forsiden
 try {
-  if (!authStorage.getItem('hjem.auth')) authStorage.setItem('hjem.auth', JSON.stringify(session))
+  // Ny session, hvis der ikke er en – eller hvis testen har skiftet bruger (hjem-demo-as)
+  const stored = JSON.parse(authStorage.getItem('hjem.auth') ?? 'null') as { user?: { id?: string } } | null
+  if (!stored || (stored.user?.id && stored.user.id !== CUR)) authStorage.setItem('hjem.auth', JSON.stringify(session))
 } catch {
   /* ignorér */
 }

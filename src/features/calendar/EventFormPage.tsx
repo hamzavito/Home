@@ -15,12 +15,9 @@ import { cn } from '@/lib/cn'
 import { formatLongDate, formatWeekday, fromIsoDate, toIsoDate } from '@/lib/dates'
 import { addDaysIso, timeInputValue } from '@/lib/home'
 import type { EventType } from '@/types/database'
-import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { Toggle } from '@/components/ui/Toggle'
-import { sharedLabel } from './forWhom'
+import { familyLabel } from './forWhom'
 import { defaultReminder, reminderAfterAllDayChange, reminderChoices } from './reminders'
-
-const SHARED = 'shared'
 
 export function EventFormPage() {
   const { id } = useParams()
@@ -52,8 +49,15 @@ function EventForm({ existing }: { existing?: CalendarEvent }) {
   const [start, setStart] = useState(timeInputValue(existing?.start_time) || '09:00')
   const [end, setEnd] = useState(timeInputValue(existing?.end_time))
   const [type, setType] = useState<EventType>(existing?.type ?? 'family')
-  // Tidligere medlem eller tomt felt vises som fælles
-  const [forUser, setForUser] = useState(existing?.for_user_id && members.some((m) => m.userId === existing.for_user_id) ? existing.for_user_id : SHARED)
+  // Deltagere (tidligere medlemmer udelades). Tom = hele familien. ?deltager= forudvælger en person.
+  const presetFor = params.get('deltager')
+  const [participants, setParticipants] = useState<string[]>(() =>
+    existing
+      ? (existing.participant_ids ?? []).filter((id) => members.some((m) => m.userId === id))
+      : presetFor && members.some((m) => m.userId === presetFor)
+        ? [presetFor]
+        : [],
+  )
   const [reminder, setReminder] = useState<number | null>(existing ? existing.reminder_minutes : defaultReminder(false))
   const [description, setDescription] = useState(existing?.description ?? '')
   const [touched, setTouched] = useState(false)
@@ -67,8 +71,15 @@ function EventForm({ existing }: { existing?: CalendarEvent }) {
   }
   const valid = !errors.title && !errors.start && !errors.end
   const creator = members.find((m) => m.userId === existing?.created_by)
-  const forMember = members.find((m) => m.userId === forUser)
-  const reminderTo = forMember ? (forMember.isMe ? 'dig' : forMember.displayName) : members.length === 2 ? 'jer begge' : 'alle i husstanden'
+  const chosen = members.filter((m) => participants.includes(m.userId))
+  const reminderTo =
+    chosen.length === 0
+      ? members.length === 2
+        ? 'jer begge'
+        : 'hele familien'
+      : chosen.length === 1 && chosen[0]!.isMe
+        ? 'dig'
+        : chosen.map((m) => (m.isMe ? 'dig' : m.displayName)).join(', ').replace(/, ([^,]*)$/, ' og $1')
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -86,7 +97,7 @@ function EventForm({ existing }: { existing?: CalendarEvent }) {
           endTime: allDay ? null : end || null,
           description,
           type,
-          forUserId: forUser === SHARED ? null : forUser,
+          participantIds: participants,
           reminderMinutes: reminder,
         },
       })
@@ -118,12 +129,18 @@ function EventForm({ existing }: { existing?: CalendarEvent }) {
 
         <div>
           <p className="mb-1.5 px-1 text-[13px] font-semibold text-secondary">Gælder for</p>
-          <SegmentedControl
-            label="Gælder for"
-            value={forUser}
-            onChange={setForUser}
-            options={[...members.map((m) => ({ value: m.userId, label: m.displayName })), { value: SHARED, label: sharedLabel(members) }]}
-          />
+          <div role="group" aria-label="Gælder for" className="flex flex-wrap gap-2">
+            <ChoiceChip label={familyLabel(members)} checked={participants.length === 0} onClick={() => setParticipants([])} />
+            {members.map((m) => (
+              <ChoiceChip
+                key={m.userId}
+                label={m.displayName}
+                checked={participants.includes(m.userId)}
+                onClick={() => setParticipants((p) => (p.includes(m.userId) ? p.filter((x) => x !== m.userId) : [...p, m.userId]))}
+              />
+            ))}
+          </div>
+          <p className="mt-1.5 px-1 text-[13px] text-secondary">Vælg én eller flere. {familyLabel(members)} = alle i husstanden kan se aftalen.</p>
         </div>
 
         <div>
@@ -240,5 +257,19 @@ function EventForm({ existing }: { existing?: CalendarEvent }) {
         </div>
       </BottomSheet>
     </>
+  )
+}
+
+function ChoiceChip({ label, checked, onClick }: { label: string; checked: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={onClick}
+      className={cn('pressable h-10 rounded-full px-4 text-[14px] font-semibold transition-colors', checked ? 'bg-accent text-on-accent' : 'bg-surface-primary text-primary shadow-card')}
+    >
+      {label}
+    </button>
   )
 }

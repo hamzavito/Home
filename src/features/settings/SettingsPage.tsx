@@ -1,5 +1,6 @@
-import { Download, KeyRound, Lock, LogOut } from 'lucide-react'
+import { ChevronRight, Download, KeyRound, Lock, LogOut } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router'
 import { Avatar } from '@/components/ui/Avatar'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
@@ -15,6 +16,7 @@ import { cn } from '@/lib/cn'
 import { retentionOptions } from '@/lib/retention'
 import { applyTheme, getThemePreference, type ThemePreference } from '@/lib/theme'
 import type { DefaultPaidBy, DefaultRetention } from '@/types/database'
+import { roleLabels } from './MemberPage'
 import { NotificationSettings } from './NotificationSettings'
 import { useChangePassword, useExportData, useUpdateProfile, useUpdateRetentionDefault } from './api'
 
@@ -98,7 +100,7 @@ export function SettingsPage() {
               </button>
             ))}
           </div>
-          <p className="mt-1.5 px-1 text-[13px] text-secondary">Gælder nye kvitteringer for jer begge. Eksisterende kvitteringer ændres ikke, og udgifterne bevares altid.
+          <p className="mt-1.5 px-1 text-[13px] text-secondary">Gælder nye kvitteringer for hele husstanden. Eksisterende kvitteringer ændres ikke, og udgifterne bevares altid.
             {retention.isSuccess && <span className="font-semibold text-positive"> Gemt</span>}
           </p>
           {retention.isError && <p className="mt-1 px-1 text-[13px] text-danger">Det kunne ikke gemmes. Prøv igen.</p>}
@@ -114,13 +116,17 @@ export function SettingsPage() {
       <ListGroup>
         <ListRow title={household.name} subtitle={`${household.members.length} medlemmer`} />
         {household.members.map((m, i) => (
-          <div key={m.userId} className="flex min-h-[52px] items-center gap-3 px-4 py-2">
+          <Link key={m.userId} to={`/indstillinger/medlem/${m.userId}`} className="flex min-h-[56px] items-center gap-3 px-4 py-2 transition-colors active:bg-surface-secondary">
             <Avatar name={m.displayName} color={m.color} index={i} />
-            <span className="min-w-0 flex-1 truncate text-[16px] font-medium">
-              {m.displayName}
-              {m.isMe && <span className="text-secondary"> (dig)</span>}
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-[16px] font-medium">
+                {m.displayName}
+                {m.isMe && <span className="text-secondary"> (dig)</span>}
+              </span>
+              <span className="text-[13px] text-secondary">{roleLabels[m.role]}</span>
             </span>
-          </div>
+            <ChevronRight className="size-5 shrink-0 text-muted" />
+          </Link>
         ))}
       </ListGroup>
 

@@ -1,6 +1,6 @@
 import { CheckSquare, Minus, Plus, Trash2, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { useParams } from 'react-router'
+import { useParams, useSearchParams } from 'react-router'
 import { useGoBack } from '@/app/useGoBack'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
@@ -11,8 +11,10 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { FullScreenLoader } from '@/components/ui/Spinner'
 import { useHousehold } from '@/features/household/HouseholdProvider'
+import { cn } from '@/lib/cn'
 import { formatLongDate, fromIsoDate, toIsoDate } from '@/lib/dates'
 import { nextDue, recurrenceLabel } from '@/lib/home'
+import { parseKr, toInputValue } from '@/lib/money'
 import type { Recurrence, TaskPriority, TaskStatus } from '@/types/database'
 import { homeErrorMessage, useDeleteTask, useSaveTask, useSetTaskStatus, useTask, type Task } from './api'
 import { priorityLabels, statusLabels } from './meta'
@@ -42,19 +44,26 @@ function TaskForm({ existing }: { existing?: Task }) {
   const setStatus = useSetTaskStatus()
   const [title, setTitle] = useState(existing?.title ?? '')
   const [description, setDescription] = useState(existing?.description ?? '')
-  const [assignee, setAssignee] = useState(existing?.assignee_id ?? 'none')
+  const [params] = useSearchParams()
+  const preset = params.get('ansvarlig')
+  const [assignee, setAssignee] = useState(existing?.assignee_id ?? (preset && members.some((m) => m.userId === preset) ? preset : 'none'))
+  const [reward, setReward] = useState(existing?.reward_ore ? toInputValue(existing.reward_ore) : '')
   const [due, setDue] = useState(existing?.due_on ?? '')
   const [priority, setPriority] = useState<TaskPriority>(existing?.priority ?? 'normal')
   const [recurrence, setRecurrence] = useState<Recurrence>(existing?.recurrence ?? 'none')
   const [interval, setInterval] = useState(existing?.recurrence_interval ?? 1)
   const [touched, setTouched] = useState(false)
+  // Belønning gælder kun opgaver til et barn
+  const forChild = members.some((m) => m.userId === assignee && m.isChild)
+  const rewardOre = parseKr(reward)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const errors = {
     title: title.trim() ? null : 'Skriv hvad der skal gøres',
     due: recurrence !== 'none' && !due ? 'En gentagende opgave skal have en dato' : null,
+    reward: reward.trim() && (rewardOre === null || rewardOre < 100 || rewardOre > 100000) ? 'Skriv et beløb mellem 1 og 1.000 kr.' : null,
   }
-  const valid = !errors.title && !errors.due
+  const valid = !errors.title && !errors.due && !(forChild && errors.reward)
 
   function pickRecurrence(r: Recurrence) {
     setRecurrence(r)
@@ -69,7 +78,7 @@ function TaskForm({ existing }: { existing?: Task }) {
     try {
       await save.mutateAsync({
         id: existing?.id,
-        input: { title, description, assigneeId: assignee === 'none' ? null : assignee, dueOn: due || null, priority, recurrence, interval },
+        input: { title, description, assigneeId: assignee === 'none' ? null : assignee, rewardOre: forChild && reward.trim() ? rewardOre : null, dueOn: due || null, priority, recurrence, interval },
       })
       goBack('/hjemmet')
     } catch {
@@ -117,8 +126,32 @@ function TaskForm({ existing }: { existing?: Task }) {
 
         <div>
           <p className="mb-1.5 px-1 text-[13px] font-semibold text-secondary">Hvem</p>
-          <SegmentedControl label="Hvem" value={assignee} onChange={setAssignee} options={[{ value: 'none', label: 'Begge' }, ...members.map((m) => ({ value: m.userId, label: m.isMe ? 'Mig' : m.displayName }))]} />
+          {members.length <= 2 ? (
+            <SegmentedControl label="Hvem" value={assignee} onChange={setAssignee} options={[{ value: 'none', label: 'Begge' }, ...members.map((m) => ({ value: m.userId, label: m.isMe ? 'Mig' : m.displayName }))]} />
+          ) : (
+            // Mange i husstanden (fx børn): knapper der ombrydes i stedet for en smal fanebjælke
+            <div role="radiogroup" aria-label="Hvem" className="flex flex-wrap gap-2">
+              {[{ value: 'none', label: 'Ingen bestemt' }, ...members.map((m) => ({ value: m.userId, label: m.isMe ? 'Mig' : m.displayName }))].map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={assignee === o.value}
+                  onClick={() => setAssignee(o.value)}
+                  className={cn('pressable h-10 rounded-full px-4 text-[14px] font-semibold', assignee === o.value ? 'bg-accent text-on-accent' : 'bg-surface-primary shadow-card')}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
+        {forChild && (
+          <Field label="Belønning (valgfri)" error={touched ? errors.reward : null} hint="Vises for barnet på opgaven. Pengene gives under barnets lommepenge.">
+            <TextInput value={reward} inputMode="decimal" onChange={(e) => setReward(e.target.value)} placeholder="Fx 10 kr." />
+          </Field>
+        )}
 
         <Field label="Dato" error={touched ? errors.due : null} hint={due ? formatLongDate(fromIsoDate(due)) : 'Ingen dato'}>
           <div className="flex gap-2">

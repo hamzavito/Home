@@ -6,7 +6,8 @@ import { Toggle } from '@/components/ui/Toggle'
 import { disablePush, enablePush, isPushEnabled, permission, PushSetupError, pushSupport } from '@/lib/push'
 import { useNotificationPrefs, useSendTestNotification, useUpdateNotificationPrefs } from './api'
 
-export function NotificationSettings() {
+/** `shopping` = false skjuler indkøbslisten (børn har ikke adgang til den) */
+export function NotificationSettings({ shopping = true }: { shopping?: boolean }) {
   const [support] = useState(pushSupport)
   const [enabled, setEnabled] = useState<boolean | null>(null)
   const [blocked, setBlocked] = useState(() => permission() === 'denied')
@@ -72,7 +73,9 @@ export function NotificationSettings() {
                 ? 'Blokeret. Slå dem til i iPhonens Indstillinger → Notifikationer → Hjem.'
                 : enabled
                   ? 'Du får notifikationer her.'
-                  : 'Slå til for at få påmindelser og besked om nye varer.'
+                  : shopping
+                    ? 'Slå til for at få påmindelser og besked om nye varer.'
+                    : 'Slå til for at få påmindelser om dine aftaler.'
             }
             checked={enabled === true}
             disabled={busy || enabled === null || (blocked && !enabled)}
@@ -99,13 +102,15 @@ export function NotificationSettings() {
           disabled={!p}
           onChange={(v) => updatePrefs.mutate({ notify_calendar: v })}
         />
-        <Toggle
-          label="Nye varer på indkøbslisten"
-          hint="Når en anden i husstanden tilføjer noget."
-          checked={p?.notify_shopping ?? true}
-          disabled={!p}
-          onChange={(v) => updatePrefs.mutate({ notify_shopping: v })}
-        />
+        {shopping && (
+          <Toggle
+            label="Nye varer på indkøbslisten"
+            hint="Når en anden i husstanden tilføjer noget."
+            checked={p?.notify_shopping ?? true}
+            disabled={!p}
+            onChange={(v) => updatePrefs.mutate({ notify_shopping: v })}
+          />
+        )}
       </ListGroup>
       <p className="mt-2 px-1 text-[13px] text-secondary">
         {updatePrefs.isError ? (

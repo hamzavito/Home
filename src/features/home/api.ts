@@ -166,6 +166,8 @@ export type TaskInput = {
   title: string
   description: string | null
   assigneeId: string | null
+  /** Valgfri belønning i øre (kun opgaver til børn) */
+  rewardOre?: number | null
   dueOn: string | null
   priority: TaskPriority
   recurrence: Recurrence
@@ -181,6 +183,7 @@ export function useSaveTask() {
         title: input.title.trim(),
         description: input.description?.trim() || null,
         assignee_id: input.assigneeId,
+        reward_ore: input.rewardOre ?? null,
         due_on: input.dueOn,
         priority: input.priority,
         recurrence: input.recurrence,
@@ -261,8 +264,8 @@ export type EventInput = {
   endTime: string | null
   description: string | null
   type: EventType
-  /** NULL = Begge/Fælles */
-  forUserId: string | null
+  /** Hvem aftalen gælder for. Tom = hele familien */
+  participantIds: string[]
   /** Minutter før start, NULL = ingen påmindelse */
   reminderMinutes: number | null
 }
@@ -281,7 +284,7 @@ export function useSaveEvent() {
         end_time: input.allDay ? null : input.endTime || null,
         description: input.description?.trim() || null,
         type: input.type,
-        for_user_id: input.forUserId,
+        participant_ids: input.participantIds,
         reminder_minutes: input.reminderMinutes,
       }
       if (id) {

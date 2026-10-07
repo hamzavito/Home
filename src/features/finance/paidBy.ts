@@ -6,10 +6,10 @@ export function paidByLabel(kind: PaidByKind, userId: string | null, members: Ho
   return members.find((m) => m.userId === userId)?.displayName ?? 'Tidligere medlem'
 }
 
-/** Valgmuligheder for "Betalt af": husstandens medlemmer + Fælles */
+/** Valgmuligheder for "Betalt af": husstandens voksne + Fælles (børn er ikke en del af økonomien) */
 export function paidByOptions(members: HouseholdMember[]) {
   return [
-    ...members.map((m) => ({ value: `member:${m.userId}`, label: m.displayName })),
+    ...members.filter((m) => !m.isChild).map((m) => ({ value: `member:${m.userId}`, label: m.displayName })),
     { value: 'shared', label: 'Fælles' },
   ]
 }

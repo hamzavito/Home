@@ -10,6 +10,8 @@ export type HouseholdMember = {
   displayName: string
   color: string | null
   isMe: boolean
+  /** Barn: enklere app, egne lommepenge – ingen adgang til familiens økonomi */
+  isChild: boolean
   defaultPaidBy: DefaultPaidBy
 }
 
@@ -20,6 +22,9 @@ export type Household = {
   /** Budgetkategorien for mad/dagligvarer (madplanen viser dens rest) */
   groceryCategoryId: string | null
   members: HouseholdMember[]
+  /** Kun voksne (til økonomi: "Betalt af", indkomst osv.) */
+  adults: HouseholdMember[]
+  children: HouseholdMember[]
   me: HouseholdMember
 }
 
@@ -49,11 +54,14 @@ async function fetchHousehold(userId: string): Promise<Household | null> {
     displayName: m.profiles?.display_name ?? 'Ukendt',
     color: m.profiles?.color ?? null,
     isMe: m.user_id === userId,
+    isChild: m.role === 'child',
     defaultPaidBy: m.profiles?.default_paid_by ?? 'me',
   }))
   const me = mapped.find((m) => m.isMe)
   if (!me) return null
-  return { id: household.id, name: household.name, defaultRetention: household.default_receipt_retention ?? '30d', groceryCategoryId: household.grocery_category_id ?? null, members: mapped, me }
+  const adults = mapped.filter((m) => !m.isChild)
+  const children = mapped.filter((m) => m.isChild)
+  return { adults, children, id: household.id, name: household.name, defaultRetention: household.default_receipt_retention ?? '30d', groceryCategoryId: household.grocery_category_id ?? null, members: mapped, me }
 }
 
 export const householdQueryKey = (userId: string | undefined) => ['household', userId] as const

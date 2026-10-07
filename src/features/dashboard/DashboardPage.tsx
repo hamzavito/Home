@@ -67,7 +67,7 @@ export function DashboardPage() {
   const weekEvents = [...(events.data ?? [])].sort(compareEvents).slice(0, 3)
   // Opgaver der er forfaldne eller skal gøres i dag
   const dueTasks = (tasks.data?.active ?? []).filter((t) => t.due_on !== null && t.due_on <= todayIso).slice(0, 3)
-  const names = members.map((m) => m.displayName).join(' & ')
+  const names = members.filter((m) => !m.isChild).map((m) => m.displayName).join(' & ')
   const hasCategories = (categories.data ?? []).some((c) => !c.archived_at)
 
   return (
