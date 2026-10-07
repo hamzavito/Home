@@ -419,14 +419,14 @@ const themes: Array<{ value: ThemePreference; label: string }> = [
 
 export function ChildMore() {
   const { me, name } = useHousehold()
-  const { session, signOut } = useAuth()
+  const { signOut } = useAuth()
   const [theme, setTheme] = useState(getThemePreference)
   const [confirm, setConfirm] = useState(false)
   return (
     <>
       <PageHeader title="Mere" />
       <ListGroup>
-        <ListRow title={me.displayName} subtitle={session?.user.email ?? name} />
+        <ListRow title={me.displayName} subtitle={me.username ? `Brugernavn: ${me.username} · ${name}` : name} />
       </ListGroup>
 
       <NotificationSettings shopping={false} />

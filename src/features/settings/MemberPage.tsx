@@ -15,6 +15,7 @@ import { GoalSheets, type MoneySheet } from '@/features/child/ChildPages'
 import { AmountForm, ChildGoalCard, GoalForm, WalletTxRow } from '@/features/child/WalletParts'
 import { useTasks } from '@/features/home/api'
 import { TaskRow } from '@/features/home/TaskRow'
+import { ChildLoginControls } from './ChildLogin'
 import { useHousehold, type HouseholdMember } from '@/features/household/HouseholdProvider'
 import { cn } from '@/lib/cn'
 import { monthKey } from '@/lib/dates'
@@ -50,10 +51,15 @@ export function MemberPage() {
             {member.displayName}
             {member.isMe && <span className="text-secondary"> (dig)</span>}
           </p>
-          <p className="text-[14px] text-secondary">{roleLabels[member.role]}</p>
+          <p className="text-[14px] text-secondary">
+            {roleLabels[member.role]}
+            {member.username && ` · brugernavn ${member.username}`}
+            {member.disabled && ' · login slået fra'}
+          </p>
         </div>
       </div>
-      {household.me.role === 'owner' && !member.isMe && <RoleEditor member={member} />}
+      {household.me.role === 'owner' && !member.isMe && !member.username && <RoleEditor member={member} />}
+      {household.me.role === 'owner' && member.username && <ChildLoginControls child={member} />}
       {member.isChild && <ChildControls child={member} />}
     </>
   )

@@ -1,6 +1,7 @@
 import { CloudOff, KeyRound, Users } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { isHiddenEmail } from '@/lib/child-login'
 import { useAuth } from './AuthProvider'
 
 function Centered({ children }: { children: React.ReactNode }) {
@@ -21,12 +22,14 @@ export function ConfigMissingScreen() {
 
 export function NoHouseholdScreen() {
   const { signOut, session } = useAuth()
+  // Børn har en skjult systemidentitet, som aldrig må vises
+  const hidden = isHiddenEmail(session?.user.email)
   return (
     <Centered>
       <EmptyState
         icon={Users}
-        title="Ingen husstand"
-        text={`Kontoen ${session?.user.email ?? ''} er ikke tilknyttet en husstand endnu. Kør opsætningsscriptet i Supabase.`}
+        title={hidden ? 'Login er slået fra' : 'Ingen husstand'}
+        text={hidden ? 'Dit login virker ikke lige nu. Spørg en voksen.' : `Kontoen ${session?.user.email ?? ''} er ikke tilknyttet en husstand endnu. Kør opsætningsscriptet i Supabase.`}
       >
         <Button variant="secondary" onClick={signOut}>
           Log ud

@@ -22,3 +22,10 @@ verify_jwt = false
 # Kræver login (JWT); funktionen tjekker desuden selv, at det er en rigtig bruger.
 [functions.import-recipe]
 verify_jwt = true
+
+[functions.child-login]
+# Kaldes før login. Kontrol og rate limit sker i databasen.
+verify_jwt = false
+
+[functions.child-admin]
+verify_jwt = true

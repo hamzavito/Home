@@ -34,8 +34,10 @@ test('forælder styrer barnet: penge, mål, opgave med belønning og aftale', as
   await expect(page.getByRole('link', { name: /Sumaya\s*Voksen/ })).toBeVisible()
   await page.getByRole('link', { name: /Noah\s*Barn/ }).click()
 
-  // Ejer kan se rollen og ændre den
-  await expect(page.getByRole('radiogroup', { name: 'Rolle' }).getByRole('radio', { name: 'Barn' })).toHaveAttribute('aria-checked', 'true')
+  // Ejer ser rollen; et barn med PIN-login styres under "Login" (rollen kan ikke gøres til voksen)
+  await expect(page.getByText(/Barn · brugernavn noah/)).toBeVisible()
+  await expect(page.getByRole('button', { name: /Slå login fra/ })).toBeVisible()
+  await expect(page.getByRole('radiogroup', { name: 'Rolle' })).toHaveCount(0)
 
   // Lommepenge
   await page.getByRole('button', { name: 'Giv eller træk penge' }).click()

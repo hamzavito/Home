@@ -6,6 +6,9 @@ do $$ begin
   if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
   if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin bypassrls; end if;
 end $$;
+-- pgcrypto ligger i schemaet extensions i Supabase
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
 create schema auth;
 grant usage on schema auth to anon, authenticated, service_role;
 create table auth.users (

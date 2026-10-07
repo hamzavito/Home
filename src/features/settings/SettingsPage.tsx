@@ -1,4 +1,4 @@
-import { ChevronRight, Download, KeyRound, Lock, LogOut } from 'lucide-react'
+import { ChevronRight, Download, KeyRound, Lock, LogOut, UserPlus } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { Avatar } from '@/components/ui/Avatar'
@@ -16,6 +16,7 @@ import { cn } from '@/lib/cn'
 import { retentionOptions } from '@/lib/retention'
 import { applyTheme, getThemePreference, type ThemePreference } from '@/lib/theme'
 import type { DefaultPaidBy, DefaultRetention } from '@/types/database'
+import { LoginCodeCard } from './ChildLogin'
 import { roleLabels } from './MemberPage'
 import { NotificationSettings } from './NotificationSettings'
 import { useChangePassword, useExportData, useUpdateProfile, useUpdateRetentionDefault } from './api'
@@ -123,12 +124,18 @@ export function SettingsPage() {
                 {m.displayName}
                 {m.isMe && <span className="text-secondary"> (dig)</span>}
               </span>
-              <span className="text-[13px] text-secondary">{roleLabels[m.role]}</span>
+              <span className="text-[13px] text-secondary">
+                {roleLabels[m.role]}
+                {m.disabled && ' · login slået fra'}
+              </span>
             </span>
             <ChevronRight className="size-5 shrink-0 text-muted" />
           </Link>
         ))}
+        {household.me.role === 'owner' && <ListRow icon={UserPlus} title="Tilføj barn" subtitle="Eget login med brugernavn og PIN" to="/indstillinger/barn/ny" />}
       </ListGroup>
+
+      {household.me.role === 'owner' && <LoginCodeCard />}
 
       <SectionHeader title="Udseende" />
       <SegmentedControl

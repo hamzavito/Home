@@ -12,6 +12,10 @@ export type HouseholdMember = {
   isMe: boolean
   /** Barn: enklere app, egne lommepenge – ingen adgang til familiens økonomi */
   isChild: boolean
+  /** Barnets login-navn (kun børn med PIN-login) */
+  username: string | null
+  /** Login slået fra af en ejer */
+  disabled: boolean
   defaultPaidBy: DefaultPaidBy
 }
 
@@ -41,7 +45,7 @@ async function fetchHousehold(userId: string): Promise<Household | null> {
     supabase.from('households').select('id, name, default_receipt_retention, grocery_category_id').eq('id', membership.household_id).single(),
     supabase
       .from('household_members')
-      .select('user_id, role, created_at, profiles ( display_name, color, default_paid_by )')
+      .select('user_id, role, created_at, child_username, disabled_at, profiles ( display_name, color, default_paid_by )')
       .eq('household_id', membership.household_id)
       .order('created_at'),
   ])
@@ -55,6 +59,8 @@ async function fetchHousehold(userId: string): Promise<Household | null> {
     color: m.profiles?.color ?? null,
     isMe: m.user_id === userId,
     isChild: m.role === 'child',
+    username: m.child_username ?? null,
+    disabled: m.disabled_at !== null && m.disabled_at !== undefined,
     defaultPaidBy: m.profiles?.default_paid_by ?? 'me',
   }))
   const me = mapped.find((m) => m.isMe)

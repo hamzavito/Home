@@ -8,8 +8,12 @@
 set -euo pipefail
 DB="$1"
 DIR="$2"
+# Ældre backups har ingen private.sql
+extra=()
+[ -f "$DIR/private.sql" ] && extra=(-f "$DIR/private.sql")
 psql "$DB" -X -q -v ON_ERROR_STOP=1 --single-transaction \
   -c 'set session_replication_role = replica' \
   -f "$DIR/auth.sql" \
-  -f "$DIR/public.sql"
+  -f "$DIR/public.sql" \
+  "${extra[@]}"
 echo "✓ Backup gendannet fra $DIR"

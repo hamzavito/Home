@@ -28,8 +28,8 @@ bash scripts/backup/restore.sh "$DST" "$TMP/backup" >/dev/null
 
 # Sammenlign indholdet af alle tabeller
 TABLES=$(psql -X -A -t "$SRC" -c "select string_agg(tablename, ' ' order by tablename) from pg_tables where schemaname = 'public'")
-for t in $TABLES auth.users; do
-  case "$t" in auth.*) q="$t" ;; *) q="public.$t" ;; esac
+for t in $TABLES auth.users private.household_login_codes private.child_credentials; do
+  case "$t" in auth.*|private.*) q="$t" ;; *) q="public.$t" ;; esac
   a=$(psql -X -A -t "$SRC" -c "select md5(coalesce(string_agg(x::text, '|' order by x::text), '')) from $q x")
   b=$(psql -X -A -t "$DST" -c "select md5(coalesce(string_agg(x::text, '|' order by x::text), '')) from $q x")
   if [ "$a" != "$b" ]; then echo "✗ $q er forskellig efter gendannelse"; exit 1; fi

@@ -10,6 +10,8 @@ type AuthState = {
   session: Session | null
   loading: boolean
   signIn: (email: string, password: string, remember: boolean) => Promise<{ error: string | null }>
+  /** Barn: husstandskode + brugernavn + PIN (kontrolleres på serveren) */
+  childSignIn: (code: string, username: string, pin: string, remember: boolean) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
 
@@ -48,6 +50,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: 'Login mislykkedes. Tjek din forbindelse og prøv igen.' }
   }
 
+  const childSignIn: AuthState['childSignIn'] = async (code, username, pin, remember) => {
+    setRememberMe(remember)
+    const { data, error } = await supabase.functions.invoke<{ ok: boolean; session?: { access_token: string; refresh_token: string } }>('child-login', {
+      body: { code, username, pin },
+    })
+    if (!error && data?.ok && data.session) {
+      const { error: e2 } = await supabase.auth.setSession(data.session)
+      return { error: e2 ? 'Login mislykkedes. Prøv igen.' : null }
+    }
+    const status = (error as { context?: Response } | null)?.context?.status
+    if (status === 401) return { error: 'Loginoplysningerne er forkerte.' }
+    if (status === 429) return { error: 'For mange forsøg. Vent lidt og prøv igen.' }
+    return { error: 'Login mislykkedes. Tjek din forbindelse og prøv igen.' }
+  }
+
   const signOut = async () => {
     // Ingen notifikationer til en telefon, der er logget ud (højst 3 sek. – også uden net)
     await Promise.race([disablePush().catch(() => {}), new Promise((r) => setTimeout(r, 3000))])
@@ -61,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  return <AuthContext value={{ session, loading, signIn, signOut }}>{children}</AuthContext>
+  return <AuthContext value={{ session, loading, signIn, childSignIn, signOut }}>{children}</AuthContext>
 }
 
 export function useAuth() {

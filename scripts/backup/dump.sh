@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Laver en backup af databasen: brugere (auth) + alle data i public-skemaet.
+# Laver en backup af databasen: brugere (auth) + alle data i public-skemaet + børns login.
 # Brug: dump.sh <database-url> <output-mappe>
 # Bruges af .github/workflows/backup.yml og testes af supabase/tests/backup_restore.sh.
 set -euo pipefail
@@ -14,6 +14,8 @@ for t in $AUTH_TABLES; do auth_args+=("--table=$t"); done
 
 pg_dump "$DB" --data-only --no-owner --no-privileges "${auth_args[@]}" -f "$OUT/auth.sql"
 pg_dump "$DB" --data-only --no-owner --no-privileges --schema=public -f "$OUT/public.sql"
+# Børns login: husstandskoder og PIN-hashes (aldrig PIN i klar tekst)
+pg_dump "$DB" --data-only --no-owner --no-privileges --table=private.household_login_codes --table=private.child_credentials -f "$OUT/private.sql"
 # Kun til reference – ved gendannelse oprettes skemaet med migrations
 pg_dump "$DB" --schema-only --no-owner --no-privileges --schema=public -f "$OUT/schema-reference.sql"
 

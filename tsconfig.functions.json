@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "types": []
   },
-  "include": ["supabase/functions/cleanup-receipts/cleanup.ts", "supabase/functions/send-push/webpush.ts", "supabase/functions/import-recipe/extract.ts"]
+  "include": ["supabase/functions/cleanup-receipts/cleanup.ts", "supabase/functions/send-push/webpush.ts", "supabase/functions/import-recipe/extract.ts", "supabase/functions/_shared/child-rules.ts", "supabase/functions/child-login/login.ts", "supabase/functions/child-admin/admin.ts"]
 }

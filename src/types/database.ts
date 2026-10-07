@@ -65,7 +65,7 @@ export type Database = {
         Relationships: []
       }
       household_members: {
-        Row: { household_id: string; user_id: string; role: HouseholdRole; created_at: string }
+        Row: { household_id: string; user_id: string; role: HouseholdRole; created_at: string; child_username: string | null; disabled_at: string | null }
         Insert: { household_id: string; user_id: string; role?: HouseholdRole }
         Update: { role?: HouseholdRole }
         Relationships: [
@@ -625,6 +625,9 @@ export type Database = {
       child_goal_create: { Args: { p_child: string; p_name: string; p_target_ore: number }; Returns: string }
       child_goal_update: { Args: { p_goal: string; p_name: string | null; p_target_ore: number | null; p_archive?: boolean }; Returns: undefined }
       set_member_role: { Args: { p_user: string; p_role: 'owner' | 'adult' | 'child' }; Returns: undefined }
+      household_login_code: { Args: Record<string, never>; Returns: string }
+      child_set_pin: { Args: { p_child: string; p_pin: string; p_pin_length: number }; Returns: undefined }
+      child_set_username: { Args: { p_child: string; p_username: string }; Returns: undefined }
       save_recipe: { Args: { p_id: string | null; p_recipe: RecipeInputJson; p_ingredients: IngredientInputJson[] }; Returns: string }
       copy_meal_week: { Args: { p_from: string; p_to: string }; Returns: number }
       add_meal_ingredients_to_shopping: { Args: { p_week: string; p_items: Array<{ key: string; name: string; quantity: string }> }; Returns: number }
