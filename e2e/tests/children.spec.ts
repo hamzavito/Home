@@ -107,17 +107,18 @@ test('barnet ser kun sit eget: opgaver, aftaler, penge – resten af appen finde
   await task('Rydde værelset', 'Noah')
   await task('Fodre katten', 'Lina')
   await task('Betale regninger', 'Mig')
-  const event = async (title: string, who: string[]) => {
+  const event = async (title: string, who: string[], note?: string) => {
     await page.goto('/hjemmet/kalender/ny')
     await page.getByPlaceholder('Fx Lægetid').fill(title)
+    if (note) await page.getByLabel('Beskrivelse (valgfri)').fill(note)
     for (const w of who) await page.getByRole('group', { name: 'Gælder for' }).getByRole('checkbox', { name: w }).click()
     await page.getByLabel('Start').fill('15:00')
     await page.getByRole('button', { name: 'Opret aftale' }).click()
     await expect(page).toHaveURL(/\/hjemmet\/kalender(\?|$)/)
   }
   await event('Fællesspisning', [])
-  await event('Svømning', ['Noah'])
-  await event('Frisør', ['Sumaya'])
+  await event('Svømning', ['Noah'], 'Husk badetøj og håndklæde')
+  await event('Frisør', ['Sumaya'], 'Privat note til Sumaya')
   await event('Ballet', ['Lina'])
   await page.goto(`/hjemmet/barn/${NOAH}`)
   await page.getByRole('button', { name: 'Giv eller træk penge' }).click()
@@ -163,6 +164,9 @@ test('barnet ser kun sit eget: opgaver, aftaler, penge – resten af appen finde
   await expect(page.getByText('Svømning')).toBeVisible()
   await expect(page.getByText('Frisør')).toHaveCount(0)
   await expect(page.getByRole('link', { name: /Svømning/ })).toHaveCount(0)
+  // Noten fra forældrene vises for barnet – men ikke noter på aftaler, barnet ikke deltager i
+  await expect(page.getByText('Husk badetøj og håndklæde')).toBeVisible()
+  await expect(page.getByText('Privat note til Sumaya')).toHaveCount(0)
 
   // Penge: køb og opsparing
   await nav.getByRole('link', { name: 'Penge' }).click()

@@ -7,7 +7,7 @@ import { useHousehold } from '@/features/household/HouseholdProvider'
 import { ForWhomBadge, whoLabel } from './forWhom'
 
 /** Aftale i en liste: typeikon, titel, hvem den gælder for og tid. */
-export function EventRow({ e, showDate, linkTo }: { e: CalendarEvent; showDate?: string; /** null = kun visning (fx for børn) */ linkTo?: string | null }) {
+export function EventRow({ e, showDate, linkTo, showNote }: { e: CalendarEvent; showDate?: string; /** null = kun visning (fx for børn) */ linkTo?: string | null; /** Vis aftalens note (børn kan ikke åbne aftalen) */ showNote?: boolean }) {
   const { members } = useHousehold()
   const who = whoLabel(e.participant_ids, members)
   const t = eventTypes[e.type]
@@ -28,6 +28,9 @@ export function EventRow({ e, showDate, linkTo }: { e: CalendarEvent; showDate?:
           <span className="tabular whitespace-nowrap">{range ?? eventTimeLabel(e)}</span>
         </span>
         {showDate && <span className="block text-[13px] leading-snug text-secondary">{showDate}</span>}
+        {showNote && e.description && (
+          <span className="mt-1.5 block whitespace-pre-line break-words rounded-xl bg-surface-secondary px-3 py-2 text-[14px] leading-snug text-primary">{e.description}</span>
+        )}
       </span>
       <ForWhomBadge participantIds={e.participant_ids} members={members} className="size-7 text-[11px]" />
     </Row>

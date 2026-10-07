@@ -116,7 +116,7 @@ export function ChildHome() {
       ) : (
         <Card padded={false} className="divide-y divide-subtle">
           {todayEvents.map((e) => (
-            <EventRow key={e.id} e={e} linkTo={null} />
+            <EventRow key={e.id} e={e} linkTo={null} showNote />
           ))}
         </Card>
       )}
@@ -225,7 +225,7 @@ export function ChildCalendar() {
             <h2 className="mb-2 mt-5 px-1 text-[15px] font-bold first-letter:uppercase">{dayLabel(d)}</h2>
             <Card padded={false} className="divide-y divide-subtle">
               {groups.get(d)!.map((e) => (
-                <EventRow key={e.id} e={e} linkTo={null} />
+                <EventRow key={e.id} e={e} linkTo={null} showNote />
               ))}
             </Card>
           </section>

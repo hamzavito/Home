@@ -228,7 +228,7 @@ function EventForm({ existing }: { existing?: CalendarEvent }) {
           </SelectInput>
         </Field>
 
-        <Field label="Beskrivelse (valgfri)">
+        <Field label="Beskrivelse (valgfri)" hint="Kan ses af alle, aftalen gælder for – også børn.">
           <TextArea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000} rows={3} />
         </Field>
 
