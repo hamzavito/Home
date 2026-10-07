@@ -55,7 +55,20 @@ function longestRun(profile: number[], min: number, maxGap: number): [number, nu
  */
 export function findReceiptRect(gray: Uint8Array, width: number, height: number): Rect | null {
   if (width < 20 || height < 20 || gray.length !== width * height) return null
-  const t = otsuThreshold(gray)
+  const t1 = otsuThreshold(gray)
+  const first = rectAt(gray, width, height, t1)
+  // Lys baggrund (fx denim, lyst bord) kan havne på "papir-siden". Del derfor de lyse
+  // pixels én gang til: er der et klart hvidere område, er det kvitteringen.
+  const brightPixels = gray.filter((v) => v > t1)
+  if (brightPixels.length > 0) {
+    const t2 = otsuThreshold(brightPixels)
+    const second = t2 > t1 + 15 ? rectAt(gray, width, height, t2) : null
+    if (second && (!first || second.width * second.height < 0.8 * first.width * first.height)) return second
+  }
+  return first
+}
+
+function rectAt(gray: Uint8Array, width: number, height: number, t: number): Rect | null {
   // Ingen reel kontrast mellem papir og baggrund
   let bright = 0
   for (const v of gray) if (v > t) bright++
@@ -106,7 +119,8 @@ export async function cropToReceipt(image: Blob): Promise<Blob> {
     sctx.drawImage(bmp, 0, 0, w, h)
     const { data } = sctx.getImageData(0, 0, w, h)
     const gray = new Uint8Array(w * h)
-    for (let i = 0, j = 0; i < data.length; i += 4, j++) gray[j] = (data[i]! * 299 + data[i + 1]! * 587 + data[i + 2]! * 114) / 1000
+    // Den mørkeste farvekanal: hvidt papir er lyst i alle kanaler, farvet baggrund (fx blå denim) ikke
+    for (let i = 0, j = 0; i < data.length; i += 4, j++) gray[j] = Math.min(data[i]!, data[i + 1]!, data[i + 2]!)
     small.width = 0
     const r = findReceiptRect(gray, w, h)
     if (!r) return image

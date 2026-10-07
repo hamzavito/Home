@@ -296,3 +296,116 @@ describe('TOTAL fra billeder (OCR-varianter)', () => {
     expect(amountsInLine('06.10.26 19:14')).toEqual([])
   })
 })
+
+// Rigtigt foto af en Føtex-bon (OCR-output fra appen; kassererens navn fjernet)
+const FOTEX_PHOTO = `
+VUE
+Fi
+6
+;          å
+&   ex             Kr
+v
+4
+HO                               www. føtex.dk                               H
+4       Se åbningstider på www.føtex.dk      p
+m         MOD FREMVISNING AF KVITTERING        w
+|     HAR VI UBEGRÆNSET BYTTERET PÅ DE      i
+1       FLESTE VARER (MINUS FØDEVARER), -       +
+HM         SÅ LÆNGE VAREN ER I ORIGINAL,         w
+Å          UABNET OG INTAKT EMBALLAGE.          |
+SE YDERLIGERE UNDTAGELSER PÅ          |
+]                    FØTEX..DK.
+|        Odense                    07 10 26
+4              -yu
+|           + MEJERI «
+ARLA PRO. CHOK 479M|          19,95
+j      RABAT                         5,95-
+/      TOTAL                          14,00
+/         DANKORT          14,00
+7      MOMS UDGØR                    2,80
+|           Du blev betjent af:
+j             MOMS NR: 35 95 47 16
+2103 — 356 701 12        12:01
+www. føtex.dk
+FØTEX ODENSE — 07 10 2026
+T1f. 6558 3300
+Se åbningstider på www.føtex.ck
+MONE XD
+`
+// Samme foto, før beskæringen kunne skille papiret fra baggrunden (meget støj)
+const FOTEX_PHOTO_NOISY = `
+KA AA
+SYYNNUN     HON         LE    f
+1     HR
+NNU    1
+SEE
+HORSE     HR BE
+MUS UD    ) HAND EET       Ar
+AO   HAM Mm ENN
+AN  SA VDS SEM
+i No UN BYS II PT
+—            Fo jf 4 HH HI ERR SUM
+FR  4 Ce FE
+£                                 FR  HVER
+jet!                                                          BESSESIITI TOD
+få                                                       SFSR ARE) YIN W7
+UMM
+1             T    t     47                EN
+1                           gg      gå X                         KRSESEE uy;       7
+8                                            AN
+Wa                                            YES
+GAB bi)                                                                               BRRFSRE LES
+CSERHER                                     Ed KN                                             EET
+SE                                                     MU
+1                 www. føtex.dk                 BER
+Be            i                                                  HS
+på ST » 4             Je  dbningst lder på WWW.T øtex.dk          DE
+pe                  REN        BI
+—         MOD FREMVISNING AF KVITTERING       BR
+EN          HAR VI UBEGRÆNSET BYTTERET PÅ Di       KRAGE 1
+HA          FLESTE VARER (MINUS FØDEVARER),      GM
+gl HE j                  SÅ LÆNGE VAREN  ER I OR IGINAL :           MR q
+N)                UÅBNET OG INTAKT EMBALLAGE.         KS
+SN       j       SE YDERLIGERE UNDTAGELSER PÅ        US
+ANN                                FØTEX . DK                        EM
+s          /     Odenst                07 10 26        Wi
+Br,          1                                         FM
+p         HH        + MEJERI +
+;          5    ARLA PRO. CHOK 479Mi        19,95
+7       RABAT                          5.95
+i       TOTAL                         14,00
+/        DANKORT]        14,00
+Hr     MOMS UDGØR                2,80
+MM feed hl
+| NE                Du blev bet jent  af:
+1 He NY          MOMS NR: 35 95 47 16
+HMM         21092 445882 OT gum         12:01
+SYN                                       wuw, føtex.dk
+UN           FØTEX ODENSE — 07 10 2026
+ss HV                             [1f, 6558 3300
+77              Se åbningstider på www.føtex.dk
+021032610070120356
+`
+
+describe('foto af Føtex-bon: TOTAL 14,00 efter rabat', () => {
+  const day = new Date(2026, 9, 7, 12)
+  for (const [name, text] of [['beskåret', FOTEX_PHOTO], ['med støj fra baggrunden', FOTEX_PHOTO_NOISY]] as const)
+    it(name, () => {
+      const r = parseReceiptText(text, day)
+      expect(r.total).toEqual({ ore: 1400, confidence: 'high' })
+      expect(r.merchant?.value).toBe('Føtex')
+      expect(r.date).toEqual({ value: '2026-10-07', confidence: 'high' })
+    })
+
+  it('rabat uden minus trækkes stadig fra', () => {
+    const r = parseReceiptText('NETTO\nCHOK 19,95\nRABAT 5,95\nTOTAL 14,00\nDANKORT 14,00', day)
+    expect(r.total).toEqual({ ore: 1400, confidence: 'high' })
+  })
+
+  it('dato med mellemrum: "07 10 26" og "07 10 2026"', () => {
+    expect(parseReceiptText('ODENSE 07 10 26', day).date?.value).toBe('2026-10-07')
+    expect(parseReceiptText('FØTEX ODENSE 07 10 2026', day).date?.value).toBe('2026-10-07')
+    // Momsnummer er ikke en dato
+    expect(parseReceiptText('MOMS NR: 35 95 47 16', day).date).toBeNull()
+  })
+})

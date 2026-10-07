@@ -202,7 +202,8 @@ function findTotal(lines: string[]): { total: ParsedReceipt['total']; alternativ
   for (const line of lines.slice(0, sumEnd)) {
     if (/SUBTOTAL|MELLEMSUM|\bM[O0][MN]S/.test(line)) continue
     const a = signedAmounts(line).at(-1)
-    if (a !== undefined) itemSum += a
+    // Rabat trækkes fra, også når OCR har tabt minusset ("RABAT 5,95")
+    if (a !== undefined) itemSum += /RABAT/.test(line) ? -Math.abs(a) : a
   }
 
   const scored = [...keyword.entries()].map(([ore, k]) => {
@@ -223,7 +224,9 @@ function findTotal(lines: string[]): { total: ParsedReceipt['total']; alternativ
   const best = scored[0]
   if (best) {
     const isMax = best.ore >= Math.max(...all)
-    const confidence: Confidence = best.prio >= 5 && best.corroborated && isMax ? 'high' : (best.prio >= 5 && isMax) || best.corroborated ? 'medium' : 'low'
+    // Varerne summer til totalen: så er en større enkeltpris (før rabat) ikke et problem
+    const sumMatches = itemSum === best.ore
+    const confidence: Confidence = best.prio >= 5 && best.corroborated && (isMax || sumMatches) ? 'high' : (best.prio >= 5 && isMax) || best.corroborated ? 'medium' : 'low'
     return { total: { ore: best.ore, confidence }, alternatives: others(best.ore) }
   }
   if (all.length === 0) return { total: null, alternatives: [] }
@@ -255,6 +258,11 @@ function findDate(text: string, today: Date): ParsedReceipt['date'] {
   }
   // Netto/Salling: "1086 06 10 26 19:14" (dag måned år med mellemrum, efterfulgt af klokkeslæt)
   for (const m of t.matchAll(/(^|\D)(\d{2}) (\d{2}) (\d{2}) {1,3}\d{1,2}[:.]\d{2}(?!\d)/g)) {
+    const v = validDate(Number(m[4]), Number(m[3]), Number(m[2]))
+    if (v) found.push(v)
+  }
+  // Føtex/Salling: "07 10 26" eller "07 10 2026" (dag måned år med mellemrum)
+  for (const m of t.matchAll(/(^|[^\d ])\s*(\d{2}) (\d{2}) (\d{4}|\d{2})\s*($|[^\d ])/gm)) {
     const v = validDate(Number(m[4]), Number(m[3]), Number(m[2]))
     if (v) found.push(v)
   }
