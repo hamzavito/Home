@@ -71,20 +71,9 @@ export function ChildHome() {
         <h1 className="text-[28px] font-bold leading-tight tracking-[-0.025em]">{firstName(me.displayName)}</h1>
       </header>
 
-      <SectionHeader title="I aften" />
-      {tonight.isPending ? (
-        <Skeleton className="h-20 rounded-card" />
-      ) : tonight.entries.length === 0 ? (
-        <Card variant="tonal">
-          <EmptyState compact icon={ChefHat} title="Ingen aftensmad planlagt endnu" />
-        </Card>
-      ) : (
-        <Card padded={false} className="divide-y divide-subtle">
-          {tonight.entries.map((e) => (
-            <DinnerRow key={e.id} title={e.title} recipeId={e.recipe_id} />
-          ))}
-        </Card>
-      )}
+      {/* Pengene først, så kalender, aftensmad, opgaver og opsparing */}
+      <SectionHeader title="Mine penge" to="/penge" linkLabel="Se alle" />
+      <MoneySection only="summary" />
 
       <SectionHeader title="I dag" to="/kalender" linkLabel="Kalender" />
       {events.isPending ? (
@@ -101,11 +90,27 @@ export function ChildHome() {
         </Card>
       )}
 
+      <SectionHeader title="I aften" />
+      {tonight.isPending ? (
+        <Skeleton className="h-20 rounded-card" />
+      ) : tonight.entries.length === 0 ? (
+        <Card variant="tonal">
+          <EmptyState compact icon={ChefHat} title="Ingen aftensmad planlagt endnu" />
+        </Card>
+      ) : (
+        <Card padded={false} className="divide-y divide-subtle">
+          {tonight.entries.map((e) => (
+            <DinnerRow key={e.id} title={e.title} recipeId={e.recipe_id} />
+          ))}
+        </Card>
+      )}
+
       <SectionHeader title="Mine opgaver" to="/opgaver" linkLabel={tasks.isPending ? undefined : `${tasks.active.length} tilbage`} />
       <TasksSection />
 
-      <SectionHeader title="Mine penge" to="/penge" linkLabel="Se alle" />
-      <MoneySection compact />
+
+      <SectionHeader title="Opsparing" to="/penge" linkLabel="Mine penge" />
+      <MoneySection only="goals" />
     </>
   )
 }
@@ -220,7 +225,8 @@ export function ChildMoney() {
 }
 
 /** Saldo, køb, opsparing og bevægelser – bruges på både Hjem (kompakt) og Penge */
-function MoneySection({ compact = false }: { compact?: boolean }) {
+function MoneySection({ only }: { only?: 'summary' | 'goals' }) {
+  const compact = only === 'summary'
   const { me } = useHousehold()
   const wallet = useWallet(me.userId)
   const add = useAddWalletTx()
@@ -238,7 +244,8 @@ function MoneySection({ compact = false }: { compact?: boolean }) {
     createGoal.reset()
   }
 
-  return (
+  const heading = (t: string) => <h3 className="mb-2 mt-5 px-1 text-[13px] font-semibold uppercase tracking-[0.06em] text-secondary">{t}</h3>
+  const summary = (
     <>
       <div className="rounded-card-lg bg-surface-inverse p-5 text-on-inverse shadow-raised">
         <p className="text-[14px] font-semibold">Min saldo</p>
@@ -255,21 +262,23 @@ function MoneySection({ compact = false }: { compact?: boolean }) {
           <Plus className="size-4.5" strokeWidth={2.5} /> Nyt mål
         </Button>
       </div>
-
-      <h3 className="mb-2 mt-5 px-1 text-[13px] font-semibold uppercase tracking-[0.06em] text-secondary">Opsparing</h3>
-      {goals.length === 0 ? (
-        <Card variant="tonal">
-          <EmptyState compact icon={PiggyBank} title="Ingen mål endnu" text="Spar op til noget, du gerne vil have." />
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {goals.map((g) => (
-            <ChildGoalCard key={g.id} goal={g} savedOre={goalSaved(txs, g.id)} onClick={() => setSheet({ kind: 'goal', goal: g })} />
-          ))}
-        </div>
-      )}
-
-      <h3 className="mb-2 mt-5 px-1 text-[13px] font-semibold uppercase tracking-[0.06em] text-secondary">{compact ? 'Seneste bevægelser' : 'Bevægelser'}</h3>
+    </>
+  )
+  const goalList =
+    goals.length === 0 ? (
+      <Card variant="tonal">
+        <EmptyState compact icon={PiggyBank} title="Ingen mål endnu" text="Spar op til noget, du gerne vil have." />
+      </Card>
+    ) : (
+      <div className="space-y-3">
+        {goals.map((g) => (
+          <ChildGoalCard key={g.id} goal={g} savedOre={goalSaved(txs, g.id)} onClick={() => setSheet({ kind: 'goal', goal: g })} />
+        ))}
+      </div>
+    )
+  const movements = (
+    <>
+      {heading(compact ? 'Seneste bevægelser' : 'Bevægelser')}
       {wallet.isPending ? (
         <Skeleton className="h-40 rounded-card" />
       ) : txs.length === 0 ? (
@@ -282,6 +291,26 @@ function MoneySection({ compact = false }: { compact?: boolean }) {
             <WalletTxRow key={t.id} tx={t} goals={allGoals} />
           ))}
         </Card>
+      )}
+    </>
+  )
+
+  return (
+    <>
+      {only === 'goals' ? (
+        goalList
+      ) : only === 'summary' ? (
+        <>
+          {summary}
+          {movements}
+        </>
+      ) : (
+        <>
+          {summary}
+          {heading('Opsparing')}
+          {goalList}
+          {movements}
+        </>
       )}
 
       <BottomSheet open={sheet?.kind === 'purchase'} onClose={close} title="Hvad har du købt?">
