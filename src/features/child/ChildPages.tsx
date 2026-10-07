@@ -23,7 +23,7 @@ import { addDaysIso, compareEvents, eventCovers } from '@/lib/home'
 import { formatAmount } from '@/lib/money'
 import { weekStart } from '@/lib/recipes'
 import { applyTheme, getThemePreference, type ThemePreference } from '@/lib/theme'
-import { goalPercent, goalSaved, walletBalance, walletMonth } from '@/lib/wallet'
+import { goalSaved, walletBalance, walletMonth } from '@/lib/wallet'
 import { useAddWalletTx, useCreateChildGoal, useUpdateChildGoal, useWallet, walletErrorMessage, type ChildGoal } from './api'
 import { ChildTaskRow } from './ChildTaskRow'
 import { AmountForm, ChildGoalCard, GoalForm, WalletTxRow } from './WalletParts'
@@ -62,12 +62,7 @@ export function ChildHome() {
   const tonight = useTonight()
   const tasks = useMyTasks()
   const events = useMyEvents(today, today)
-  const wallet = useWallet(me.userId)
-  const txs = wallet.data?.transactions ?? []
-  const goals = (wallet.data?.goals ?? []).filter((g) => !g.archived_at)
-  const topGoal = goals.map((g) => ({ g, saved: goalSaved(txs, g.id) })).sort((a, b) => goalPercent(b.saved, b.g.target_ore) - goalPercent(a.saved, a.g.target_ore))[0]
   const todayEvents = events.data.filter((e) => eventCovers(e, today))
-  const left = tasks.active.length
 
   return (
     <>
@@ -91,21 +86,6 @@ export function ChildHome() {
         </Card>
       )}
 
-      <SectionHeader title="Mine opgaver" to="/opgaver" linkLabel={tasks.isPending ? undefined : `${left} tilbage`} />
-      {tasks.isPending ? (
-        <Skeleton className="h-24 rounded-card" />
-      ) : left === 0 ? (
-        <Card variant="tonal">
-          <EmptyState compact icon={CheckSquare} title="Du er færdig med alt" text="Godt gået!" />
-        </Card>
-      ) : (
-        <Card padded={false} className="divide-y divide-subtle">
-          {tasks.active.slice(0, 3).map((t) => (
-            <ChildTaskRow key={t.id} task={t} />
-          ))}
-        </Card>
-      )}
-
       <SectionHeader title="I dag" to="/kalender" linkLabel="Kalender" />
       {events.isPending ? (
         <Skeleton className="h-16 rounded-card" />
@@ -121,29 +101,11 @@ export function ChildHome() {
         </Card>
       )}
 
-      <div className="mt-6 grid grid-cols-2 gap-3">
-        <Link to="/penge" className="pressable block rounded-card bg-surface-primary p-4 shadow-card">
-          <p className="flex items-center gap-1.5 text-[13px] font-semibold text-secondary">
-            <Wallet className="size-4" /> Mine penge
-          </p>
-          {wallet.isPending ? <Skeleton className="mt-2 h-7 w-24" /> : <Money ore={walletBalance(txs)} size="lg" className="mt-1 block" />}
-        </Link>
-        <Link to="/penge" className="pressable block rounded-card bg-surface-primary p-4 shadow-card">
-          <p className="flex items-center gap-1.5 text-[13px] font-semibold text-secondary">
-            <PiggyBank className="size-4" /> Opsparing
-          </p>
-          {wallet.isPending ? (
-            <Skeleton className="mt-2 h-7 w-16" />
-          ) : topGoal ? (
-            <>
-              <p className="tabular mt-1 text-[22px] font-bold leading-tight text-positive">{goalPercent(topGoal.saved, topGoal.g.target_ore)} %</p>
-              <p className="truncate text-[13px] text-secondary">{topGoal.g.name}</p>
-            </>
-          ) : (
-            <p className="mt-1 text-[14px] text-secondary">Intet mål endnu</p>
-          )}
-        </Link>
-      </div>
+      <SectionHeader title="Mine opgaver" to="/opgaver" linkLabel={tasks.isPending ? undefined : `${tasks.active.length} tilbage`} />
+      <TasksSection />
+
+      <SectionHeader title="Mine penge" to="/penge" linkLabel="Se alle" />
+      <MoneySection compact />
     </>
   )
 }
@@ -171,11 +133,21 @@ export function ChildTasks() {
   return (
     <>
       <PageHeader title="Mine opgaver" eyebrow={tasks.isPending ? undefined : `${tasks.active.length} tilbage`} />
+      <TasksSection />
+    </>
+  )
+}
+
+/** Barnets opgaver med "I gang" og "Færdig" – bruges på både Hjem og Opgaver */
+function TasksSection() {
+  const tasks = useMyTasks()
+  return (
+    <>
       {tasks.isPending ? (
         <Skeleton className="h-40 rounded-card" />
       ) : tasks.active.length === 0 ? (
         <Card variant="tonal">
-          <EmptyState icon={CheckSquare} title="Ingen opgaver" text="Når du får en opgave, står den her." />
+          <EmptyState compact icon={CheckSquare} title="Du er færdig med alt" text="Når du får en opgave, står den her." />
         </Card>
       ) : (
         <Card padded={false} className="divide-y divide-subtle">
@@ -186,7 +158,7 @@ export function ChildTasks() {
       )}
       {tasks.done.length > 0 && (
         <>
-          <SectionHeader title="Færdige" />
+          <h3 className="mb-2 mt-5 px-1 text-[13px] font-semibold uppercase tracking-[0.06em] text-secondary">Færdige</h3>
           <Card padded={false} className="divide-y divide-subtle">
             {tasks.done.map((t) => (
               <ChildTaskRow key={t.id} task={t} />
@@ -239,6 +211,16 @@ export function ChildCalendar() {
 export type MoneySheet = { kind: 'purchase' } | { kind: 'new-goal' } | { kind: 'goal'; goal: ChildGoal } | { kind: 'to-goal'; goal: ChildGoal } | { kind: 'from-goal'; goal: ChildGoal } | null
 
 export function ChildMoney() {
+  return (
+    <>
+      <PageHeader title="Mine penge" />
+      <MoneySection />
+    </>
+  )
+}
+
+/** Saldo, køb, opsparing og bevægelser – bruges på både Hjem (kompakt) og Penge */
+function MoneySection({ compact = false }: { compact?: boolean }) {
   const { me } = useHousehold()
   const wallet = useWallet(me.userId)
   const add = useAddWalletTx()
@@ -258,7 +240,6 @@ export function ChildMoney() {
 
   return (
     <>
-      <PageHeader title="Mine penge" />
       <div className="rounded-card-lg bg-surface-inverse p-5 text-on-inverse shadow-raised">
         <p className="text-[14px] font-semibold">Min saldo</p>
         {wallet.isPending ? <Skeleton className="mt-2 h-11 w-36" /> : <Money ore={balance} size="hero" className="mt-1 block" />}
@@ -275,7 +256,7 @@ export function ChildMoney() {
         </Button>
       </div>
 
-      <SectionHeader title="Opsparing" />
+      <h3 className="mb-2 mt-5 px-1 text-[13px] font-semibold uppercase tracking-[0.06em] text-secondary">Opsparing</h3>
       {goals.length === 0 ? (
         <Card variant="tonal">
           <EmptyState compact icon={PiggyBank} title="Ingen mål endnu" text="Spar op til noget, du gerne vil have." />
@@ -288,7 +269,7 @@ export function ChildMoney() {
         </div>
       )}
 
-      <SectionHeader title="Bevægelser" />
+      <h3 className="mb-2 mt-5 px-1 text-[13px] font-semibold uppercase tracking-[0.06em] text-secondary">{compact ? 'Seneste bevægelser' : 'Bevægelser'}</h3>
       {wallet.isPending ? (
         <Skeleton className="h-40 rounded-card" />
       ) : txs.length === 0 ? (
@@ -297,7 +278,7 @@ export function ChildMoney() {
         </Card>
       ) : (
         <Card padded={false} className="divide-y divide-subtle">
-          {txs.slice(0, 40).map((t) => (
+          {txs.slice(0, compact ? 5 : 40).map((t) => (
             <WalletTxRow key={t.id} tx={t} goals={allGoals} />
           ))}
         </Card>

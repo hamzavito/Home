@@ -141,7 +141,11 @@ test('barnet ser kun sit eget: opgaver, aftaler, penge – resten af appen finde
   await expect(page.getByText('Svømning')).toBeVisible()
   await expect(page.getByText('Frisør')).toHaveCount(0)
   await expect(page.getByText('Ballet')).toHaveCount(0)
-  await expect(page.getByText(/Mine penge/).locator('..')).toContainText(/50\s*kr\./)
+  // Opgaver og penge står også direkte på Hjem
+  await expect(page.getByRole('button', { name: /Markér Rydde værelset som færdig/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mine penge' })).toBeVisible()
+  await expect(page.getByText('Min saldo', { exact: true }).locator('..')).toContainText(/Min saldo\s*50\s*kr\./)
+  await expect(page.getByRole('button', { name: 'Jeg har købt' })).toBeVisible()
   await expectReadable(page, 'barnets forside')
 
   // Ingen adgang til resten af appen – heller ikke via adressen
