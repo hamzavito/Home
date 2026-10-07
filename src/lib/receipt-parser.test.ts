@@ -267,3 +267,32 @@ describe('decimaler og komma', () => {
     expect(amountsInLine('1.000,00')).toEqual([100000])
   })
 })
+
+describe('TOTAL fra billeder (OCR-varianter)', () => {
+  const items = 'NETTO\nMÆLK 12,95\nBRØD 25,00\n'
+  const cases: Array<[string, string]> = [
+    ['bred skrift: spredte bogstaver', 'T O T A L 37,95'],
+    ['bred skrift: spredte bogstaver og tal', 'T O T A L   3 7 , 9 5'],
+    ['komma læst som mellemrum', 'TOTAL 37 95'],
+    ['fyldtegn', 'TOTAL..........37,95'],
+    ['beløb længere nede', 'TOTAL\nDKK\n37,95'],
+    ['S læst for 5', 'TOTAL 37,9S'],
+    ['apostrof som komma', "TOTAL 37'95"],
+    ['TOTA1 med punktum', 'TOTA1. 37,95'],
+    ['DKK efter beløbet', 'TOTAL 37,95 DKK'],
+    ['kolon og kr.', 'TOTAL: KR. 37,95'],
+  ]
+  for (const [name, totalLine] of cases)
+    it(name, () => {
+      const r = parseReceiptText(items + totalLine, today)
+      expect(r.total).toEqual({ ore: 3795, confidence: 'high' })
+    })
+
+  it('beløbet på linjen over TOTAL', () => {
+    expect(parseReceiptText(items + '37,95\nTOTAL', today).total?.ore).toBe(3795)
+  })
+
+  it('et klokkeslæt er ikke et beløb', () => {
+    expect(amountsInLine('06.10.26 19:14')).toEqual([])
+  })
+})

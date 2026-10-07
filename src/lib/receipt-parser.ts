@@ -82,20 +82,68 @@ const NOT_TOTAL_ALONE = /\bNETTO\b|ANTAL|STK\b|\bPANT\b/
 // Beløb: "638,75", "1.234,50", "638.75", "638, 75". Kun punktum som tusindtalsseparator
 // (mellemrum ville forveksle "antal 1 499,95" med 1.499,95). Ingen lookbehind (ældre iOS).
 // Negative beløb (rabat) står som "-10,00" eller – hos fx Netto – "18,96-".
-const AMOUNT_RE = /(^|[^\d,.])(-?)\s?(\d{1,3}(?:\.\d{3})+|\d+)\s?[,.;]\s?(\d{2})(?!\d)(?![.\-/]\d)(?!\s*%)(-?)/g
+// Et tal lige efter et bogstav er ikke et beløb ("TOTA1. 37,95" er ikke 1,37).
+const AMOUNT_RE = /(^|[^\d,.A-ZÆØÅa-zæøå])(-?)\s?(\d{1,3}(?:\.\d{3})+|\d+)\s?[,.;']\s?(\d{2})(?!\d)(?![.\-/]\d)(?!\s*%)(-?)/g
 
-/** Retter typiske OCR-fejl i tal: O→0 og l/I/|→1 – kun i "ord" der i forvejen indeholder cifre */
+/** Retter typiske OCR-fejl i tal: O→0, l/I/|→1, S→5, B→8 – kun i "ord" der i forvejen indeholder cifre */
 function fixDigits(s: string): string {
-  return s.replace(/[\dOoIl|.,]+/g, (tok) => ((tok.match(/\d/g)?.length ?? 0) >= 2 ? tok.replace(/[Oo]/g, '0').replace(/[Il|]/g, '1') : tok))
+  return s.replace(/[\dOoIl|SB.,]+/g, (tok) =>
+    (tok.match(/\d/g)?.length ?? 0) >= 2 ? tok.replace(/[Oo]/g, '0').replace(/[Il|]/g, '1').replace(/S/g, '5').replace(/B/g, '8') : tok,
+  )
+}
+
+/**
+ * Bred skrift (fx TOTAL på Netto-bonner) læses ofte som "T O T A L 1 1 1 , 4 4".
+ * Samler 3+ enkelttegn i træk – bogstaver for sig og tal for sig.
+ */
+function joinSpacedChars(s: string): string {
+  const tokens = s.split(' ')
+  const out: string[] = []
+  let run: string[] = []
+  let kind: 'letter' | 'digit' | null = null
+  const flush = () => {
+    if (run.length >= 3) out.push(run.join(''))
+    else out.push(...run)
+    run = []
+    kind = null
+  }
+  for (const t of tokens) {
+    const k = t.length === 1 ? (/[A-ZÆØÅ]/.test(t) ? 'letter' : /[\d,.]/.test(t) ? 'digit' : null) : null
+    if (k && (kind === null || k === kind)) {
+      run.push(t)
+      kind = k
+    } else {
+      flush()
+      if (k) {
+        run.push(t)
+        kind = k
+      } else out.push(t)
+    }
+  }
+  flush()
+  return out.join(' ')
 }
 
 function normalizeLine(s: string): string {
-  return fixDigits(s)
-    .toUpperCase()
-    .replace(/[“”"']/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim()
+  return joinSpacedChars(
+    fixDigits(s)
+      .toUpperCase()
+      .replace(/[“”"'`´]/g, "'")
+      // Fyldtegn mellem tekst og beløb: "TOTAL........111,44"
+      .replace(/[._\-–—=*~:]{2,}/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim(),
+  )
 }
+
+/** Beløb uden decimaltegn på en totallinje: "TOTAL 111 44" → 11144 øre */
+function looseAmount(line: string): number | null {
+  const m = /(?:^|\s)(\d{1,5}) (\d{2})(?:\s*(?:DKK|KR\.?))?$/.exec(line)
+  return m ? Number(m[1]) * 100 + Number(m[2]) : null
+}
+
+/** Linjer med kun et beløb (evt. med DKK/kr.) – typisk når beløbet står under/over TOTAL */
+const AMOUNT_ONLY = /^(?:DKK|KR\.?)?\s*-?\d[\d.]*\s?[,.;']\s?\d{2}-?\s*(?:DKK|KR\.?)?$/
 
 function signedAmounts(line: string): number[] {
   const out: number[] = []
@@ -128,9 +176,19 @@ function findTotal(lines: string[]): { total: ParsedReceipt['total']; alternativ
     for (const a of amounts) counts.set(a, (counts.get(a) ?? 0) + 1)
     const hit = TOTAL_KEYWORDS.find(([re]) => re.test(line))
     if (!hit) return
-    // Beløbet står normalt på samme linje; ellers på næste linje
+    // Beløbet står normalt på samme linje; ellers på en af de næste linjer (højst 3 frem,
+    // forbi linjer uden beløb som "DKK"), et beløb uden komma ("111 44") eller linjen over
     let found = amounts
-    if (found.length === 0 && i + 1 < lines.length && !isExcluded(lines[i + 1]!)) found = amountsInLine(lines[i + 1]!)
+    if (found.length === 0) {
+      const loose = looseAmount(line)
+      if (loose && hit[1] >= 5) found = [loose]
+    }
+    for (let j = i + 1; found.length === 0 && j < Math.min(lines.length, i + 4); j++) {
+      if (isExcluded(lines[j]!)) break
+      found = amountsInLine(lines[j]!)
+      if (found.length === 0 && TOTAL_KEYWORDS.some(([re]) => re.test(lines[j]!))) break
+    }
+    if (found.length === 0 && i > 0 && AMOUNT_ONLY.test(lines[i - 1]!)) found = amountsInLine(lines[i - 1]!)
     const a = found.at(-1)
     if (a === undefined) return
     if (firstKeywordLine < 0 && hit[1] >= 5) firstKeywordLine = i
