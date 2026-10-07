@@ -38,11 +38,11 @@ test('ejer opretter barn, barnet logger ind med husstandskode, brugernavn og PIN
   // Husstandskoden vises for ejeren
   await expect(page.getByLabel('Husstandskode')).toHaveText('HJEM42')
 
-  // Svag PIN afvises; 6 cifre er standard
+  // 6 cifre er standard
   await page.getByRole('link', { name: /Tilføj barn/ }).click()
   await expect(page.getByRole('radio', { name: '6 cifre' })).toHaveAttribute('aria-checked', 'true')
-  await page.getByLabel('PIN', { exact: true }).fill('123456')
-  await expect(page.getByText(/For let at gætte/)).toBeVisible()
+  await page.getByLabel('PIN', { exact: true }).fill('12345')
+  await expect(page.getByText('PIN skal være 6 cifre')).toBeVisible()
   await expectReadable(page, 'tilføj barn')
 
   await addChild(page, 'Noah', 'Noah', '482611')

@@ -24,6 +24,7 @@ import { ReceiptsPage } from '@/features/receipts/ReceiptsPage'
 import { ScanPage } from '@/features/receipts/ScanPage'
 import { HomeHubPage } from '@/features/home/HomeHubPage'
 import { TaskFormPage } from '@/features/home/TaskFormPage'
+import { ChildDashboardPage } from '@/features/child/ChildDashboardPage'
 import { ShoppingPage } from '@/features/shopping/ShoppingPage'
 import { CalendarPage } from '@/features/calendar/CalendarPage'
 import { EventFormPage } from '@/features/calendar/EventFormPage'
@@ -69,6 +70,7 @@ export const router = createBrowserRouter([
           { path: '/okonomi/budgetter/:id', element: <CategoryDetailPage /> },
           { path: '/hjemmet', element: <HomeHubPage /> },
           { path: '/hjemmet/ny', element: <TaskFormPage /> },
+          { path: '/hjemmet/barn/:id', element: <ChildDashboardPage /> },
           { path: '/hjemmet/opgave/:id', element: <TaskFormPage /> },
           { path: '/hjemmet/kalender', element: <CalendarPage /> },
           { path: '/hjemmet/kalender/ny', element: <EventFormPage /> },

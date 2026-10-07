@@ -17,13 +17,14 @@ import { useWeek } from '@/features/mealplan/api'
 import { weekStart } from '@/lib/recipes'
 import { useEvents, useShopping, useTasks, type Task } from './api'
 import { TaskRow } from './TaskRow'
+import { ChildrenSection } from './ChildrenSection'
 
 const bucketTitles: Record<TaskBucket, string> = { overdue: 'Forfaldne', today: 'I dag', week: 'Denne uge', later: 'Senere', none: 'Uden dato' }
 const bucketOrder: TaskBucket[] = ['overdue', 'today', 'week', 'later', 'none']
 
 export function HomeHubPage() {
   const navigate = useNavigate()
-  const { me } = useHousehold()
+  const { me, children } = useHousehold()
   const tasks = useTasks()
   const shopping = useShopping()
   const today = toIsoDate(new Date())
@@ -54,6 +55,9 @@ export function HomeHubPage() {
         }
       />
 
+      {children.length > 0 && !me.isChild && <ChildrenSection />}
+
+      {children.length > 0 && !me.isChild && <SectionHeader title="Hjemmet" />}
       <div className="grid grid-cols-2 gap-3">
         <QuickCard to={sections.shopping.path} icon={sections.shopping.icon} color={sections.shopping.color} title="Indkøb" text={shopping.isPending ? ' ' : left === 0 ? 'Listen er tom' : `${left} ${left === 1 ? 'vare' : 'varer'} tilbage`} />
         <QuickCard

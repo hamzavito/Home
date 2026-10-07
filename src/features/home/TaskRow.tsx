@@ -23,6 +23,7 @@ export function TaskRow({ task }: { task: Task }) {
     task.status === 'in_progress' ? 'I gang' : null,
     done ? 'Udført' : task.due_on ? dueLabel(task.due_on) : null,
     assignee ? assignee.displayName : null,
+    task.reward_status === 'awaiting_approval' ? 'Afventer godkendelse' : task.reward_status === 'paid' ? 'Belønning udbetalt' : null,
   ].filter(Boolean)
 
   return (

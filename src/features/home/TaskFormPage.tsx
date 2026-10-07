@@ -148,7 +148,7 @@ function TaskForm({ existing }: { existing?: Task }) {
         </div>
 
         {forChild && (
-          <Field label="Belønning (valgfri)" error={touched ? errors.reward : null} hint="Vises for barnet på opgaven. Pengene gives under barnets lommepenge.">
+          <Field label="Belønning (valgfri)" error={touched ? errors.reward : null} hint="Vises for barnet. Når opgaven er færdig, godkender I den på barnets overblik – først da udbetales pengene.">
             <TextInput value={reward} inputMode="decimal" onChange={(e) => setReward(e.target.value)} placeholder="Fx 10 kr." />
           </Field>
         )}

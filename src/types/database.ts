@@ -26,6 +26,8 @@ export type ReceiptStatus = 'pending' | 'approved'
 export type ReceiptRetention = '30d' | '3m' | '6m' | '1y' | 'custom' | 'permanent'
 export type MealType = 'breakfast' | 'lunch' | 'dinner'
 export type ShoppingSource = 'manual' | 'meal_plan'
+export type RewardStatus = 'none' | 'awaiting_completion' | 'awaiting_approval' | 'paid' | 'rejected'
+export type AllowanceFrequency = 'weekly' | 'monthly'
 export type WalletKind = 'allowance' | 'deposit' | 'deduction' | 'purchase' | 'to_goal' | 'from_goal'
 export type RecipeInputJson = {
   name: string
@@ -424,8 +426,12 @@ export type Database = {
           completed_at: string | null
           completed_by: string | null
           archived_at: string | null
-          /** Forberedt: frivillig belønning (øre) til et barn, når opgaven er færdig */
+          /** Frivillig belønning (øre) til et barn – udbetales når en forælder godkender */
           reward_ore: number | null
+          /** Styres af databasen */
+          reward_status: RewardStatus
+          reward_decided_at: string | null
+          reward_decided_by: string | null
           created_by: string
           created_at: string
           updated_at: string
@@ -466,6 +472,36 @@ export type Database = {
           created_at: string
           updated_at: string
         }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      child_allowance_schedules: {
+        Row: {
+          id: string
+          household_id: string
+          child_id: string
+          amount_ore: number
+          frequency: AllowanceFrequency
+          /** ISO-ugedag 1 = mandag … 7 = søndag */
+          weekday: number | null
+          /** 1–31, 0 = sidste dag i måneden */
+          month_day: number | null
+          start_on: string
+          end_on: string | null
+          pay_from: string
+          paused_at: string | null
+          stopped_at: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      child_allowance_payouts: {
+        Row: { schedule_id: string; household_id: string; period_key: string; due_on: string; amount_ore: number; tx_id: string | null; created_at: string }
         Insert: never
         Update: never
         Relationships: []
@@ -628,6 +664,15 @@ export type Database = {
       household_login_code: { Args: Record<string, never>; Returns: string }
       child_set_pin: { Args: { p_child: string; p_pin: string; p_pin_length: number }; Returns: undefined }
       child_set_username: { Args: { p_child: string; p_username: string }; Returns: undefined }
+      child_pin: { Args: { p_child: string }; Returns: string | null }
+      child_reward_decide: { Args: { p_task: string; p_approve: boolean }; Returns: string | null }
+      child_allowance_create: {
+        Args: { p_child: string; p_amount_ore: number; p_frequency: AllowanceFrequency; p_weekday: number | null; p_month_day: number | null; p_start_on: string; p_end_on?: string | null }
+        Returns: string
+      }
+      child_allowance_update: { Args: { p_schedule: string; p_amount_ore: number | null; p_end_on?: string | null; p_clear_end?: boolean }; Returns: undefined }
+      child_allowance_set_state: { Args: { p_schedule: string; p_action: 'pause' | 'resume' | 'stop' }; Returns: undefined }
+      child_allowance_next: { Args: { p_schedule: string }; Returns: string | null }
       save_recipe: { Args: { p_id: string | null; p_recipe: RecipeInputJson; p_ingredients: IngredientInputJson[] }; Returns: string }
       copy_meal_week: { Args: { p_from: string; p_to: string }; Returns: number }
       add_meal_ingredients_to_shopping: { Args: { p_week: string; p_items: Array<{ key: string; name: string; quantity: string }> }; Returns: number }

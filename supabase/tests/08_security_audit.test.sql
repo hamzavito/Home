@@ -114,7 +114,9 @@ insert into public.recipe_ingredients (household_id, recipe_id, name, amount_mil
 insert into public.meal_plan_entries (household_id, plan_date, recipe_id, title, created_by) values ('11111111-1111-1111-1111-111111111111', '2026-10-05', '8e000000-0000-0000-0000-0000000000a1', 'Karry', '00000000-0000-0000-0000-0000000000a1');
 insert into public.ingredient_prices (household_id, name, price_ore, created_by) values ('11111111-1111-1111-1111-111111111111', 'Skyr', 3100, '00000000-0000-0000-0000-0000000000a1');
 insert into public.child_savings_goals (id, household_id, child_id, name, target_ore, created_by) values ('9c000000-0000-0000-0000-0000000000a1', '11111111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-0000000000a1', 'Cykel', 250000, '00000000-0000-0000-0000-0000000000a1');
-insert into public.child_wallet_transactions (household_id, child_id, kind, amount_ore, created_by) values ('11111111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-0000000000a1', 'allowance', 20000, '00000000-0000-0000-0000-0000000000a1');
+insert into public.child_wallet_transactions (id, household_id, child_id, kind, amount_ore, created_by) values ('9d000000-0000-0000-0000-0000000000a1', '11111111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-0000000000a1', 'allowance', 20000, '00000000-0000-0000-0000-0000000000a1');
+insert into public.child_allowance_schedules (id, household_id, child_id, amount_ore, frequency, weekday, start_on, pay_from, created_by) values ('9e000000-0000-0000-0000-0000000000a1', '11111111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-0000000000a1', 5000, 'weekly', 5, '2026-10-01', '2026-10-01', '00000000-0000-0000-0000-0000000000a1');
+insert into public.child_allowance_payouts (schedule_id, household_id, period_key, due_on, amount_ore, tx_id) values ('9e000000-0000-0000-0000-0000000000a1', '11111111-1111-1111-1111-111111111111', '2026-W40', '2026-10-02', 5000, '9d000000-0000-0000-0000-0000000000a1');
 
 create temp table audit_tables as
   select c.relname::text as t from pg_class c join pg_namespace n on n.oid = c.relnamespace join pg_attribute a on a.attrelid = c.oid

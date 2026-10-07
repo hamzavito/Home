@@ -6,13 +6,10 @@ export const USERNAME_RE = /^[a-z0-9æøå][a-z0-9æøå._-]{1,19}$/
 export const normalizeCode = (s: string) => s.replace(/\s/g, '').toUpperCase()
 export const normalizeUsername = (s: string) => s.trim().toLowerCase()
 
-/** 4 eller 6 cifre og ikke let at gætte (fx 0000, 123456, 654321) */
+/** 4 eller 6 cifre. Lette PIN'er (fx 123456) er tilladt – forældrene bestemmer; låsen ved forkerte forsøg beskytter. */
 export function isValidPin(pin: string, length: number): boolean {
   if (length !== 4 && length !== 6) return false
-  if (!new RegExp(`^[0-9]{${length}}$`).test(pin)) return false
-  if (/^(.)\1+$/.test(pin)) return false
-  if ('01234567890123'.includes(pin) || '98765432109876'.includes(pin)) return false
-  return true
+  return new RegExp(`^[0-9]{${length}}$`).test(pin)
 }
 
 export function isValidName(name: string): boolean {

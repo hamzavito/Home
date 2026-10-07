@@ -60,7 +60,7 @@ describe('opret barn', () => {
     const d = deps()
     expect((await handleAdmin({ ...create, name: '  ' }, d)).body).toEqual({ ok: false, error: 'invalid_name' })
     expect((await handleAdmin({ ...create, username: 'n' }, d)).body).toEqual({ ok: false, error: 'invalid_username' })
-    expect((await handleAdmin({ ...create, pin: '123456' }, d)).body).toEqual({ ok: false, error: 'invalid_pin' })
+    expect((await handleAdmin({ ...create, pin: '12a456' }, d)).body).toEqual({ ok: false, error: 'invalid_pin' })
     expect((await handleAdmin({ ...create, pin: '4826', pinLength: 6 }, d)).body).toEqual({ ok: false, error: 'invalid_pin' })
     expect((await handleAdmin({ ...create, pinLength: 5 }, d)).body).toEqual({ ok: false, error: 'invalid_pin' })
     expect(d.check).not.toHaveBeenCalled()
@@ -97,7 +97,9 @@ describe('regler', () => {
   it('PIN', () => {
     expect(isValidPin('482611', 6)).toBe(true)
     expect(isValidPin('7395', 4)).toBe(true)
-    for (const p of ['123456', '654321', '000000', '1234', '9876', '7777', '890123', '48261a']) expect(isValidPin(p, p.length)).toBe(false)
+    // Lette PIN'er er tilladt
+    for (const p of ['123456', '000000', '1234', '7777']) expect(isValidPin(p, p.length)).toBe(true)
+    for (const p of ['48261a', '12345', '']) expect(isValidPin(p, 6)).toBe(false)
     expect(isValidPin('482611', 4)).toBe(false)
   })
   it('normalisering', () => {

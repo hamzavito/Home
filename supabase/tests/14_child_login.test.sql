@@ -95,19 +95,9 @@ begin
   perform public.child_account_create('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000b9', 'Noah F', 'noah', '582917', 6);
   assert (select count(*) from public.household_members where child_username = 'noah') = 2, 'to husstande kan begge have en noah';
 
-  -- Svage eller forkerte PIN'er afvises
-  begin
-    perform public.child_account_create('00000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-0000000000c3', 'Ali', 'ali', '123456', 6);
-    ok := false;
-  exception when check_violation then ok := true;
-  end;
-  assert ok, 'fortløbende PIN afvises';
-  begin
-    perform public.child_account_create('00000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-0000000000c3', 'Ali', 'ali', '111111', 6);
-    ok := false;
-  exception when check_violation then ok := true;
-  end;
-  assert ok, 'ens cifre afvises';
+  -- Lette PIN'er er tilladt (forældrene bestemmer); forkert længde eller bogstaver afvises
+  assert private.valid_pin('123456', 6) and private.valid_pin('1111', 4), 'lette PIN''er er tilladt';
+  assert not private.valid_pin('12a456', 6) and not private.valid_pin('1234', 6), 'kun cifre i den valgte længde';
   begin
     perform public.child_account_create('00000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-0000000000c3', 'Ali', 'ali', '48261', 6);
     ok := false;

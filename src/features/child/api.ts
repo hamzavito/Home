@@ -117,7 +117,7 @@ export function childAdminMessage(e: unknown): string {
     invalid_name: 'Skriv barnets navn (højst 40 tegn).',
     invalid_username: 'Brugernavnet skal være 2–20 tegn: bogstaver, tal, punktum, - eller _.',
     username_taken: 'Brugernavnet er allerede i brug i husstanden.',
-    invalid_pin: 'PIN er for let at gætte. Undgå fx 123456 og 000000.',
+    invalid_pin: 'PIN skal være 4 eller 6 cifre.',
     not_found: 'Barnet findes ikke længere.',
     bad_request: 'Noget gik galt. Prøv igen.',
     server: 'Noget gik galt. Prøv igen.',
@@ -176,7 +176,9 @@ function pinError(e: { code?: string; message?: string }): Error {
 }
 
 export function useSetChildPin() {
+  const qc = useQueryClient()
   return useMutation({
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['child-pin', v.childId] }),
     mutationFn: async (i: { childId: string; pin: string; pinLength: 4 | 6 }) => {
       const { error } = await supabase.rpc('child_set_pin', { p_child: i.childId, p_pin: i.pin, p_pin_length: i.pinLength })
       if (error) throw pinError(error)
@@ -192,5 +194,132 @@ export function useSetChildUsername() {
       if (error) throw pinError(error)
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['household'] }),
+  })
+}
+
+// ---------------------------------------------------------------- forældrenes overblik (kun voksne)
+export type ChildAllowance = Tables<'child_allowance_schedules'>
+export type AllowancePayout = Tables<'child_allowance_payouts'>
+
+/** Alle børns bevægelser og mål i husstanden (til oversigten i Hjemmet) */
+export function useHouseholdWallets(enabled: boolean) {
+  const { id: hid } = useHousehold()
+  return useQuery({
+    queryKey: ['wallet', hid, 'all'],
+    enabled,
+    queryFn: async (): Promise<Wallet> => {
+      const [tx, goals] = await Promise.all([
+        supabase.from('child_wallet_transactions').select('*').order('occurred_on', { ascending: false }).limit(2000),
+        supabase.from('child_savings_goals').select('*').is('archived_at', null),
+      ])
+      if (tx.error) throw tx.error
+      if (goals.error) throw goals.error
+      return { transactions: tx.data, goals: goals.data }
+    },
+  })
+}
+
+export function useDecideReward() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (i: { taskId: string; approve: boolean }) => {
+      const { error } = await supabase.rpc('child_reward_decide', { p_task: i.taskId, p_approve: i.approve })
+      if (error) throw error
+    },
+    onSettled: () => Promise.all([qc.invalidateQueries({ queryKey: ['wallet'] }), qc.invalidateQueries({ queryKey: ['home'] })]),
+  })
+}
+
+export function useAllowances(childId: string | undefined) {
+  const { id: hid } = useHousehold()
+  return useQuery({
+    queryKey: ['allowance', hid, childId ?? ''],
+    enabled: Boolean(childId),
+    queryFn: async () => {
+      const [schedules, payouts] = await Promise.all([
+        supabase.from('child_allowance_schedules').select('*').eq('child_id', childId!).order('created_at'),
+        supabase.from('child_allowance_payouts').select('*').order('due_on', { ascending: false }).limit(500),
+      ])
+      if (schedules.error) throw schedules.error
+      if (payouts.error) throw payouts.error
+      const ids = new Set(schedules.data.map((s) => s.id))
+      return { schedules: schedules.data, payouts: payouts.data.filter((p) => ids.has(p.schedule_id)) }
+    },
+  })
+}
+
+function useInvalidateAllowance() {
+  const qc = useQueryClient()
+  return () => Promise.all([qc.invalidateQueries({ queryKey: ['allowance'] }), qc.invalidateQueries({ queryKey: ['wallet'] })])
+}
+
+export type AllowanceInput = { childId: string; amountOre: number; frequency: 'weekly' | 'monthly'; weekday: number | null; monthDay: number | null; startOn: string; endOn: string | null }
+
+export function useCreateAllowance() {
+  const invalidate = useInvalidateAllowance()
+  return useMutation({
+    mutationFn: async (i: AllowanceInput) => {
+      const { error } = await supabase.rpc('child_allowance_create', {
+        p_child: i.childId,
+        p_amount_ore: i.amountOre,
+        p_frequency: i.frequency,
+        p_weekday: i.frequency === 'weekly' ? i.weekday : null,
+        p_month_day: i.frequency === 'monthly' ? i.monthDay : null,
+        p_start_on: i.startOn,
+        p_end_on: i.endOn,
+      })
+      if (error) throw error
+    },
+    onSuccess: invalidate,
+  })
+}
+
+export function useUpdateAllowance() {
+  const invalidate = useInvalidateAllowance()
+  return useMutation({
+    mutationFn: async (i: { id: string; amountOre: number; endOn: string | null }) => {
+      const { error } = await supabase.rpc('child_allowance_update', { p_schedule: i.id, p_amount_ore: i.amountOre, p_end_on: i.endOn, p_clear_end: i.endOn === null })
+      if (error) throw error
+    },
+    onSuccess: invalidate,
+  })
+}
+
+export function useSetAllowanceState() {
+  const invalidate = useInvalidateAllowance()
+  return useMutation({
+    mutationFn: async (i: { id: string; action: 'pause' | 'resume' | 'stop' }) => {
+      const { error } = await supabase.rpc('child_allowance_set_state', { p_schedule: i.id, p_action: i.action })
+      if (error) throw error
+    },
+    onSuccess: invalidate,
+  })
+}
+
+/** Barnets PIN (kun voksne). null = sat før PIN kunne vises – vælg en ny. */
+export function useChildPin(childId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['child-pin', childId],
+    enabled,
+    staleTime: 0,
+    gcTime: 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('child_pin', { p_child: childId })
+      if (error) throw error
+      return data
+    },
+  })
+}
+
+/** Belønninger der venter på en forælders godkendelse (alle børn) */
+export function useAwaitingRewards() {
+  const { id: hid } = useHousehold()
+  return useQuery({
+    queryKey: ['home', hid, 'awaiting-rewards'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('household_tasks').select('*').eq('reward_status', 'awaiting_approval').is('archived_at', null).order('completed_at')
+      if (error) throw error
+      return data
+    },
   })
 }

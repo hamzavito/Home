@@ -38,6 +38,9 @@ test('forælder styrer barnet: penge, mål, opgave med belønning og aftale', as
   await expect(page.getByText(/Barn · brugernavn noah/)).toBeVisible()
   await expect(page.getByRole('button', { name: /Slå login fra/ })).toBeVisible()
   await expect(page.getByRole('radiogroup', { name: 'Rolle' })).toHaveCount(0)
+  // Barnets samlede overblik
+  await page.getByRole('link', { name: /Åbn Noahs overblik/ }).click()
+  await expect(page).toHaveURL(new RegExp(`/hjemmet/barn/${NOAH}$`))
 
   // Lommepenge
   await page.getByRole('button', { name: 'Giv eller træk penge' }).click()
@@ -116,7 +119,7 @@ test('barnet ser kun sit eget: opgaver, aftaler, penge – resten af appen finde
   await event('Svømning', ['Noah'])
   await event('Frisør', ['Sumaya'])
   await event('Ballet', ['Lina'])
-  await page.goto(`/indstillinger/medlem/${NOAH}`)
+  await page.goto(`/hjemmet/barn/${NOAH}`)
   await page.getByRole('button', { name: 'Giv eller træk penge' }).click()
   await page.locator('dialog[open]').getByLabel('Beløb').fill('50')
   await page.locator('dialog[open]').getByRole('button', { name: 'Gem' }).click()
@@ -202,12 +205,18 @@ test('barnet ser kun sit eget: opgaver, aftaler, penge – resten af appen finde
 
   // ------------------------------------------------ Forælder ser barnets køb og mål
   await loginAs(page, SUMAYA)
-  await page.goto(`/indstillinger/medlem/${NOAH}`)
+  await page.goto(`/hjemmet/barn/${NOAH}`)
   await expect(page.getByText('Noahs saldo').locator('..')).toContainText(/15\s*kr\./)
   await expect(page.getByRole('button', { name: /LEGO\s*10 %/ })).toBeVisible()
   await expect(page.getByText('Slik')).toBeVisible()
-  // Sumaya er voksen, ikke ejer: kan ikke ændre roller
+  // Sumaya er voksen, ikke ejer: kan ikke ændre roller eller login
+  await page.goto(`/indstillinger/medlem/${NOAH}`)
+  await expect(page.getByRole('heading', { name: 'Noah' })).toBeVisible()
   await expect(page.getByRole('radiogroup', { name: 'Rolle' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /Slå login fra/ })).toHaveCount(0)
+  // …men kan se barnets PIN
+  await page.getByRole('button', { name: 'Vis PIN' }).click()
+  await expect(page.getByLabel('PIN', { exact: true })).toHaveText('482611')
 })
 
 test('barnet ser aftensmaden og kan læse opskriften', async ({ page }) => {

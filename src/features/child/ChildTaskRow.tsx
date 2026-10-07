@@ -4,6 +4,7 @@ import { dueLabel } from '@/features/upcoming/UpcomingPage'
 import { cn } from '@/lib/cn'
 import { recurrenceLabel } from '@/lib/home'
 import { formatAmount } from '@/lib/money'
+import { rewardStatusLabels } from '@/lib/allowance'
 
 /** Barnets opgave: kun "I gang" og "Færdig" – ingen redigering. */
 export function ChildTaskRow({ task }: { task: Task }) {
@@ -14,7 +15,7 @@ export function ChildTaskRow({ task }: { task: Task }) {
   const parts = [done ? 'Færdig' : status === 'in_progress' ? 'I gang' : null, !done && task.due_on ? dueLabel(task.due_on) : null].filter(Boolean)
 
   return (
-    <div className="px-4 py-3">
+    <div role="group" aria-label={task.title} className="px-4 py-3">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className={cn('break-words text-[16px] font-semibold leading-snug', done && 'text-secondary line-through')}>{task.title}</p>
@@ -27,7 +28,14 @@ export function ChildTaskRow({ task }: { task: Task }) {
           {task.description && <p className="mt-1 whitespace-pre-line text-[14px] text-secondary">{task.description}</p>}
         </div>
         {task.reward_ore !== null && (
-          <span className="tabular shrink-0 rounded-full bg-positive-soft px-2.5 py-1 text-[13px] font-bold text-positive">+{formatAmount(task.reward_ore)} kr.</span>
+          <span className="flex shrink-0 flex-col items-end gap-1">
+            <span className="tabular rounded-full bg-positive-soft px-2.5 py-1 text-[13px] font-bold text-positive">+{formatAmount(task.reward_ore)} kr.</span>
+            {done && task.reward_status !== 'none' && task.reward_status !== 'awaiting_completion' && (
+              <span className={cn('text-[12px] font-semibold', task.reward_status === 'paid' ? 'text-positive' : task.reward_status === 'rejected' ? 'text-danger' : 'text-notice')}>
+                {rewardStatusLabels[task.reward_status]}
+              </span>
+            )}
+          </span>
         )}
       </div>
       <div className="mt-2.5 flex gap-2">

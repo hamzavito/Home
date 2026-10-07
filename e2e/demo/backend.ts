@@ -9,6 +9,7 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { authStorage } from '@/lib/session-storage'
+import { isDueOn, periodKey } from '@/lib/allowance'
 import { isValidName, isValidPin, normalizeUsername, USERNAME_RE } from '../../supabase/functions/_shared/child-rules'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -19,7 +20,7 @@ const URL_BASE = 'http://demo.local'
 export const HID = '11111111-1111-4111-8111-111111111111'
 export const ME = '00000000-0000-4000-8000-0000000000a1'
 export const WIFE = '00000000-0000-4000-8000-0000000000a2'
-const DB_KEY = 'hjem-demo-db-v8'
+const DB_KEY = 'hjem-demo-db-v9'
 const FILES_KEY = 'hjem-demo-files-v2'
 const MODE_KEY = 'hjem-demo-mode' // 'empty' = start uden demodata (bruges af tests)
 const KIDS_KEY = 'hjem-demo-kids' // '1' = husstanden har to børn (Noah og Lina)
@@ -64,6 +65,8 @@ const TABLES = [
   'household_members',
   'child_savings_goals',
   'child_wallet_transactions',
+  'child_allowance_schedules',
+  'child_allowance_payouts',
 ] as const
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -399,12 +402,16 @@ const ready: Promise<void> = (async () => {
     // Demo-børn kan logge ind: HJEM42 + noah/lina + PIN
     if (readLs(KIDS_KEY) === '1')
       db['private.child_credentials'] = [
-        { user_id: KID1, pin_hash: await pinHash('482611'), pin_length: 6 },
-        { user_id: KID2, pin_hash: await pinHash('7395'), pin_length: 4 },
+        { user_id: KID1, pin_hash: await pinHash('482611'), pin_length: 6, pin_view: '482611' },
+        { user_id: KID2, pin_hash: await pinHash('7395'), pin_length: 4, pin_view: '7395' },
       ]
     save()
     void saveFiles()
   }
+  // Som det daglige udbetalingsjob (pg_cron) i rigtig drift (efter at modulet er indlæst)
+  await Promise.resolve()
+  runAllowances()
+  save()
 })()
 
 // ------------------------------------------------------------------ roller (spejler RLS)
@@ -454,6 +461,42 @@ function syncParticipants(r: Row) {
   if (ids.some((id) => !roleOf(id))) throw new PgError('Deltageren er ikke medlem af husstanden', '23503', 409)
   r.participant_ids = ids
   r.for_user_id = ids.length === 1 ? ids[0] : null
+}
+
+/** Som triggeren private.task_reward_status */
+function rewardStatus(r: Row, old?: Row) {
+  if (!old) {
+    r.reward_status = r.reward_ore == null ? 'none' : r.status === 'done' ? 'awaiting_approval' : 'awaiting_completion'
+    return
+  }
+  if (old.reward_status === 'paid') {
+    r.reward_status = 'paid'
+    return
+  }
+  if (r.reward_ore == null) r.reward_status = 'none'
+  else if (old.reward_status === 'none' || (r.status === 'done') !== (old.status === 'done'))
+    Object.assign(r, { reward_status: r.status === 'done' ? 'awaiting_approval' : 'awaiting_completion', reward_decided_at: null, reward_decided_by: null })
+}
+
+// ------------------------------------------------------------------ faste lommepenge (spejler pay_allowance)
+function dkToday() {
+  return today()
+}
+function payAllowance(s: Row, until: string) {
+  if (s.paused_at || s.stopped_at || roleOf(s.child_id) !== 'child') return
+  let d = [s.pay_from, s.start_on, addDays(until, -62)].sort().at(-1)!
+  for (; d <= until; d = addDays(d, 1)) {
+    if (s.end_on && d > s.end_on) break
+    if (!isDueOn(s as never, d)) continue
+    const key = periodKey(s.frequency, d)
+    if (db.child_allowance_payouts!.some((p) => p.schedule_id === s.id && p.period_key === key)) continue
+    const tx = addWalletTx(s.child_id, 'allowance', s.amount_ore, 'Fast lommepenge', null, s.created_by)
+    db.child_wallet_transactions!.find((t) => t.id === tx)!.occurred_on = d
+    db.child_allowance_payouts!.push({ schedule_id: s.id, household_id: HID, period_key: key, due_on: d, amount_ore: s.amount_ore, tx_id: tx, created_at: nowIso() })
+  }
+}
+function runAllowances() {
+  db.child_allowance_schedules!.forEach((s) => payAllowance(s, dkToday()))
 }
 
 // ------------------------------------------------------------------ forretningslogik (spejler SQL)
@@ -779,17 +822,81 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
     const task = visibleRows('household_tasks', db.household_tasks!).find((x) => x.id === a.p_task_id)
     if (!task) throw new PgError('Opgaven findes ikke', 'P0002')
     if (a.p_status === 'done') {
-      if (task.status !== 'done') Object.assign(task, { status: 'done', completed_at: nowIso(), completed_by: CUR })
+      if (task.status !== 'done') {
+        const old = { ...task }
+        Object.assign(task, { status: 'done', completed_at: nowIso(), completed_by: CUR })
+        rewardStatus(task, old)
+      }
       if (task.recurrence === 'none') return null
       let next = db.household_tasks!.find((x) => x.previous_task_id === task.id)
       if (!next) {
         next = { ...task, id: uuid(), status: 'open', completed_at: null, completed_by: null, previous_task_id: task.id, due_on: nextDue(task.due_on ?? today(), task.recurrence, task.recurrence_interval ?? 1), created_at: nowIso(), updated_at: nowIso() }
+        rewardStatus(next)
         db.household_tasks!.push(next)
       }
       return next.id
     }
     if (task.status === 'done') db.household_tasks = db.household_tasks!.filter((x) => !(x.previous_task_id === task.id && x.status === 'open'))
+    const old = { ...task }
     Object.assign(task, { status: a.p_status, completed_at: null, completed_by: null })
+    rewardStatus(task, old)
+    return null
+  },
+  child_reward_decide: (a) => {
+    const t = db.household_tasks!.find((x) => x.id === a.p_task)
+    if (!t || !isAdult()) throw new PgError('Opgaven findes ikke', 'P0002')
+    if (t.reward_status === 'paid') {
+      if (a.p_approve) return db.child_wallet_transactions!.find((x) => x.task_id === t.id)?.id ?? null
+      throw new PgError('Belønningen er allerede udbetalt', '23514')
+    }
+    if (t.reward_status !== 'awaiting_approval' || t.reward_ore == null) throw new PgError('Opgaven venter ikke på godkendelse', '23514')
+    if (roleOf(t.assignee_id) !== 'child') throw new PgError('Kun børn kan få belønning', '23514')
+    if (!a.p_approve) {
+      Object.assign(t, { reward_status: 'rejected', reward_decided_at: nowIso(), reward_decided_by: CUR })
+      return null
+    }
+    const id = addWalletTx(t.assignee_id, 'deposit', t.reward_ore, `Opgave: ${t.title}`.slice(0, 100), null)
+    db.child_wallet_transactions!.find((x) => x.id === id)!.task_id = t.id
+    Object.assign(t, { reward_status: 'paid', reward_decided_at: nowIso(), reward_decided_by: CUR })
+    return id
+  },
+  child_pin: (a) => {
+    const c = credentials().find((x) => x.user_id === a.p_child)
+    if (!c || !isAdult()) throw new PgError('Barnet findes ikke', 'P0002')
+    return c.pin_view ?? null
+  },
+  child_allowance_create: (a) => {
+    if (!isAdult()) throw new PgError('Kun voksne kan oprette faste lommepenge', '42501', 403)
+    if (roleOf(a.p_child) !== 'child') throw new PgError('Barnet findes ikke', 'P0002')
+    const t = dkToday()
+    const start = a.p_start_on ?? t
+    const s = {
+      id: uuid(), household_id: HID, child_id: a.p_child, amount_ore: a.p_amount_ore, frequency: a.p_frequency,
+      weekday: a.p_frequency === 'weekly' ? a.p_weekday : null, month_day: a.p_frequency === 'monthly' ? a.p_month_day : null,
+      start_on: start, end_on: a.p_end_on ?? null, pay_from: start > t ? start : t, paused_at: null, stopped_at: null,
+      created_by: CUR, created_at: nowIso(), updated_at: nowIso(),
+    }
+    db.child_allowance_schedules!.push(s)
+    payAllowance(s, t)
+    return s.id
+  },
+  child_allowance_update: (a) => {
+    const s = db.child_allowance_schedules!.find((x) => x.id === a.p_schedule)
+    if (!s || !isAdult()) throw new PgError('Ordningen findes ikke', 'P0002')
+    if (s.stopped_at) throw new PgError('Ordningen er stoppet', '23514')
+    Object.assign(s, { amount_ore: a.p_amount_ore ?? s.amount_ore, end_on: a.p_clear_end ? null : (a.p_end_on ?? s.end_on), updated_at: nowIso() })
+    return null
+  },
+  child_allowance_set_state: (a) => {
+    const s = db.child_allowance_schedules!.find((x) => x.id === a.p_schedule)
+    if (!s || !isAdult()) throw new PgError('Ordningen findes ikke', 'P0002')
+    if (s.stopped_at) throw new PgError('Ordningen er stoppet', '23514')
+    const t = dkToday()
+    if (a.p_action === 'pause') s.paused_at = s.paused_at ?? nowIso()
+    else if (a.p_action === 'resume' && s.paused_at) {
+      Object.assign(s, { paused_at: null, pay_from: t > s.start_on ? t : s.start_on })
+      payAllowance(s, t)
+    } else if (a.p_action === 'stop') s.stopped_at = nowIso()
     return null
   },
   child_wallet_add: (a) => {
@@ -842,7 +949,7 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
     if (!isValidPin(String(a.p_pin ?? ''), a.p_pin_length)) throw new PgError('Ugyldig PIN', '23514')
     const c = credentials().find((x) => x.user_id === a.p_child)
     if (!c) throw new PgError('Barnet findes ikke', 'P0002')
-    Object.assign(c, { pin_hash: await pinHash(a.p_pin), pin_length: a.p_pin_length })
+    Object.assign(c, { pin_hash: await pinHash(a.p_pin), pin_length: a.p_pin_length, pin_view: a.p_pin })
     const m = db.household_members!.find((x) => x.user_id === a.p_child)
     db['private.login_throttle'] = throttle().filter((t) => t.key !== `${loginCode()}:${m?.child_username}`)
     return null
@@ -890,7 +997,7 @@ const DEFAULTS: Record<string, () => Row> = {
   budget_categories: () => ({ kind: 'spending', archived_at: null, icon: 'sparkles', color: '#6d5cff', sort_order: 0 }),
   fixed_groups: () => ({ archived_at: null, sort_order: 0 }),
   shopping_items: () => ({ is_checked: false, checked_by: null, checked_at: null, note: null, quantity: null, sort_order: 0, source: 'manual', source_key: null, meal_week: null }),
-  household_tasks: () => ({ status: 'open', priority: 'normal', recurrence: 'none', recurrence_interval: 1, completed_at: null, completed_by: null, previous_task_id: null, archived_at: null, description: null, assignee_id: null, due_on: null, reward_ore: null }),
+  household_tasks: () => ({ status: 'open', priority: 'normal', recurrence: 'none', recurrence_interval: 1, completed_at: null, completed_by: null, previous_task_id: null, archived_at: null, description: null, assignee_id: null, due_on: null, reward_ore: null, reward_status: 'none', reward_decided_at: null, reward_decided_by: null }),
   recipes: () => ({ description: null, servings: 4, prep_minutes: null, steps: null, category: null, tags: [], is_favorite: false, note: null, archived_at: null }),
   meal_plan_entries: () => ({ meal: 'dinner', recipe_id: null, servings: null, note: null, sort_order: 0 }),
   calendar_events: () => ({ start_time: null, end_time: null, end_date: null, all_day: false, description: null, type: 'family', participant_ids: [], for_user_id: null, reminder_minutes: null }),
@@ -1042,7 +1149,7 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
         const created = nowIso()
         db.profiles!.push({ id, display_name: name, color: null, default_paid_by: 'me', notify_calendar: true, notify_shopping: true, created_at: created, updated_at: created })
         db.household_members!.push({ household_id: HID, user_id: id, role: 'child', child_username: username, disabled_at: null, created_at: created })
-        credentials().push({ user_id: id, pin_hash: await pinHash(body.pin), pin_length: body.pinLength })
+        credentials().push({ user_id: id, pin_hash: await pinHash(body.pin), pin_length: body.pinLength, pin_view: body.pin })
         save()
         return json({ ok: true, userId: id })
       }
@@ -1124,6 +1231,7 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
         }))
         for (const row of list) {
           if (table === 'calendar_events') syncParticipants(row)
+          if (table === 'household_tasks') rewardStatus(row)
           if (table === 'transactions' && db.budget_categories!.find((c) => c.id === row.category_id)?.archived_at) throw new PgError('Kategorien er arkiveret', '23514')
           if (table === 'fixed_groups' && db.fixed_groups!.some((g) => !g.archived_at && g.name.toLowerCase() === String(row.name).toLowerCase())) throw new PgError('duplicate', '23505', 409)
           if (table === 'savings_movements' && row.kind === 'withdrawal') {
@@ -1139,9 +1247,11 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
       if (method === 'PATCH') {
         const hit = filterRows(rows, url.searchParams)
         for (const r of hit) {
+          const old = { ...r }
           if (table === 'shopping_items' && body && 'is_checked' in body && body.is_checked !== r.is_checked)
             Object.assign(r, body.is_checked ? { checked_by: CUR, checked_at: nowIso() } : { checked_by: null, checked_at: null })
           Object.assign(r, body, { updated_at: nowIso() })
+          if (table === 'household_tasks') rewardStatus(r, old)
           if (table === 'calendar_events') {
             // Ældre app-versioner sender kun for_user_id
             if (body && !('participant_ids' in body) && 'for_user_id' in body) r.participant_ids = body.for_user_id ? [body.for_user_id] : []
