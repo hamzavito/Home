@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useHousehold } from '@/features/household/HouseholdProvider'
 import { supabase } from '@/lib/supabase'
 import type { Tables, WalletKind } from '@/types/database'
+import { isReadOnlyError, READ_ONLY_MESSAGE } from '@/lib/billing'
 
 export type WalletTransaction = Tables<'child_wallet_transactions'>
 export type ChildGoal = Tables<'child_savings_goals'>
@@ -33,6 +34,7 @@ function useInvalidateWallet() {
 }
 
 export function walletErrorMessage(e: unknown): string {
+  if (isReadOnlyError(e)) return READ_ONLY_MESSAGE
   const msg = (e as { message?: string } | null)?.message ?? ''
   if (/fetch|network/i.test(msg)) return 'Ingen forbindelse. Prøv igen.'
   for (const known of ['Der er ikke penge nok på saldoen', 'Der er ikke så mange penge på målet', 'Målet er afsluttet', 'Højst 20 aktive mål', 'Pengene er allerede taget fra målet', 'Ugyldig dato'])

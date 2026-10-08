@@ -24,6 +24,7 @@ const DB_KEY = 'hjem-demo-db-v9'
 const FILES_KEY = 'hjem-demo-files-v2'
 const MODE_KEY = 'hjem-demo-mode' // 'empty' = start uden demodata (bruges af tests)
 const KIDS_KEY = 'hjem-demo-kids' // '1' = husstanden har to børn (Noah og Lina)
+const BILLING_KEY = 'hjem-demo-billing' // 'trial' | 'trial-ending' | 'expired' = betaling slået til (standard: slået fra)
 const AS_KEY = 'hjem-demo-as' // bruger-id der er logget ind (standard: Hamza)
 /** Ny bruger uden husstand (tilmeldingstests) */
 export const NEWUSER = '00000000-0000-4000-8000-0000000000a9'
@@ -464,6 +465,22 @@ const isOwner = () => roleOf(CUR) === 'owner' && !isDisabled(CUR)
 const rlsError = () => new PgError('new row violates row-level security policy', '42501', 403)
 
 // ------------------------------------------------------------------ tilmelding (spejler household_create, invite_* m.fl.)
+// ------------------------------------------------------------------ abonnement (spejler subscription_info / has_write_access)
+function subscription(): Row {
+  const mode = readLs(BILLING_KEY)
+  const stored = db['private.subscription']?.[0]
+  if (stored) return stored
+  const days = mode === 'expired' ? -1 : mode === 'trial-ending' ? 3 : 30
+  const sub = { billing_enabled: Boolean(mode), status: 'trialing', plan: null, trial_ends_at: new Date(Date.now() + days * 86_400_000).toISOString(), current_period_end: null, cancel_at_period_end: false, payer_user_id: null, has_customer: false }
+  db['private.subscription'] = [sub]
+  return sub
+}
+const writeAccess = () => {
+  const s = subscription()
+  return !s.billing_enabled || s.status === 'active' || s.status === 'comped' || (s.trial_ends_at && s.trial_ends_at > nowIso())
+}
+const readOnlyError = () => new PgError('Abonnementet er udløbet. I kan se og eksportere jeres data, men ikke ændre noget, før abonnementet er fornyet.', 'PT402', 402)
+
 const invites = () => (db['private.invites'] ??= [])
 const findInvite = (code: unknown) => {
   const c = String(code ?? '').toUpperCase().replace(/[\s-]/g, '')
@@ -747,6 +764,10 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
     r.retention = a.p_retention
     r.delete_at = deleteAtFor(a.p_retention, a.p_custom_date, new Date(r.approved_at))
     return r.delete_at
+  },
+  subscription_info: () => {
+    const s = subscription()
+    return { ...s, grace_ends_at: null, write_access: Boolean(writeAccess()) }
   },
   household_create: (a) => {
     if (activeMember(CUR)) throw new PgError('Du er allerede med i en husstand', '23505', 409)
@@ -1242,6 +1263,25 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
       )
     }
 
+    // ---------------- Edge Function: abonnement (demo: betalingen gennemføres med det samme)
+    if (p === '/functions/v1/billing') {
+      if (!subOf(headers.get('authorization'))) return json({ ok: false, error: 'unauthorized' }, 401)
+      const sub = subscription()
+      if (!isAdult()) return json({ ok: false, error: 'not_allowed' }, 403)
+      if (body?.action === 'checkout') {
+        if (sub.status === 'active') return json({ ok: false, error: 'already_active' }, 409)
+        const yearly = body.plan === 'yearly'
+        Object.assign(sub, { status: 'active', plan: yearly ? 'yearly' : 'monthly', current_period_end: new Date(Date.now() + (yearly ? 365 : 30) * 86_400_000).toISOString(), payer_user_id: CUR, has_customer: true })
+        save()
+        return json({ ok: true, url: '/indstillinger/abonnement?betaling=ok' })
+      }
+      if (body?.action === 'portal') {
+        if (sub.payer_user_id && sub.payer_user_id !== CUR) return json({ ok: false, error: 'not_payer' }, 403)
+        return json({ ok: true, url: '/indstillinger/abonnement' })
+      }
+      return json({ ok: false, error: 'bad_request' }, 400)
+    }
+
     // ---------------- Edge Function: slet konto
     if (p === '/functions/v1/account-delete') {
       if (!subOf(headers.get('authorization'))) return json({ ok: false, error: 'unauthorized' }, 401)
@@ -1369,6 +1409,8 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
     if (rows) {
       // Børn må kun skrive i egen profil – alt andet går via RPC'er (som i databasen)
       if (method !== 'GET' && !isAdult() && table !== 'profiles') throw rlsError()
+      // Skrivebeskyttet uden gyldigt abonnement (sletning er altid tilladt)
+      if ((method === 'POST' || method === 'PATCH') && !['profiles', 'households', 'household_members'].includes(table) && !writeAccess()) throw readOnlyError()
       if (method === 'GET') {
         const out = withEmbeds(table, filterRows(visibleRows(table, rows), url.searchParams), url.searchParams.get('select'))
         return json(accept.includes('object') ? (out[0] ?? null) : out)

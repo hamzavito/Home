@@ -744,6 +744,7 @@ export type Database = {
       invite_accept: { Args: { p_code: string; p_display_name?: string | null }; Returns: string | null }
       household_leave: { Args: Record<string, never>; Returns: undefined }
       household_remove_member: { Args: { p_user: string }; Returns: undefined }
+      subscription_info: { Args: Record<string, never>; Returns: Json }
       suggest_category: { Args: { p_merchant: string }; Returns: string | null }
       budget_month_summary: {
         Args: { p_month: string }

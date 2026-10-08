@@ -4,6 +4,7 @@ import { compressReceiptImage, rotateImage } from '@/lib/image'
 import { toDkIsoDate } from '@/lib/retention'
 import { supabase } from '@/lib/supabase'
 import type { PaidByKind, ReceiptRetention, Tables } from '@/types/database'
+import { isReadOnlyError, READ_ONLY_MESSAGE } from '@/lib/billing'
 
 export type Receipt = Tables<'receipts'>
 export type Transaction = Tables<'transactions'>
@@ -267,6 +268,7 @@ export async function deleteTransactionWithReceipt(transactionId: string): Promi
 }
 
 export function receiptErrorMessage(e: unknown): string {
+  if (isReadOnlyError(e)) return READ_ONLY_MESSAGE
   const err = e as { code?: string; message?: string } | null
   const msg = err?.message ?? ''
   if (msg.includes('ikke uploadet')) return 'Billedet er ikke færdig med at uploade. Vent et øjeblik og prøv igen.'

@@ -35,6 +35,7 @@ import { MorePage } from '@/features/more/MorePage'
 import { AddChildPage } from '@/features/settings/ChildLogin'
 import { MemberPage } from '@/features/settings/MemberPage'
 import { InviteLandingPage } from '@/features/onboarding/InviteLandingPage'
+import { SubscriptionPage } from '@/features/billing/SubscriptionPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { AppLayout } from './AppLayout'
 import { FocusLayout } from './FocusLayout'
@@ -85,6 +86,7 @@ export const router = createBrowserRouter([
           { path: '/mere', element: <MorePage /> },
           { path: '/indstillinger', element: <SettingsPage /> },
           { path: '/indstillinger/medlem/:id', element: <MemberPage /> },
+          { path: '/indstillinger/abonnement', element: <SubscriptionPage /> },
           { path: '/indstillinger/barn/ny', element: <AddChildPage /> },
           { path: '/okonomi/kommende', element: <UpcomingPage /> },
           { path: '/okonomi/kommende/ny', element: <UpcomingFormPage /> },

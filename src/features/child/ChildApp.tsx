@@ -3,6 +3,7 @@ import { Navigate, NavLink, useLocation } from 'react-router'
 import { cn } from '@/lib/cn'
 import { ChildDinnerPage } from './ChildDinnerPage'
 import { ChildCalendar, ChildHome, ChildMoney, ChildMore, ChildTasks } from './ChildPages'
+import { SubscriptionBanner } from '@/features/billing/SubscriptionBanner'
 
 const tabs = [
   { to: '/', label: 'Hjem', icon: LayoutGrid },
@@ -33,6 +34,7 @@ export function ChildApp() {
   return (
     <div className="min-h-dvh pt-safe">
       <main key={path} className="animate-page mx-auto max-w-lg px-safe pb-[calc(110px+env(safe-area-inset-bottom))]">
+        <SubscriptionBanner />
         {page}
       </main>
       <nav aria-label="Hovednavigation" className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">

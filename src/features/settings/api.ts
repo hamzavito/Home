@@ -4,6 +4,7 @@ import { householdQueryKey, useHousehold } from '@/features/household/HouseholdP
 import { supabase } from '@/lib/supabase'
 import { toIsoDate } from '@/lib/dates'
 import type { DefaultPaidBy, DefaultRetention } from '@/types/database'
+import { isReadOnlyError, READ_ONLY_MESSAGE } from '@/lib/billing'
 
 function useRefreshHousehold() {
   const { session } = useAuth()
@@ -198,6 +199,7 @@ export function useDeleteAccount() {
 }
 
 export function memberError(e: unknown): string {
+  if (isReadOnlyError(e)) return READ_ONLY_MESSAGE
   const msg = (e as { message?: string } | null)?.message ?? ''
   if (/For mange|eneste voksne|Kun ejere|Tilbagekald/.test(msg)) return msg
   if (/fetch|network|Failed/i.test(msg)) return 'Ingen forbindelse. Prøv igen.'

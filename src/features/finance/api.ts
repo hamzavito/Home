@@ -4,6 +4,7 @@ import { fromIsoDate, monthKey, toIsoDate } from '@/lib/dates'
 import { deleteTransactionWithReceipt } from '@/features/receipts/api'
 import { supabase } from '@/lib/supabase'
 import type { BudgetMode, CategoryKind, Database, PaidByKind, Tables } from '@/types/database'
+import { isReadOnlyError, READ_ONLY_MESSAGE } from '@/lib/billing'
 
 export type Category = Tables<'budget_categories'>
 export type Transaction = Tables<'transactions'>
@@ -261,6 +262,7 @@ export function useCreateSuggestedCategories() {
 
 /** Dansk fejltekst ud fra Supabase/Postgres-fejl */
 export function errorMessage(e: unknown): string {
+  if (isReadOnlyError(e)) return READ_ONLY_MESSAGE
   const err = e as { code?: string; message?: string } | null
   if (err?.code === '23505') return 'Der findes allerede en kategori med det navn.'
   if (err?.message?.includes('arkiveret')) return 'Kategorien er arkiveret. Vælg en anden.'

@@ -18,6 +18,7 @@ import { applyTheme, getThemePreference, type ThemePreference } from '@/lib/them
 import type { DefaultPaidBy, DefaultRetention } from '@/types/database'
 import { LoginCodeCard } from './ChildLogin'
 import { AccountDanger, InviteRows } from './HouseholdAccess'
+import { SubscriptionRow } from '@/features/billing/SubscriptionRow'
 import { roleLabels } from './MemberPage'
 import { NotificationSettings } from './NotificationSettings'
 import { useChangePassword, useExportData, useUpdateProfile, useUpdateRetentionDefault } from './api'
@@ -133,6 +134,7 @@ export function SettingsPage() {
             <ChevronRight className="size-5 shrink-0 text-muted" />
           </Link>
         ))}
+        <SubscriptionRow />
         <InviteRows />
         {household.me.role === 'owner' && <ListRow icon={UserPlus} title="Tilføj barn" subtitle="Eget login med brugernavn og PIN" to="/indstillinger/barn/ny" />}
       </ListGroup>

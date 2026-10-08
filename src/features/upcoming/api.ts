@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useHousehold } from '@/features/household/HouseholdProvider'
 import { supabase } from '@/lib/supabase'
 import type { PaidByKind, Tables, UpcomingStatus } from '@/types/database'
+import { isReadOnlyError, READ_ONLY_MESSAGE } from '@/lib/billing'
 
 export type Upcoming = Tables<'upcoming_expenses'>
 
@@ -95,6 +96,7 @@ export function useUndoPayment() {
 }
 
 export function upcomingErrorMessage(e: unknown): string {
+  if (isReadOnlyError(e)) return READ_ONLY_MESSAGE
   const msg = (e as { message?: string } | null)?.message ?? ''
   if (msg.includes('Fortryd')) return 'Udgiften er registreret. Fortryd betalingen først.'
   if (msg.includes('arkiveret')) return 'Kategorien er arkiveret. Vælg en anden.'

@@ -5,6 +5,7 @@ import { addDaysIso } from '@/lib/home'
 import { mergeIngredients, scaleMilli, type MergedIngredient } from '@/lib/recipes'
 import { supabase } from '@/lib/supabase'
 import type { IngredientInputJson, RecipeInputJson, Tables } from '@/types/database'
+import { isReadOnlyError, READ_ONLY_MESSAGE } from '@/lib/billing'
 
 export type Recipe = Tables<'recipes'>
 export type Ingredient = Tables<'recipe_ingredients'>
@@ -28,6 +29,7 @@ function useInvalidate() {
 }
 
 export function mealErrorMessage(e: unknown): string {
+  if (isReadOnlyError(e)) return READ_ONLY_MESSAGE
   const msg = (e as { message?: string } | null)?.message ?? ''
   if (/fetch|network/i.test(msg)) return 'Ingen forbindelse. Prøv igen.'
   if (msg.includes('findes ikke')) return 'Den findes ikke længere. Den kan være ændret på den anden telefon.'

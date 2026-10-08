@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useHousehold } from '@/features/household/HouseholdProvider'
 import { supabase } from '@/lib/supabase'
 import type { Database, FixedKind, Frequency, PaidByKind, Tables } from '@/types/database'
+import { isReadOnlyError, READ_ONLY_MESSAGE } from '@/lib/billing'
 
 export type FixedGroup = Tables<'fixed_groups'>
 export type FixedItem = Tables<'fixed_items'>
@@ -190,6 +191,7 @@ export function useSaveGroup() {
 }
 
 export function fixedErrorMessage(e: unknown): string {
+  if (isReadOnlyError(e)) return READ_ONLY_MESSAGE
   const err = e as { code?: string; message?: string } | null
   const msg = err?.message ?? ''
   if (err?.code === '23505') return 'Der findes allerede en gruppe med det navn.'

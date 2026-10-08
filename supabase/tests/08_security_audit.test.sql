@@ -83,6 +83,20 @@ begin
   end loop;
 end $$;
 
+-- 6c) Abonnement: alle husstandens tabeller er skrivebeskyttet uden gyldigt abonnement
+do $$
+declare r record;
+begin
+  for r in select c.relname as t from pg_class c join pg_namespace n on n.oid = c.relnamespace
+           join pg_attribute a on a.attrelid = c.oid and a.attname = 'household_id' and not a.attisdropped
+           where n.nspname = 'public' and c.relkind = 'r'
+             and c.relname not in ('households', 'household_members', 'household_subscriptions')
+             and not exists (select 1 from pg_trigger g join pg_proc p on p.oid = g.tgfoid
+                             where g.tgrelid = c.oid and p.proname = 'enforce_write_access' and not g.tgisinternal) loop
+    raise exception 'Skrivebeskyttelse (enforce_write_access) mangler på public.%', r.t;
+  end loop;
+end $$;
+
 -- 7) Isolation: for HVER tabel med household_id kan en bruger fra husstand B ikke se,
 --    ændre eller slette husstand A's rækker
 insert into auth.users (id, email) values
@@ -138,8 +152,11 @@ do $$
 declare t text; n int; ok boolean;
 begin
   for t in select * from audit_tables loop
-    -- Kan ikke se
-    execute format('select count(*) from public.%I where household_id = %L', t, '11111111-1111-1111-1111-111111111111') into n;
+    -- Kan ikke se (0 rækker eller ingen adgang til tabellen overhovedet)
+    begin
+      execute format('select count(*) from public.%I where household_id = %L', t, '11111111-1111-1111-1111-111111111111') into n;
+    exception when insufficient_privilege then n := 0;
+    end;
     assert n = 0, 'B kan se A''s rækker i ' || t;
     -- Kan ikke slette (enten nægtet eller 0 rækker påvirket)
     begin

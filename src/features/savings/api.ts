@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useHousehold } from '@/features/household/HouseholdProvider'
 import { supabase } from '@/lib/supabase'
 import type { MovementKind, Tables } from '@/types/database'
+import { isReadOnlyError, READ_ONLY_MESSAGE } from '@/lib/billing'
 
 export type Goal = Tables<'savings_goals'>
 export type GoalMovement = Tables<'savings_movements'>
@@ -100,6 +101,7 @@ export function useDeleteMovement() {
 }
 
 export function savingsErrorMessage(e: unknown): string {
+  if (isReadOnlyError(e)) return READ_ONLY_MESSAGE
   const msg = (e as { message?: string } | null)?.message ?? ''
   if (msg.includes('negativ')) return 'Der er ikke så meget sparet op. Saldoen kan ikke blive negativ.'
   if (/fetch|network/i.test(msg)) return 'Ingen forbindelse. Prøv igen.'

@@ -3,10 +3,12 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import { householdQueryKey } from '@/features/household/HouseholdProvider'
 import { clearPendingInvite, normalizeInviteCode } from '@/lib/invite'
 import { supabase } from '@/lib/supabase'
+import { isReadOnlyError, READ_ONLY_MESSAGE } from '@/lib/billing'
 
 export type InvitePreview = { householdName: string; invitedBy: string; expiresAt: string }
 
 export function onboardingError(e: unknown): string {
+  if (isReadOnlyError(e)) return READ_ONLY_MESSAGE
   const msg = (e as { message?: string } | null)?.message ?? ''
   if (msg.includes('For mange')) return msg
   if (msg.includes('allerede med i en husstand')) return 'Du er allerede med i en husstand.'

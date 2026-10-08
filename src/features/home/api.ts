@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { useHousehold } from '@/features/household/HouseholdProvider'
 import { supabase } from '@/lib/supabase'
 import type { EventType, Recurrence, TablesUpdate, Tables, TaskPriority, TaskStatus } from '@/types/database'
+import { isReadOnlyError, READ_ONLY_MESSAGE } from '@/lib/billing'
 
 export type ShoppingItem = Tables<'shopping_items'>
 export type Task = Tables<'household_tasks'>
@@ -20,6 +21,7 @@ function useInvalidateHome() {
 }
 
 export function homeErrorMessage(e: unknown): string {
+  if (isReadOnlyError(e)) return READ_ONLY_MESSAGE
   const msg = (e as { message?: string } | null)?.message ?? ''
   if (/fetch|network/i.test(msg)) return 'Ingen forbindelse. Prøv igen.'
   if (msg.includes('findes ikke')) return 'Den findes ikke længere. Den kan være slettet på den anden telefon.'
