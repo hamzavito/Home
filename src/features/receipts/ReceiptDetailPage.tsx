@@ -16,6 +16,7 @@ import { formatLongDate, fromIsoDate, toIsoDate } from '@/lib/dates'
 import { deleteDateFor, retentionOptions, retentionSentence, toDkIsoDate, type Retention } from '@/lib/retention'
 import { receiptErrorMessage, useReceipt, useSetRetention, useSignedUrls, type ReceiptWithTransaction } from './api'
 import { ImageViewer } from './ImageViewer'
+import { ReceiptImageActions } from './ReceiptImageActions'
 import { RetentionPicker } from './RetentionPicker'
 
 export function ReceiptDetailPage() {
@@ -73,7 +74,7 @@ function ReceiptDetail({ receipt }: { receipt: ReceiptWithTransaction }) {
             <ImageOff className="size-5 text-secondary" />
           </span>
           <p className="text-[14px] text-secondary">
-            Kvitteringsbilledet blev automatisk slettet {formatLongDate(new Date(receipt.image_deleted_at))}. Udgiften og oplysningerne er bevaret.
+            Kvitteringsbilledet blev slettet {formatLongDate(new Date(receipt.image_deleted_at))}. Udgiften og oplysningerne er bevaret.
           </p>
         </Card>
       ) : (
@@ -83,6 +84,12 @@ function ReceiptDetail({ receipt }: { receipt: ReceiptWithTransaction }) {
             <Maximize2 className="size-3.5" /> Se hele
           </span>
         </button>
+      )}
+
+      {t && (
+        <div className="mt-3">
+          <ReceiptImageActions transactionId={t.id} receipt={receipt} />
+        </div>
       )}
 
       {/* Beløb */}

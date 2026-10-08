@@ -734,6 +734,8 @@ export type Database = {
       }
       set_receipt_retention: { Args: { p_receipt_id: string; p_retention: ReceiptRetention; p_custom_date?: string | null }; Returns: string | null }
       delete_transaction: { Args: { p_transaction_id: string }; Returns: string | null }
+      attach_receipt: { Args: { p_receipt_id: string; p_transaction_id: string; p_retention: ReceiptRetention; p_custom_date?: string | null }; Returns: string | null }
+      remove_receipt_image: { Args: { p_receipt_id: string }; Returns: string | null }
       suggest_category: { Args: { p_merchant: string }; Returns: string | null }
       budget_month_summary: {
         Args: { p_month: string }

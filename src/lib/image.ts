@@ -90,3 +90,24 @@ export async function compressReceiptImage(file: Blob): Promise<CompressedImage>
     img.close()
   }
 }
+
+/** Drej et billede 90° med uret (til kvitteringer, der er fotograferet på skrå/ned ad). */
+export async function rotateImage(file: Blob): Promise<Blob> {
+  const img = await decode(file)
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width = img.height
+    canvas.height = img.width
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Billedet kunne ikke drejes')
+    ctx.translate(canvas.width, 0)
+    ctx.rotate(Math.PI / 2)
+    ctx.drawImage(img.source, 0, 0, img.width, img.height)
+    const blob = await toBlob(canvas, QUALITY_STEPS[0])
+    canvas.width = 0
+    canvas.height = 0
+    return blob
+  } finally {
+    img.close()
+  }
+}

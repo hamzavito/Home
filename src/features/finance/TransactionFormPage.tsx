@@ -17,6 +17,7 @@ import { errorMessage, today, useCategories, useDeleteTransaction, useSaveTransa
 import { CategoryPicker } from './CategoryPicker'
 import { decodePaidBy, defaultPaidBy, encodePaidBy, paidByLabel, paidByOptions } from './paidBy'
 import { useReceiptForTransaction, useSignedUrls } from '@/features/receipts/api'
+import { ReceiptImageActions } from '@/features/receipts/ReceiptImageActions'
 import { ReceiptThumb } from '@/features/receipts/ReceiptThumb'
 import { retentionBadge } from '@/lib/retention'
 
@@ -195,20 +196,25 @@ function TransactionForm({ existing, categories }: { existing: Transaction | nul
   )
 }
 
-/** Viser den tilknyttede kvittering, hvis udgiften er oprettet fra en scanning. */
+/** Kvitteringen på udgiften: se, tilføj, udskift, drej eller fjern billedet. */
 function LinkedReceipt({ transactionId }: { transactionId: string }) {
   const receipt = useReceiptForTransaction(transactionId)
   const r = receipt.data
   const urls = useSignedUrls(r?.storage_path ? [r.storage_path] : [])
-  if (!r) return null
+  if (receipt.isPending) return null
   return (
-    <Link to={`/kvitteringer/${r.id}`} className="pressable flex items-center gap-3 rounded-card bg-surface-primary p-3 shadow-card">
-      <ReceiptThumb url={r.storage_path ? urls.data?.get(r.storage_path) : undefined} deleted={Boolean(r.image_deleted_at)} />
-      <div className="min-w-0 flex-1">
-        <p className="text-[15px] font-semibold">Kvittering</p>
-        <p className="text-[13px] text-secondary">{retentionBadge({ deleteAt: r.delete_at, imageDeletedAt: r.image_deleted_at })}</p>
-      </div>
-      <ChevronRight className="size-5 text-muted" />
-    </Link>
+    <section aria-label="Kvittering" className="space-y-2">
+      {r && (
+        <Link to={`/kvitteringer/${r.id}`} className="pressable flex items-center gap-3 rounded-card bg-surface-primary p-3 shadow-card">
+          <ReceiptThumb url={r.storage_path ? urls.data?.get(r.storage_path) : undefined} deleted={Boolean(r.image_deleted_at)} />
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-semibold">Kvittering</p>
+            <p className="text-[13px] text-secondary">{retentionBadge({ deleteAt: r.delete_at, imageDeletedAt: r.image_deleted_at })}</p>
+          </div>
+          <ChevronRight className="size-5 text-muted" />
+        </Link>
+      )}
+      <ReceiptImageActions transactionId={transactionId} receipt={r} />
+    </section>
   )
 }

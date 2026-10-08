@@ -165,3 +165,63 @@ test('foto af Netto-kvittering: rabat med minus efter beløbet, total og dato l�
   await expect(page.getByLabel('Købsdato')).toHaveValue(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`)
   await expect(page.getByText('Kontrollér beløbet')).toHaveCount(0)
 })
+
+test('kvittering på en eksisterende udgift: tilføj, drej, udskift og fjern billedet', async ({ page }) => {
+  await startEmpty(page, '/okonomi/budgetter')
+  await page.getByRole('button', { name: 'Opret forslag' }).click()
+  await expect(page.getByRole('link', { name: /Dagligvarer/ })).toBeVisible()
+  await page.goto('/okonomi/ny')
+  await page.getByLabel('Beløb i kroner').fill('14')
+  await page.getByPlaceholder('Fx Bilka').fill('Føtex')
+  await page.getByRole('radiogroup', { name: 'Kategori' }).getByText('Dagligvarer').click()
+  await page.getByRole('button', { name: 'Gem udgift' }).click()
+  await page.waitForURL((u) => !u.pathname.endsWith('/ny'))
+  await page.goto('/okonomi/transaktioner')
+  await page.getByRole('link', { name: /Føtex/ }).click()
+
+  // Tilføj (et højt billede)
+  const png = await receiptImage(page, ['FØTEX', 'GULERØDDER   14,00', 'TOTAL        14,00', '', '', '', '07.10.2026'])
+  await page.getByRole('button', { name: 'Tilføj kvittering' }).click()
+  await page.locator('dialog[open] label', { hasText: 'Vælg fra billeder' }).locator('input').setInputFiles({ name: 'k.png', mimeType: 'image/png', buffer: png })
+  const link = page.getByRole('link', { name: /Kvittering/ })
+  await expect(link).toBeVisible()
+  await expect(link).toContainText('dage tilbage')
+  await expect(page.getByRole('button', { name: 'Tilføj kvittering' })).toHaveCount(0)
+  const size = () => link.locator('img').evaluate((i: HTMLImageElement) => (i.complete && i.naturalWidth ? [i.naturalWidth, i.naturalHeight] : null))
+  await expect.poll(size).not.toBeNull()
+  const [w, h] = (await size())!
+
+  // Drej: bredde og højde bytter plads, og der er stadig kun én kvittering
+  await page.getByRole('button', { name: 'Drej' }).click()
+  await expect.poll(size).toEqual([h, w])
+  const count = () => page.evaluate(() => JSON.parse(localStorage.getItem('hjem-demo-db-v9') ?? '{}').receipts?.length ?? 0)
+  expect(await count()).toBe(1)
+
+  // Udskift med et nyt billede
+  const png2 = await receiptImage(page, ['NETTO WIDE RECEIPT LINE ..................', 'TOTAL 14,00'])
+  await page.getByRole('button', { name: 'Udskift' }).click()
+  await page.locator('dialog[open] label', { hasText: 'Vælg fra billeder' }).locator('input').setInputFiles({ name: 'k2.png', mimeType: 'image/png', buffer: png2 })
+  await expect.poll(async () => {
+    const s = await size()
+    return Boolean(s && s[0] > s[1])
+  }).toBe(true)
+  expect(await count()).toBe(1)
+
+  // Fjern: billedet slettes, udgiften bevares
+  await page.getByRole('button', { name: 'Fjern' }).click()
+  await page.locator('dialog[open]').getByRole('button', { name: 'Fjern billede' }).click()
+  await expect(page.getByRole('button', { name: 'Tilføj kvittering' })).toBeVisible()
+  await expect(link).toContainText('Billede slettet')
+  await expect(page.getByLabel('Beløb i kroner')).toHaveValue('14')
+  const files = await page.evaluate(() => JSON.parse(localStorage.getItem('hjem-demo-db-v9') ?? '{}').receipts.map((r: { storage_path: string | null }) => r.storage_path))
+  expect(files).toEqual([null])
+
+  // Et nyt billede kan tilføjes igen og ses på kvitteringssiden
+  await page.getByRole('button', { name: 'Tilføj kvittering' }).click()
+  await page.locator('dialog[open] label', { hasText: 'Vælg fra billeder' }).locator('input').setInputFiles({ name: 'k.png', mimeType: 'image/png', buffer: png })
+  await expect(page.getByRole('button', { name: 'Fjern' })).toBeVisible()
+  await link.click()
+  await expect(page.getByRole('img', { name: 'Kvittering' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Drej' })).toBeVisible()
+  expect(await count()).toBe(1)
+})

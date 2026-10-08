@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useHousehold } from '@/features/household/HouseholdProvider'
+import { compressReceiptImage, rotateImage } from '@/lib/image'
+import { toDkIsoDate } from '@/lib/retention'
 import { supabase } from '@/lib/supabase'
 import type { PaidByKind, ReceiptRetention, Tables } from '@/types/database'
 
@@ -175,6 +177,85 @@ export function useSetRetention() {
   })
 }
 
+// ---------------------------------------------------------------- billede på en eksisterende udgift
+
+/** Upload et nyt billede og knyt det til udgiften. En eventuel tidligere kvittering erstattes. */
+async function attachImage(transactionId: string, blob: Blob, retention: ReceiptRetention, customDate: string | null): Promise<void> {
+  const { receiptId, path } = await createPendingReceipt()
+  try {
+    await uploadReceiptImage(path, blob)
+    const { data: oldPath, error } = await supabase.rpc('attach_receipt', {
+      p_receipt_id: receiptId,
+      p_transaction_id: transactionId,
+      p_retention: retention,
+      p_custom_date: retention === 'custom' ? customDate : null,
+    })
+    if (error) throw error
+    // Fejler dette, er filen forældreløs og fjernes af den daglige oprydning
+    if (oldPath) await supabase.storage.from(BUCKET).remove([oldPath]).catch(() => {})
+  } catch (e) {
+    await discardPendingReceipt(receiptId, path).catch(() => {})
+    throw e
+  }
+}
+
+/** Behold den nuværende opbevaring ved udskiftning; ellers husstandens standard. */
+function retentionFor(current: Receipt | null | undefined, fallback: ReceiptRetention): { retention: ReceiptRetention; customDate: string | null } {
+  if (!current?.retention) return { retention: fallback, customDate: null }
+  if (current.retention !== 'custom') return { retention: current.retention, customDate: null }
+  const d = current.delete_at ? toDkIsoDate(current.delete_at) : null
+  const today = toDkIsoDate(new Date().toISOString())
+  return d && d > today ? { retention: 'custom', customDate: d } : { retention: fallback, customDate: null }
+}
+
+function invalidateReceipts(qc: ReturnType<typeof useQueryClient>) {
+  return Promise.all([qc.invalidateQueries({ queryKey: ['finance'] }), qc.invalidateQueries({ queryKey: ['receipt-images'] })])
+}
+
+/** Tilføj eller udskift kvitteringsbilledet på en udgift. */
+export function useAttachReceiptImage() {
+  const qc = useQueryClient()
+  const { defaultRetention } = useHousehold()
+  return useMutation({
+    mutationFn: async (input: { transactionId: string; file: Blob; current?: Receipt | null }) => {
+      const { blob } = await compressReceiptImage(input.file)
+      const r = retentionFor(input.current, defaultRetention)
+      await attachImage(input.transactionId, blob, r.retention, r.customDate)
+    },
+    onSettled: () => invalidateReceipts(qc),
+  })
+}
+
+/** Drej billedet 90° med uret og gem det som erstatning for det gamle. */
+export function useRotateReceiptImage() {
+  const qc = useQueryClient()
+  const { defaultRetention } = useHousehold()
+  return useMutation({
+    mutationFn: async (receipt: Receipt) => {
+      if (!receipt.storage_path || !receipt.transaction_id) throw new Error('Billedet er allerede slettet')
+      const { data, error } = await supabase.storage.from(BUCKET).download(receipt.storage_path)
+      if (error) throw error
+      const rotated = await rotateImage(data)
+      const r = retentionFor(receipt, defaultRetention)
+      await attachImage(receipt.transaction_id, rotated, r.retention, r.customDate)
+    },
+    onSettled: () => invalidateReceipts(qc),
+  })
+}
+
+/** Fjern billedet. Udgiften bevares. */
+export function useRemoveReceiptImage() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (receiptId: string) => {
+      const { data: path, error } = await supabase.rpc('remove_receipt_image', { p_receipt_id: receiptId })
+      if (error) throw error
+      if (path) await supabase.storage.from(BUCKET).remove([path]).catch(() => {})
+    },
+    onSettled: () => invalidateReceipts(qc),
+  })
+}
+
 /** Slet en udgift – og dens kvittering + billede, hvis der er en. */
 export async function deleteTransactionWithReceipt(transactionId: string): Promise<void> {
   const { data: path, error } = await supabase.rpc('delete_transaction', { p_transaction_id: transactionId })
@@ -193,6 +274,7 @@ export function receiptErrorMessage(e: unknown): string {
   if (msg.includes('efter i dag')) return 'Vælg en sletningsdato efter i dag.'
   if (msg.includes('For mange')) return msg
   if (msg.includes('allerede slettet')) return 'Billedet er allerede slettet.'
+  if (msg.includes('kunne ikke læses')) return msg
   if (/fetch|network|Failed/i.test(msg)) return 'Ingen forbindelse. Prøv igen.'
   return 'Noget gik galt. Prøv igen.'
 }

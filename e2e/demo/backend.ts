@@ -708,6 +708,29 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
     r.delete_at = deleteAtFor(a.p_retention, a.p_custom_date, new Date(r.approved_at))
     return r.delete_at
   },
+  attach_receipt: (a) => {
+    const r = db.receipts!.find((x) => x.id === a.p_receipt_id)
+    if (!r || !isAdult()) throw new PgError('Kvitteringen findes ikke', 'P0002')
+    if (r.status === 'approved') {
+      if (r.transaction_id === a.p_transaction_id) return null
+      throw new PgError('Kvitteringen er allerede brugt', '23514')
+    }
+    if (!files.has(r.storage_path)) throw new PgError('Billedet er ikke uploadet endnu', '23514')
+    if (!db.transactions!.some((t) => t.id === a.p_transaction_id)) throw new PgError('Udgiften findes ikke', 'P0002')
+    const old = db.receipts!.find((x) => x.transaction_id === a.p_transaction_id)
+    db.receipts = db.receipts!.filter((x) => x !== old)
+    Object.assign(r, { status: 'approved', transaction_id: a.p_transaction_id, retention: a.p_retention, delete_at: deleteAtFor(a.p_retention, a.p_custom_date, new Date()), approved_at: nowIso() })
+    return old?.storage_path ?? null
+  },
+  remove_receipt_image: (a) => {
+    const r = db.receipts!.find((x) => x.id === a.p_receipt_id)
+    if (!r || !isAdult()) throw new PgError('Kvitteringen findes ikke', 'P0002')
+    if (r.status !== 'approved') throw new PgError('Kvitteringen er ikke godkendt', '23514')
+    if (!r.storage_path) return null
+    const path = r.storage_path
+    Object.assign(r, { storage_path: null, image_deleted_at: nowIso() })
+    return path
+  },
   delete_transaction: (a) => {
     const r = db.receipts!.find((x) => x.transaction_id === a.p_transaction_id)
     db.receipts = db.receipts!.filter((x) => x !== r)
@@ -1318,6 +1341,11 @@ const origFrom = supabase.storage.from.bind(supabase.storage)
       error: null,
     }
   }) as unknown as typeof api.createSignedUrls
+  api.download = (async (path: string) => {
+    await ready
+    const f = files.get(path)
+    return f ? { data: f, error: null } : { data: null, error: new Error('not found') }
+  }) as unknown as typeof api.download
   return api
 }
 
