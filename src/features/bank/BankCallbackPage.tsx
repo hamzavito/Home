@@ -47,10 +47,11 @@ export function BankCallbackPage() {
     )
   if (!callback.isSuccess) return <FullScreenLoader />
   const n = callback.data.imported ?? 0
+  const income = callback.data.income ?? 0
   return (
     <>
       <PageHeader title="Bank" back="/indstillinger/bank" />
-      <EmptyState icon={CheckCircle2} title="Banken er forbundet" text={n ? `${n} posteringer er hentet. Gennemgå dem og godkend dem, der skal med.` : 'Nye posteringer hentes automatisk hver nat.'}>
+      <EmptyState icon={CheckCircle2} title="Banken er forbundet" text={n ? `${n} posteringer er hentet${income ? `, og ${income} ${income === 1 ? 'indtægt er' : 'indtægter er'} godkendt automatisk` : ''}. Gennemgå resten og godkend dem, der skal med.` : 'Nye posteringer hentes automatisk hver nat.'}>
         {link('/okonomi/bank', 'Se posteringer')}
       </EmptyState>
     </>

@@ -220,7 +220,8 @@ export type Database = {
           amount_ore: number
           description: string
           counterparty: string | null
-          state: 'new' | 'imported' | 'ignored' | 'transfer'
+          state: 'new' | 'imported' | 'ignored' | 'transfer' | 'fixed'
+          fixed_item_id: string | null
           suggested_category_id: string | null
           possible_duplicate_id: string | null
           transaction_id: string | null
@@ -813,6 +814,11 @@ export type Database = {
       bank_import_suggested: { Args: Record<string, never>; Returns: number }
       bank_rules_list: { Args: Record<string, never>; Returns: Array<{ id: string; label: string; category_id: string; updated_at: string }> }
       bank_rule_disable: { Args: { p_id: string }; Returns: undefined }
+      bank_rules: {
+        Args: Record<string, never>
+        Returns: Array<{ id: string; label: string; kind: 'category' | 'fixed'; category_id: string | null; fixed_item_id: string | null; updated_at: string }>
+      }
+      bank_mark_fixed: { Args: { p_id: string; p_item_id?: string | null; p_name?: string | null; p_group_id?: string | null; p_frequency?: Frequency }; Returns: string }
       suggest_category: { Args: { p_merchant: string }; Returns: string | null }
       budget_month_summary: {
         Args: { p_month: string }

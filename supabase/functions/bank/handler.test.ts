@@ -26,6 +26,7 @@ function deps(over: Partial<BankDeps> = {}) {
       if (fn === 'bank_sync_targets') return [{ connection_id: 'c1', user_id: 'u1', session_id: 's', account_id: 'a1', account_uid: 'acc-1', since: '2026-07-10' }]
       if (fn === 'bank_ingest') return (args.p_rows as unknown[]).length
       if (fn === 'bank_connection_revoke') return 'sess-1'
+      if (fn === 'bank_auto_income') return 1
       return null
     },
     randomState: () => 'state-123',
@@ -63,7 +64,9 @@ describe('bank', () => {
   it('tilbagekald: session → konti → første hentning (alle sider)', async () => {
     const { d, rpcCalls } = deps()
     const r = await handleBank({ action: 'callback', code: 'c', state: 'state-123' }, d)
-    expect(r.body).toMatchObject({ ok: true, accounts: 1, imported: 2, failed: 0 })
+    expect(r.body).toMatchObject({ ok: true, accounts: 1, imported: 2, failed: 0, income: 1 })
+    // Indtægter godkendes efter alle konti (sidste kald)
+    expect(rpcCalls.at(-1)).toEqual(['bank_auto_income', { p_user: 'u1' }])
     const act = rpcCalls.find(([f]) => f === 'bank_connection_activate')![1]
     expect(act).toMatchObject({ p_session: 'sess-1', p_valid_until: '2027-04-01T00:00:00Z', p_accounts: [{ uid: 'acc-1', name: 'Lønkonto', iban: 'DK1', currency: 'DKK' }] })
     expect(rpcCalls.filter(([f]) => f === 'bank_ingest')).toHaveLength(2)
@@ -79,7 +82,7 @@ describe('bank', () => {
 
   it('dagligt job med hemmelighed', async () => {
     const r = await handleBank({ action: 'sync-all' }, deps({ isCron: async () => true, caller: async () => null }).d)
-    expect(r.body).toMatchObject({ ok: true, imported: 2 })
+    expect(r.body).toMatchObject({ ok: true, imported: 2, income: 1 })
   })
 
   it('fjern: lukker også sessionen hos banken', async () => {

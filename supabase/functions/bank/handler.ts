@@ -57,6 +57,16 @@ async function syncTargets(deps: BankDeps, targets: SyncTarget[]): Promise<{ imp
   return { imported, failed }
 }
 
+/** Indtægter godkendes automatisk – efter at ALLE konti er hentet, så overførsler mellem egne konti er parret først */
+async function autoIncome(deps: BankDeps, user: string | null): Promise<number> {
+  try {
+    return Number(await deps.rpc('bank_auto_income', { p_user: user })) || 0
+  } catch (e) {
+    deps.log?.(`indtægter: ${(e as Error)?.message}`)
+    return 0
+  }
+}
+
 export async function handleBank(body: unknown, deps: BankDeps): Promise<BankResponse> {
   const b = (body ?? {}) as Record<string, unknown>
   if (!deps.configured) return fail(503, 'not_configured')
@@ -65,7 +75,8 @@ export async function handleBank(body: unknown, deps: BankDeps): Promise<BankRes
     if (!(await deps.isCron().catch(() => false))) return fail(401, 'unauthorized')
     const targets = (await deps.rpc('bank_sync_targets', { p_user: null })) as SyncTarget[]
     const r = await syncTargets(deps, targets ?? [])
-    return { status: 200, body: { ok: true, ...r } }
+    const income = await autoIncome(deps, null)
+    return { status: 200, body: { ok: true, ...r, income } }
   }
 
   const user = await deps.caller().catch(() => null)
@@ -112,12 +123,14 @@ export async function handleBank(body: unknown, deps: BankDeps): Promise<BankRes
         }
         const targets = (await deps.rpc('bank_sync_targets', { p_user: user })) as SyncTarget[]
         const r = await syncTargets(deps, targets ?? [])
-        return { status: 200, body: { ok: true, accounts: accounts.length, ...r } }
+        const income = await autoIncome(deps, user)
+        return { status: 200, body: { ok: true, accounts: accounts.length, ...r, income } }
       }
       case 'sync': {
         const targets = (await deps.rpc('bank_sync_targets', { p_user: user })) as SyncTarget[]
         const r = await syncTargets(deps, targets ?? [])
-        return { status: 200, body: { ok: true, ...r } }
+        const income = await autoIncome(deps, user)
+        return { status: 200, body: { ok: true, ...r, income } }
       }
       case 'disconnect': {
         if (typeof b.id !== 'string') return fail(400, 'bad_request')

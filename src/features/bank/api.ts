@@ -2,12 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useHousehold } from '@/features/household/HouseholdProvider'
 import { isReadOnlyError, READ_ONLY_MESSAGE } from '@/lib/billing'
 import { supabase } from '@/lib/supabase'
-import type { Tables } from '@/types/database'
+import type { Frequency, Tables } from '@/types/database'
 
 export type BankTransaction = Tables<'bank_transactions'>
 export type IncomeEntry = Tables<'income_entries'>
 
-type FnResult = { ok: boolean; error?: string; url?: string; banks?: Array<{ name: string; logo: string | null }>; imported?: number; accounts?: number; failed?: number }
+type FnResult = { ok: boolean; error?: string; url?: string; banks?: Array<{ name: string; logo: string | null }>; imported?: number; income?: number; accounts?: number; failed?: number }
 
 /** Kald Edge Function "bank". Fejlkoden fra funktionen kastes som Error(message = kode). */
 async function bank(body: Record<string, unknown>): Promise<FnResult> {
@@ -35,6 +35,7 @@ export function bankErrorMessage(e: unknown): string {
     default: {
       const msg = (e as { message?: string } | null)?.message ?? ''
       if (msg.includes('Vælg en kategori')) return 'Vælg en kategori.'
+      if (msg.includes('Vælg en gruppe')) return 'Vælg en gruppe.'
       return 'Noget gik galt. Prøv igen.'
     }
   }
@@ -67,7 +68,7 @@ export function useBankInbox() {
       const { data, error } = await supabase
         .from('bank_transactions')
         .select('*')
-        .in('state', ['new', 'transfer', 'ignored'])
+        .in('state', ['new', 'transfer', 'ignored', 'fixed'])
         .order('booked_on', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(300)
@@ -186,13 +187,32 @@ export function useImportSuggested() {
   })
 }
 
+/** Markér en udgift som fast udgift: ny fast post (itemId null) eller en eksisterende */
+export function useMarkFixed() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: async (input: { id: string; itemId: string | null; name: string; groupId: string | null; frequency: Frequency }) => {
+      const { data, error } = await supabase.rpc('bank_mark_fixed', {
+        p_id: input.id,
+        p_item_id: input.itemId,
+        p_name: input.name.trim() || null,
+        p_group_id: input.itemId ? null : input.groupId,
+        p_frequency: input.frequency,
+      })
+      if (error) throw error
+      return data
+    },
+    onSuccess: refresh,
+  })
+}
+
 /** Huskede butikker: køb hos dem godkendes automatisk i den valgte kategori */
 export function useBankRules() {
   const { id } = useHousehold()
   return useQuery({
     queryKey: ['bank', id, 'rules'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('bank_rules_list')
+      const { data, error } = await supabase.rpc('bank_rules')
       if (error) throw error
       return data
     },

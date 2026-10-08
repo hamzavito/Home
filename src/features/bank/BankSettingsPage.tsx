@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/Spinner'
 import { daysLeft } from '@/lib/billing'
 import { formatLongDate } from '@/lib/dates'
 import { useCategories } from '@/features/finance/api'
+import { useFixedItems } from '@/features/fixed/api'
 import { bankErrorMessage, useBankConnections, useBankRules, useBanks, useConnectBank, useDisableRule, useDisconnectBank, useSyncBank } from './api'
 
 /** Forbind egne bankkonti (MitID hos banken) – kun læseadgang, højst 180 dage ad gangen. */
@@ -133,20 +134,24 @@ function BankPicker() {
 function RememberedShops() {
   const rules = useBankRules()
   const categories = useCategories()
+  const fixed = useFixedItems()
   const disable = useDisableRule()
   const list = rules.data ?? []
   if (list.length === 0) return null
-  const name = (id: string) => categories.data?.find((c) => c.id === id)?.name ?? 'Kategori'
+  const name = (r: (typeof list)[number]) =>
+    r.kind === 'fixed'
+      ? `Fast udgift · ${fixed.data?.find((i) => i.id === r.fixed_item_id)?.name ?? 'fast post'}`
+      : (categories.data?.find((c) => c.id === r.category_id)?.name ?? 'Kategori')
   return (
     <>
       <h2 className="mb-2 mt-8 px-1 text-[17px] font-bold">Huskede butikker</h2>
-      <p className="mb-2 px-1 text-[13px] text-secondary">Køb her godkendes automatisk i kategorien. Vælg en anden kategori på en postering for at ændre det.</p>
+      <p className="mb-2 px-1 text-[13px] text-secondary">Køb her godkendes automatisk i kategorien eller som fast udgift. Vælg noget andet på en postering for at ændre det.</p>
       <ListGroup>
         {list.map((r) => (
           <div key={r.id} className="flex min-h-[56px] items-center gap-3 px-4 py-2">
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate text-[16px] font-medium">{r.label}</span>
-              <span className="truncate text-[13px] text-secondary">{name(r.category_id)}</span>
+              <span className="truncate text-[13px] text-secondary">{name(r)}</span>
             </span>
             <Button size="sm" variant="secondary" loading={disable.isPending && disable.variables === r.id} onClick={() => disable.mutate(r.id)} aria-label={`Glem ${r.label}`}>
               Glem

@@ -492,6 +492,19 @@ const readOnlyError = () => new PgError('Abonnementet er udløbet. I kan se og e
 const bankConnections = () => (db['private.bank_connections'] ??= [])
 const bankRules = () => (db['private.bank_rules'] ??= [])
 const merchantKey = (b: Row) => String(b.counterparty || b.description).toLowerCase().replace(/[0-9#*/.,:-]+/g, ' ').replace(/\s+/g, ' ').trim()
+/** Som bank_auto_income: indtægter godkendes automatisk efter hentningen */
+function demoAutoIncome() {
+  if (!writeAccess()) return 0
+  let n = 0
+  for (const b of db.bank_transactions!)
+    if (b.user_id === CUR && b.state === 'new' && b.amount_ore > 0) {
+      const id = uuid()
+      db.income_entries!.push({ id, household_id: HID, amount_ore: b.amount_ore, received_on: b.booked_on, description: b.counterparty || b.description, note: null, received_by_kind: 'member', received_by_user_id: b.user_id, source: 'bank', created_by: b.user_id, created_at: nowIso(), updated_at: nowIso() })
+      Object.assign(b, { state: 'imported', income_id: id })
+      n++
+    }
+  return n
+}
 function demoImportExpense(b: Row, category: string, descr: string | null) {
   const t = insertTransaction({ category_id: category, amount_ore: -b.amount_ore, occurred_on: b.booked_on, description: descr || b.counterparty || b.description, note: null, paid_by_kind: 'member', paid_by_user_id: b.user_id, source: 'bank' })
   Object.assign(b, { state: 'imported', transaction_id: t.id })
@@ -503,6 +516,7 @@ function demoBankIngest(conn: Row) {
   const rows = [
     { key: 'netto', booked_on: d(0), amount_ore: -14995, description: 'NETTO 1234 AARHUS C', counterparty: 'Netto', state: 'new', suggested_category_id: cat },
     { key: 'netto2', booked_on: d(0), amount_ore: -5000, description: 'NETTO 5678 AARHUS N', counterparty: 'Netto', state: 'new', suggested_category_id: cat },
+    { key: 'husleje', booked_on: d(0), amount_ore: -950000, description: 'HUSLEJE', counterparty: 'Boligselskabet', state: 'new', suggested_category_id: null },
     { key: 'lon', booked_on: d(0), amount_ore: 2850000, description: 'LØN', counterparty: 'Arbejdsgiver A/S', state: 'new', suggested_category_id: null },
     { key: 'opsparing', booked_on: d(0), amount_ore: -200000, description: 'Overførsel til opsparing', counterparty: null, state: 'transfer', suggested_category_id: null },
     { key: 'reserveret', booked_on: d(0), amount_ore: -4500, description: 'Reservation', counterparty: null, state: 'pending', suggested_category_id: null },
@@ -820,8 +834,8 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
       const key = merchantKey(b)
       const rules = bankRules()
       const rule = rules.find((r) => r.user_id === CUR && r.key === key)
-      if (rule) Object.assign(rule, { category_id: a.p_category_id, active: true })
-      else rules.push({ id: uuid(), user_id: CUR, key, label: b.counterparty || descr, category_id: a.p_category_id, active: true })
+      if (rule) Object.assign(rule, { kind: 'category', category_id: a.p_category_id, fixed_item_id: null, active: true })
+      else rules.push({ id: uuid(), user_id: CUR, key, label: b.counterparty || descr, kind: 'category', category_id: a.p_category_id, fixed_item_id: null, active: true })
       for (const x of db.bank_transactions!) if (x.user_id === CUR && x.state === 'new' && x.amount_ore < 0 && !x.possible_duplicate_id && merchantKey(x) === key) demoImportExpense(x, a.p_category_id, null)
       return t.id
     }
@@ -840,7 +854,7 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
     const b = db.bank_transactions!.find((x) => x.id === a.p_id && x.user_id === CUR && x.state !== 'imported')
     if (!b) throw new PgError('Posteringen findes ikke', 'P0002')
     if (!writeAccess()) throw readOnlyError()
-    b.state = a.p_ignored ? 'ignored' : 'new'
+    Object.assign(b, { state: a.p_ignored ? 'ignored' : 'new', fixed_item_id: null })
     return null
   },
   bank_import_suggested: () => {
@@ -853,10 +867,28 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
       }
     return n
   },
-  bank_rules_list: () =>
+  bank_rules: () =>
     bankRules()
       .filter((r) => r.user_id === CUR && r.active)
-      .map((r) => ({ id: r.id, label: r.label, category_id: r.category_id, updated_at: nowIso() })),
+      .map((r) => ({ id: r.id, label: r.label, kind: r.kind ?? 'category', category_id: r.category_id, fixed_item_id: r.fixed_item_id ?? null, updated_at: nowIso() })),
+  bank_mark_fixed: (a) => {
+    const b = db.bank_transactions!.find((x) => x.id === a.p_id && x.user_id === CUR)
+    if (!b) throw new PgError('Posteringen findes ikke', 'P0002')
+    if (b.amount_ore >= 0) throw new PgError('Kun udgifter kan være faste udgifter', '23514')
+    if (!writeAccess()) throw readOnlyError()
+    let item = a.p_item_id
+    if (!item) {
+      if (!a.p_group_id) throw new PgError('Vælg en gruppe', '23514')
+      item = rpcs.create_fixed_item!({ p_kind: 'expense', p_name: a.p_name || b.counterparty || b.description, p_amount_ore: -b.amount_ore, p_frequency: a.p_frequency ?? 'monthly', p_due_month: Number(b.booked_on.slice(5, 7)), p_group_id: a.p_group_id, p_payment_day: Number(b.booked_on.slice(8, 10)) })
+    }
+    const key = merchantKey(b)
+    const rules = bankRules()
+    const rule = rules.find((r) => r.user_id === CUR && r.key === key)
+    if (rule) Object.assign(rule, { kind: 'fixed', fixed_item_id: item, category_id: null, active: true })
+    else rules.push({ id: uuid(), user_id: CUR, key, label: b.counterparty || b.description, kind: 'fixed', category_id: null, fixed_item_id: item, active: true })
+    for (const x of db.bank_transactions!) if (x.id === b.id || (x.user_id === CUR && x.state === 'new' && x.amount_ore < 0 && merchantKey(x) === key)) Object.assign(x, { state: 'fixed', fixed_item_id: item })
+    return item
+  },
   bank_rule_disable: (a) => {
     const r = bankRules().find((x) => x.id === a.p_id && x.user_id === CUR)
     if (!r) throw new PgError('Reglen findes ikke', 'P0002')
@@ -1387,14 +1419,16 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
         if (!c) return json({ ok: false, error: 'not_found' }, 404)
         c.status = 'active'
         const imported = demoBankIngest(c)
+        const income = demoAutoIncome()
         save()
-        return json({ ok: true, accounts: 1, imported, failed: 0 })
+        return json({ ok: true, accounts: 1, imported, failed: 0, income })
       }
       if (body?.action === 'sync') {
         let imported = 0
         for (const c of bankConnections().filter((x) => x.user_id === CUR && x.status === 'active')) imported += demoBankIngest(c)
+        const income = demoAutoIncome()
         save()
-        return json({ ok: true, imported, failed: 0 })
+        return json({ ok: true, imported, failed: 0, income })
       }
       if (body?.action === 'disconnect') {
         const c = bankConnections().find((x) => x.id === body.id && x.user_id === CUR)

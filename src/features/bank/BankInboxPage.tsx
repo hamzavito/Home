@@ -1,4 +1,4 @@
-import { ArrowLeftRight, ChevronDown, Landmark, RefreshCw } from 'lucide-react'
+import { ArrowLeftRight, ChevronDown, Landmark, RefreshCw, Repeat } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { BottomSheet } from '@/components/ui/BottomSheet'
@@ -11,9 +11,12 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Skeleton } from '@/components/ui/Spinner'
 import { useCategories, useTransaction } from '@/features/finance/api'
 import { CategoryPicker } from '@/features/finance/CategoryPicker'
+import { useEnsureDefaultGroups, useFixedGroups, useFixedItems } from '@/features/fixed/api'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
+import type { Frequency } from '@/types/database'
 import { formatLongDate, formatShortDate, fromIsoDate } from '@/lib/dates'
 import { cn } from '@/lib/cn'
-import { bankErrorMessage, useBankConnections, useBankInbox, useIgnoreAll, useImportBankTransaction, useImportSuggested, useLinkBankTransaction, useSetIgnored, useSyncBank, type BankTransaction } from './api'
+import { bankErrorMessage, useBankConnections, useBankInbox, useIgnoreAll, useImportBankTransaction, useImportSuggested, useLinkBankTransaction, useMarkFixed, useSetIgnored, useSyncBank, type BankTransaction } from './api'
 
 /** Posteringer fra banken, der venter på at blive godkendt som udgift eller indtægt. Kun egne. */
 export function BankInboxPage() {
@@ -65,6 +68,7 @@ export function BankInboxPage() {
           <p className="mb-2 px-1 text-[13px] font-semibold text-secondary">
             {fresh.length} {fresh.length === 1 ? 'ny postering' : 'nye posteringer'} · kun du kan se dem
           </p>
+          <p className="mb-3 px-1 text-[13px] text-secondary">Indtægter kommer automatisk med under Økonomi → Indtægter.</p>
           <div className="mb-3 flex flex-wrap gap-2">
             {withSuggestion.length > 0 && (
               <Button size="sm" onClick={() => setConfirmAll('suggested')}>
@@ -87,7 +91,7 @@ export function BankInboxPage() {
         <>
           <button type="button" onClick={() => setShowOther((v) => !v)} aria-expanded={showOther} className="mt-6 flex w-full items-center gap-2 px-1 text-left text-[14px] font-semibold text-secondary">
             <ArrowLeftRight className="size-4" />
-            <span className="flex-1">Frasorteret: overførsler mellem egne konti og ignorerede ({other.length})</span>
+            <span className="flex-1">Frasorteret: overførsler, faste udgifter og ignorerede ({other.length})</span>
             <ChevronDown className={cn('size-4 transition-transform', showOther && 'rotate-180')} />
           </button>
           {showOther && (
@@ -145,7 +149,7 @@ function BankRow({ row, onOpen }: { row: BankTransaction; onOpen: () => void }) 
         <span className="truncate text-[16px] font-medium">{label}</span>
         <span className="truncate text-[13px] text-secondary">
           {formatShortDate(fromIsoDate(row.booked_on))}
-          {row.state === 'transfer' ? ' · Overførsel mellem egne konti' : row.state === 'ignored' ? ' · Ignoreret' : row.possible_duplicate_id ? ' · Måske allerede registreret' : row.amount_ore > 0 ? ' · Indtægt' : ''}
+          {row.state === 'transfer' ? ' · Overførsel mellem egne konti' : row.state === 'fixed' ? ' · Fast udgift' : row.state === 'ignored' ? ' · Ignoreret' : row.possible_duplicate_id ? ' · Måske allerede registreret' : row.amount_ore > 0 ? ' · Indtægt' : ''}
         </span>
       </span>
       <Money ore={Math.abs(row.amount_ore)} size="md" sign={row.amount_ore > 0 ? 'income' : 'expense'} className={row.amount_ore > 0 ? 'text-positive' : undefined} decimals="always" />
@@ -165,6 +169,9 @@ function ReviewSheet({ row, onDone }: { row: BankTransaction; onDone: () => void
   const choices = (categories.data ?? []).filter((c) => !c.archived_at)
   const error = imp.error ?? link.error ?? ignore.error
   const busy = imp.isPending || link.isPending || ignore.isPending
+  const [fixedMode, setFixedMode] = useState(false)
+  const fixedItems = useFixedItems()
+  const fixedName = row.fixed_item_id ? fixedItems.data?.find((i) => i.id === row.fixed_item_id)?.name : undefined
 
   return (
     <>
@@ -186,10 +193,16 @@ function ReviewSheet({ row, onDone }: { row: BankTransaction; onDone: () => void
         </div>
       )}
 
-      {row.state !== 'new' ? (
+      {fixedMode ? (
+        <FixedForm row={row} onDone={onDone} onCancel={() => setFixedMode(false)} />
+      ) : row.state !== 'new' ? (
         <>
           <p className="mt-4 text-[14px] text-secondary">
-            {row.state === 'transfer' ? 'Frasorteret som overførsel mellem jeres egne konti. Den tæller ikke med i budgettet.' : 'Du har valgt at ignorere denne postering.'}
+            {row.state === 'transfer'
+              ? 'Frasorteret som overførsel mellem jeres egne konti. Den tæller ikke med i budgettet.'
+              : row.state === 'fixed'
+                ? `Registreret som fast udgift${fixedName ? `: ${fixedName}` : ''}. Den står allerede i jeres faste poster og tæller ikke dobbelt.`
+                : 'Du har valgt at ignorere denne postering.'}
           </p>
           <Button block className="mt-4" loading={ignore.isPending} onClick={() => ignore.mutate({ id: row.id, ignored: false }, { onSuccess: onDone })}>
             Tag med alligevel
@@ -224,8 +237,117 @@ function ReviewSheet({ row, onDone }: { row: BankTransaction; onDone: () => void
               {income ? 'Gem indtægt' : 'Gem udgift'}
             </Button>
           </div>
+          {!income && (
+            <Button variant="ghost" block className="mt-2" disabled={busy} onClick={() => setFixedMode(true)}>
+              <Repeat className="size-4" /> Det er en fast udgift
+            </Button>
+          )}
         </>
       )}
     </>
+  )
+}
+
+const frequencies: Array<{ value: Frequency; label: string }> = [
+  { value: 'monthly', label: 'Hver måned' },
+  { value: 'quarterly', label: 'Kvartal' },
+  { value: 'yearly', label: 'Årligt' },
+]
+
+/** Gør en bankpostering til en fast udgift: ny fast post eller en eksisterende */
+function FixedForm({ row, onDone, onCancel }: { row: BankTransaction; onDone: () => void; onCancel: () => void }) {
+  const groups = useFixedGroups()
+  const items = useFixedItems()
+  const ensureGroups = useEnsureDefaultGroups()
+  const mark = useMarkFixed()
+  const activeGroups = (groups.data ?? []).filter((g) => !g.archived_at)
+  const existing = (items.data ?? []).filter((i) => i.kind === 'expense' && !i.archived_at)
+  const [mode, setMode] = useState<'new' | 'existing'>('new')
+  const [name, setName] = useState((row.counterparty || row.description).slice(0, 60))
+  const [groupId, setGroupId] = useState<string | null>(null)
+  const [itemId, setItemId] = useState<string | null>(null)
+  const [frequency, setFrequency] = useState<Frequency>('monthly')
+  const gid = groupId ?? activeGroups.find((g) => g.name === 'Bolig')?.id ?? activeGroups[0]?.id ?? null
+  const valid = mode === 'existing' ? Boolean(itemId) : Boolean(gid && name.trim())
+
+  return (
+    <div className="mt-4 space-y-4">
+      <p className="text-[14px] text-secondary">
+        Den kommer i jeres faste poster og tæller ikke som en løbende udgift. Fremtidige betalinger til {row.counterparty || 'samme modtager'} genkendes automatisk.
+      </p>
+      {existing.length > 0 && (
+        <SegmentedControl
+          label="Fast udgift"
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: 'new', label: 'Ny fast udgift' },
+            { value: 'existing', label: 'Har den allerede' },
+          ]}
+        />
+      )}
+      {mode === 'new' ? (
+        <>
+          <Field label="Navn">
+            <TextInput value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <div>
+            <p className="mb-1.5 px-1 text-[13px] font-semibold text-secondary">Gruppe</p>
+            {activeGroups.length === 0 ? (
+              <Button size="sm" variant="secondary" loading={ensureGroups.isPending} onClick={() => ensureGroups.mutate()}>
+                Opret standardgrupper
+              </Button>
+            ) : (
+              <div role="radiogroup" aria-label="Gruppe" className="flex flex-wrap gap-2">
+                {activeGroups.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={gid === g.id}
+                    onClick={() => setGroupId(g.id)}
+                    className={cn('pressable h-10 rounded-full px-4 text-[14px] font-semibold', gid === g.id ? 'bg-accent text-on-accent' : 'bg-surface-secondary text-primary')}
+                  >
+                    {g.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <p className="mb-1.5 px-1 text-[13px] font-semibold text-secondary">Hvor ofte</p>
+            <SegmentedControl label="Hvor ofte" value={frequency} onChange={setFrequency} options={frequencies} />
+          </div>
+        </>
+      ) : (
+        <div role="radiogroup" aria-label="Eksisterende fast udgift" className="max-h-[40dvh] space-y-2 overflow-y-auto">
+          {existing.map((i) => (
+            <button
+              key={i.id}
+              type="button"
+              role="radio"
+              aria-checked={itemId === i.id}
+              onClick={() => setItemId(i.id)}
+              className={cn('pressable flex w-full items-center rounded-2xl px-4 py-3 text-left text-[15px] font-medium', itemId === i.id ? 'bg-accent text-on-accent' : 'bg-surface-secondary')}
+            >
+              {i.name}
+            </button>
+          ))}
+        </div>
+      )}
+      {mark.isError && <p role="alert" className="rounded-2xl bg-danger-soft px-4 py-3 text-[14px] font-medium text-danger">{bankErrorMessage(mark.error)}</p>}
+      <div className="grid grid-cols-2 gap-3">
+        <Button variant="secondary" onClick={onCancel}>
+          Tilbage
+        </Button>
+        <Button
+          disabled={!valid}
+          loading={mark.isPending}
+          onClick={() => mark.mutate({ id: row.id, itemId: mode === 'existing' ? itemId : null, name, groupId: gid, frequency }, { onSuccess: onDone })}
+        >
+          Gem som fast
+        </Button>
+      </div>
+    </div>
   )
 }

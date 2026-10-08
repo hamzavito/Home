@@ -16,32 +16,42 @@ test('forbind bank → gennemgå posteringer → udgift og indtægt; kun egne', 
   await expect(sheet.getByRole('button', { name: /Danske Bank/ })).toHaveCount(0)
   await sheet.getByRole('button', { name: /Nordea/ }).click()
   await expect(page.getByText('Banken er forbundet')).toBeVisible()
-  await expect(page.getByText('4 posteringer er hentet')).toBeVisible()
+  await expect(page.getByText('5 posteringer er hentet, og 1 indtægt er godkendt automatisk')).toBeVisible()
   await page.getByRole('link', { name: 'Se posteringer' }).click()
 
   // Indbakke: reservationen er sprunget over, overførslen er frasorteret
   await expect(page.getByText('3 nye posteringer · kun du kan se dem')).toBeVisible()
+  await expect(page.getByText('Indtægter kommer automatisk med')).toBeVisible()
   await page.getByRole('button', { name: /^Netto.*149,95/ }).click()
   const review = page.locator('dialog[open]')
   await expect(review.getByText(/andre og fremtidige køb hos Netto kommer automatisk/)).toBeVisible()
   await expect(review.getByRole('radio', { name: 'Dagligvarer' })).toHaveAttribute('aria-checked', 'true')
   await expect(review.getByLabel('Butik / beskrivelse')).toHaveValue('Netto')
   await review.getByRole('button', { name: 'Gem udgift' }).click()
-  // Den anden Netto-postering kom automatisk med
+  // Den anden Netto-postering kom automatisk med; tilbage er huslejen
   await expect(page.getByText('1 ny postering · kun du kan se dem')).toBeVisible()
-  await page.getByRole('button', { name: /^Arbejdsgiver A\/S/ }).click()
-  await page.locator('dialog[open]').getByLabel('Beskrivelse').fill('Løn')
-  await page.locator('dialog[open]').getByRole('button', { name: 'Gem indtægt' }).click()
+  await page.getByRole('button', { name: /^Boligselskabet/ }).click()
+  const fixed = page.locator('dialog[open]')
+  await fixed.getByRole('button', { name: 'Det er en fast udgift' }).click()
+  await fixed.getByRole('button', { name: 'Opret standardgrupper' }).click()
+  await expect(fixed.getByRole('radio', { name: 'Bolig' })).toHaveAttribute('aria-checked', 'true')
+  await fixed.getByLabel('Navn').fill('Husleje')
+  await fixed.getByRole('button', { name: 'Gem som fast' }).click()
   await expect(page.getByText('Alt er gennemgået')).toBeVisible()
   await page.getByRole('button', { name: /Frasorteret/ }).click()
   await expect(page.getByText('Overførsel til opsparing')).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Boligselskabet.*Fast udgift/ })).toBeVisible()
+  // Huslejen står nu under faste poster
+  await page.goto('/okonomi/faste')
+  await expect(page.getByText('Husleje')).toBeVisible()
 
   // Udgiften og indtægten er nu husstandens
   await page.goto('/okonomi/transaktioner')
   await expect.poll(async () => norm(await page.locator('main').textContent())).toContain('149,95 kr.')
   await expect.poll(async () => norm(await page.locator('main').textContent())).toContain('50 kr.')
+  expect(norm(await page.locator('main').textContent())).not.toContain('9.500')
   await page.getByRole('link', { name: 'Indtægter' }).click()
-  await expect(page.getByRole('button', { name: /Løn.*Fra banken/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Arbejdsgiver A\/S.*Fra banken/ })).toBeVisible()
   await expect.poll(async () => norm(await page.locator('main').textContent())).toContain('28.500')
 
   // Partneren ser ikke Hamzas bankposteringer
@@ -53,7 +63,9 @@ test('forbind bank → gennemgå posteringer → udgift og indtægt; kun egne', 
   // Huskede butikker kan glemmes
   await page.goto('/indstillinger/bank')
   await expect(page.getByText('Huskede butikker')).toBeVisible()
+  await expect(page.getByText('Fast udgift · Husleje')).toBeVisible()
   await page.getByRole('button', { name: 'Glem Netto' }).click()
+  await page.getByRole('button', { name: 'Glem Boligselskabet' }).click()
   await expect(page.getByText('Huskede butikker')).toHaveCount(0)
 
   // Fjern forbindelsen
@@ -104,7 +116,7 @@ test('godkend alle med kategoriforslag på én gang', async ({ page }) => {
   await page.getByRole('link', { name: 'Se posteringer' }).click()
   await page.getByRole('button', { name: 'Godkend 2 med forslag' }).click()
   await page.locator('dialog[open]').getByRole('button', { name: 'Godkend' }).click()
-  // Kun lønnen (indtægt, uden forslag) er tilbage
+  // Kun huslejen (uden forslag) er tilbage – lønnen kom automatisk med som indtægt
   await expect(page.getByText('1 ny postering · kun du kan se dem')).toBeVisible()
   await expect(page.getByRole('button', { name: /^Godkend \d+ med forslag/ })).toHaveCount(0)
   await page.goto('/okonomi/transaktioner')
