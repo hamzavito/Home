@@ -160,6 +160,19 @@ export function useSetIgnored() {
   })
 }
 
+/** Ignorér alle nye posteringer på én gang (kan tages med enkeltvis bagefter) */
+export function useIgnoreAll() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc('bank_ignore_all')
+      if (error) throw error
+      return data
+    },
+    onSuccess: refresh,
+  })
+}
+
 // ---------------------------------------------------------------- indtægter
 
 export function useMonthIncome(month: string, next: string) {

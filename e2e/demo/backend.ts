@@ -829,6 +829,15 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
     b.state = a.p_ignored ? 'ignored' : 'new'
     return null
   },
+  bank_ignore_all: () => {
+    if (!writeAccess()) throw readOnlyError()
+    let n = 0
+    for (const b of db.bank_transactions!) if (b.user_id === CUR && b.state === 'new') {
+      b.state = 'ignored'
+      n++
+    }
+    return n
+  },
   subscription_info: () => {
     const s = subscription()
     return { ...s, grace_ends_at: null, write_access: Boolean(writeAccess()) }
