@@ -490,11 +490,19 @@ const readOnlyError = () => new PgError('Abonnementet er udløbet. I kan se og e
 
 // ------------------------------------------------------------------ bank (spejler bank_* funktionerne)
 const bankConnections = () => (db['private.bank_connections'] ??= [])
+const bankRules = () => (db['private.bank_rules'] ??= [])
+const merchantKey = (b: Row) => String(b.counterparty || b.description).toLowerCase().replace(/[0-9#*/.,:-]+/g, ' ').replace(/\s+/g, ' ').trim()
+function demoImportExpense(b: Row, category: string, descr: string | null) {
+  const t = insertTransaction({ category_id: category, amount_ore: -b.amount_ore, occurred_on: b.booked_on, description: descr || b.counterparty || b.description, note: null, paid_by_kind: 'member', paid_by_user_id: b.user_id, source: 'bank' })
+  Object.assign(b, { state: 'imported', transaction_id: t.id })
+  return t
+}
 function demoBankIngest(conn: Row) {
   const d = (n: number) => iso(new Date(Date.now() - n * 86_400_000))
   const cat = db.budget_categories!.find((c) => c.name === 'Dagligvarer' && !c.archived_at)?.id ?? null
   const rows = [
     { key: 'netto', booked_on: d(0), amount_ore: -14995, description: 'NETTO 1234 AARHUS C', counterparty: 'Netto', state: 'new', suggested_category_id: cat },
+    { key: 'netto2', booked_on: d(0), amount_ore: -5000, description: 'NETTO 5678 AARHUS N', counterparty: 'Netto', state: 'new', suggested_category_id: cat },
     { key: 'lon', booked_on: d(0), amount_ore: 2850000, description: 'LØN', counterparty: 'Arbejdsgiver A/S', state: 'new', suggested_category_id: null },
     { key: 'opsparing', booked_on: d(0), amount_ore: -200000, description: 'Overførsel til opsparing', counterparty: null, state: 'transfer', suggested_category_id: null },
     { key: 'reserveret', booked_on: d(0), amount_ore: -4500, description: 'Reservation', counterparty: null, state: 'pending', suggested_category_id: null },
@@ -807,8 +815,14 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
     const descr = String(a.p_description ?? '').trim() || b.counterparty || b.description
     if (b.amount_ore < 0) {
       if (!a.p_category_id) throw new PgError('Vælg en kategori', '23514')
-      const t = insertTransaction({ category_id: a.p_category_id, amount_ore: -b.amount_ore, occurred_on: b.booked_on, description: descr, note: null, paid_by_kind: 'member', paid_by_user_id: CUR, source: 'bank' })
-      Object.assign(b, { state: 'imported', transaction_id: t.id })
+      const t = demoImportExpense(b, a.p_category_id, descr)
+      // Husk butikken og tag de ventende fra samme butik med
+      const key = merchantKey(b)
+      const rules = bankRules()
+      const rule = rules.find((r) => r.user_id === CUR && r.key === key)
+      if (rule) Object.assign(rule, { category_id: a.p_category_id, active: true })
+      else rules.push({ id: uuid(), user_id: CUR, key, label: b.counterparty || descr, category_id: a.p_category_id, active: true })
+      for (const x of db.bank_transactions!) if (x.user_id === CUR && x.state === 'new' && x.amount_ore < 0 && !x.possible_duplicate_id && merchantKey(x) === key) demoImportExpense(x, a.p_category_id, null)
       return t.id
     }
     const id = uuid()
@@ -827,6 +841,26 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
     if (!b) throw new PgError('Posteringen findes ikke', 'P0002')
     if (!writeAccess()) throw readOnlyError()
     b.state = a.p_ignored ? 'ignored' : 'new'
+    return null
+  },
+  bank_import_suggested: () => {
+    if (!writeAccess()) throw readOnlyError()
+    let n = 0
+    for (const x of db.bank_transactions!)
+      if (x.user_id === CUR && x.state === 'new' && x.amount_ore < 0 && x.suggested_category_id && !x.possible_duplicate_id) {
+        demoImportExpense(x, x.suggested_category_id, null)
+        n++
+      }
+    return n
+  },
+  bank_rules_list: () =>
+    bankRules()
+      .filter((r) => r.user_id === CUR && r.active)
+      .map((r) => ({ id: r.id, label: r.label, category_id: r.category_id, updated_at: nowIso() })),
+  bank_rule_disable: (a) => {
+    const r = bankRules().find((x) => x.id === a.p_id && x.user_id === CUR)
+    if (!r) throw new PgError('Reglen findes ikke', 'P0002')
+    r.active = false
     return null
   },
   bank_ignore_all: () => {

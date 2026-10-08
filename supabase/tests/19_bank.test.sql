@@ -45,7 +45,7 @@ begin
     '[{"uid": "acc-3", "name": "Budgetkonto", "iban": "DK3333333333333333"}]');
   assert (select count(*) from public.bank_sync_targets(null)) = 3, 'tre konti at hente fra';
   assert (select count(*) from public.bank_sync_targets('00000000-0000-0000-0000-0000000000a1')) = 2, 'egne konti';
-  assert (select since from public.bank_sync_targets('00000000-0000-0000-0000-0000000000a1') limit 1) = current_date - 90, 'første gang: 90 dage tilbage';
+  assert (select since from public.bank_sync_targets('00000000-0000-0000-0000-0000000000a1') limit 1) = current_date - 30, 'første gang: 30 dage tilbage';
 end $$;
 
 -- ---------------------------------------------------------------- indlæs

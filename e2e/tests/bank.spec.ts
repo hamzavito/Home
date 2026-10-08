@@ -16,16 +16,18 @@ test('forbind bank → gennemgå posteringer → udgift og indtægt; kun egne', 
   await expect(sheet.getByRole('button', { name: /Danske Bank/ })).toHaveCount(0)
   await sheet.getByRole('button', { name: /Nordea/ }).click()
   await expect(page.getByText('Banken er forbundet')).toBeVisible()
-  await expect(page.getByText('3 posteringer er hentet')).toBeVisible()
+  await expect(page.getByText('4 posteringer er hentet')).toBeVisible()
   await page.getByRole('link', { name: 'Se posteringer' }).click()
 
   // Indbakke: reservationen er sprunget over, overførslen er frasorteret
-  await expect(page.getByText('2 nye posteringer · kun du kan se dem')).toBeVisible()
-  await page.getByRole('button', { name: /^Netto/ }).click()
+  await expect(page.getByText('3 nye posteringer · kun du kan se dem')).toBeVisible()
+  await page.getByRole('button', { name: /^Netto.*149,95/ }).click()
   const review = page.locator('dialog[open]')
+  await expect(review.getByText(/andre og fremtidige køb hos Netto kommer automatisk/)).toBeVisible()
   await expect(review.getByRole('radio', { name: 'Dagligvarer' })).toHaveAttribute('aria-checked', 'true')
   await expect(review.getByLabel('Butik / beskrivelse')).toHaveValue('Netto')
   await review.getByRole('button', { name: 'Gem udgift' }).click()
+  // Den anden Netto-postering kom automatisk med
   await expect(page.getByText('1 ny postering · kun du kan se dem')).toBeVisible()
   await page.getByRole('button', { name: /^Arbejdsgiver A\/S/ }).click()
   await page.locator('dialog[open]').getByLabel('Beskrivelse').fill('Løn')
@@ -37,6 +39,7 @@ test('forbind bank → gennemgå posteringer → udgift og indtægt; kun egne', 
   // Udgiften og indtægten er nu husstandens
   await page.goto('/okonomi/transaktioner')
   await expect.poll(async () => norm(await page.locator('main').textContent())).toContain('149,95 kr.')
+  await expect.poll(async () => norm(await page.locator('main').textContent())).toContain('50 kr.')
   await page.getByRole('link', { name: 'Indtægter' }).click()
   await expect(page.getByRole('button', { name: /Løn.*Fra banken/ })).toBeVisible()
   await expect.poll(async () => norm(await page.locator('main').textContent())).toContain('28.500')
@@ -47,8 +50,13 @@ test('forbind bank → gennemgå posteringer → udgift og indtægt; kun egne', 
   await expect(page.getByText('Ingen bank forbundet')).toBeVisible()
   await page.evaluate(() => localStorage.setItem('hjem-demo-as', '00000000-0000-4000-8000-0000000000a1'))
 
-  // Fjern forbindelsen
+  // Huskede butikker kan glemmes
   await page.goto('/indstillinger/bank')
+  await expect(page.getByText('Huskede butikker')).toBeVisible()
+  await page.getByRole('button', { name: 'Glem Netto' }).click()
+  await expect(page.getByText('Huskede butikker')).toHaveCount(0)
+
+  // Fjern forbindelsen
   await page.getByRole('button', { name: 'Fjern Nordea' }).click()
   await page.locator('dialog[open]').getByRole('button', { name: 'Fjern' }).click()
   await expect(page.getByText('Ingen bank forbundet endnu.')).toBeVisible()
@@ -74,14 +82,31 @@ test('ignorér alle nye posteringer på én gang – og tag én med igen', async
   await page.getByRole('button', { name: 'Forbind bank' }).click()
   await page.locator('dialog[open]').getByRole('button', { name: /Lunar/ }).click()
   await page.getByRole('link', { name: 'Se posteringer' }).click()
-  await expect(page.getByText('2 nye posteringer · kun du kan se dem')).toBeVisible()
+  await expect(page.getByText('3 nye posteringer · kun du kan se dem')).toBeVisible()
   await page.getByRole('button', { name: 'Ignorér alle' }).click()
   const sheet = page.locator('dialog[open]')
-  await expect(sheet.getByText('Ignorér 2 posteringer?')).toBeVisible()
+  await expect(sheet.getByText('Ignorér 3 posteringer?')).toBeVisible()
   await sheet.getByRole('button', { name: 'Ignorér alle' }).click()
   await expect(page.getByText('Alt er gennemgået')).toBeVisible()
-  await page.getByRole('button', { name: /Frasorteret.*\(3\)/ }).click()
-  await page.getByRole('button', { name: /^Netto.*Ignoreret/ }).click()
+  await page.getByRole('button', { name: /Frasorteret.*\(4\)/ }).click()
+  await page.getByRole('button', { name: /^Netto.*149,95/ }).click()
   await page.locator('dialog[open]').getByRole('button', { name: 'Tag med alligevel' }).click()
   await expect(page.getByText('1 ny postering · kun du kan se dem')).toBeVisible()
+})
+
+test('godkend alle med kategoriforslag på én gang', async ({ page }) => {
+  await startEmpty(page, '/okonomi/budgetter')
+  await page.getByRole('button', { name: 'Opret forslag' }).click()
+  await expect(page.getByRole('link', { name: /Dagligvarer/ })).toBeVisible()
+  await page.goto('/indstillinger/bank')
+  await page.getByRole('button', { name: 'Forbind bank' }).click()
+  await page.locator('dialog[open]').getByRole('button', { name: /Lunar/ }).click()
+  await page.getByRole('link', { name: 'Se posteringer' }).click()
+  await page.getByRole('button', { name: 'Godkend 2 med forslag' }).click()
+  await page.locator('dialog[open]').getByRole('button', { name: 'Godkend' }).click()
+  // Kun lønnen (indtægt, uden forslag) er tilbage
+  await expect(page.getByText('1 ny postering · kun du kan se dem')).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Godkend \d+ med forslag/ })).toHaveCount(0)
+  await page.goto('/okonomi/transaktioner')
+  await expect.poll(async () => norm(await page.locator('main').textContent())).toContain('2 udgifter')
 })

@@ -13,7 +13,7 @@ import { useCategories, useTransaction } from '@/features/finance/api'
 import { CategoryPicker } from '@/features/finance/CategoryPicker'
 import { formatLongDate, formatShortDate, fromIsoDate } from '@/lib/dates'
 import { cn } from '@/lib/cn'
-import { bankErrorMessage, useBankConnections, useBankInbox, useIgnoreAll, useImportBankTransaction, useLinkBankTransaction, useSetIgnored, useSyncBank, type BankTransaction } from './api'
+import { bankErrorMessage, useBankConnections, useBankInbox, useIgnoreAll, useImportBankTransaction, useImportSuggested, useLinkBankTransaction, useSetIgnored, useSyncBank, type BankTransaction } from './api'
 
 /** Posteringer fra banken, der venter på at blive godkendt som udgift eller indtægt. Kun egne. */
 export function BankInboxPage() {
@@ -22,13 +22,17 @@ export function BankInboxPage() {
   const sync = useSyncBank()
   const [open, setOpen] = useState<BankTransaction | null>(null)
   const [showOther, setShowOther] = useState(false)
-  const [confirmAll, setConfirmAll] = useState(false)
+  const [confirmAll, setConfirmAll] = useState<'ignore' | 'suggested' | null>(null)
   const ignoreAll = useIgnoreAll()
+  const importSuggested = useImportSuggested()
+  const categories = useCategories()
 
   const rows = inbox.data ?? []
   const fresh = rows.filter((r) => r.state === 'new')
   const other = rows.filter((r) => r.state !== 'new')
   const hasConnection = (connections.data ?? []).length > 0
+  const activeCategories = new Set((categories.data ?? []).filter((c) => !c.archived_at).map((c) => c.id))
+  const withSuggestion = fresh.filter((r) => r.amount_ore < 0 && r.suggested_category_id && activeCategories.has(r.suggested_category_id) && !r.possible_duplicate_id)
 
   return (
     <>
@@ -58,11 +62,16 @@ export function BankInboxPage() {
         <EmptyState icon={Landmark} title="Alt er gennemgået" text="Nye posteringer dukker op her, når banken har bogført dem." />
       ) : (
         <>
-          <div className="mb-2 flex items-center justify-between gap-3 px-1">
-            <p className="text-[13px] font-semibold text-secondary">
-              {fresh.length} {fresh.length === 1 ? 'ny postering' : 'nye posteringer'} · kun du kan se dem
-            </p>
-            <Button size="sm" variant="secondary" onClick={() => setConfirmAll(true)}>
+          <p className="mb-2 px-1 text-[13px] font-semibold text-secondary">
+            {fresh.length} {fresh.length === 1 ? 'ny postering' : 'nye posteringer'} · kun du kan se dem
+          </p>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {withSuggestion.length > 0 && (
+              <Button size="sm" onClick={() => setConfirmAll('suggested')}>
+                Godkend {withSuggestion.length} med forslag
+              </Button>
+            )}
+            <Button size="sm" variant="secondary" onClick={() => setConfirmAll('ignore')}>
               Ignorér alle
             </Button>
           </div>
@@ -91,17 +100,32 @@ export function BankInboxPage() {
         </>
       )}
 
-      <BottomSheet open={confirmAll} onClose={() => setConfirmAll(false)} title={`Ignorér ${fresh.length} posteringer?`}>
+      <BottomSheet open={confirmAll === 'ignore'} onClose={() => setConfirmAll(null)} title={`Ignorér ${fresh.length} posteringer?`}>
         <p className="text-[15px] text-secondary">
           Ingen af dem kommer med i budgettet. Du kan stadig tage enkelte med bagefter under "Frasorteret". Nye posteringer fra banken dukker op som normalt.
         </p>
         {ignoreAll.isError && <p role="alert" className="mt-3 text-[14px] text-danger">{bankErrorMessage(ignoreAll.error)}</p>}
         <div className="mt-5 grid grid-cols-2 gap-3">
-          <Button variant="secondary" onClick={() => setConfirmAll(false)}>
+          <Button variant="secondary" onClick={() => setConfirmAll(null)}>
             Annullér
           </Button>
-          <Button loading={ignoreAll.isPending} onClick={() => ignoreAll.mutate(undefined, { onSuccess: () => setConfirmAll(false) })}>
+          <Button loading={ignoreAll.isPending} onClick={() => ignoreAll.mutate(undefined, { onSuccess: () => setConfirmAll(null) })}>
             Ignorér alle
+          </Button>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet open={confirmAll === 'suggested'} onClose={() => setConfirmAll(null)} title={`Godkend ${withSuggestion.length} udgifter?`}>
+        <p className="text-[15px] text-secondary">
+          De gemmes som udgifter i den foreslåede kategori (ud fra tidligere køb eller butikker, du har valgt før). Mulige dubletter og indtægter skal du stadig se på selv.
+        </p>
+        {importSuggested.isError && <p role="alert" className="mt-3 text-[14px] text-danger">{bankErrorMessage(importSuggested.error)}</p>}
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <Button variant="secondary" onClick={() => setConfirmAll(null)}>
+            Annullér
+          </Button>
+          <Button loading={importSuggested.isPending} onClick={() => importSuggested.mutate(undefined, { onSuccess: () => setConfirmAll(null) })}>
+            Godkend
           </Button>
         </div>
       </BottomSheet>
@@ -182,6 +206,9 @@ function ReviewSheet({ row, onDone }: { row: BankTransaction; onDone: () => void
             <div className="mt-4">
               <p className="mb-1.5 px-1 text-[13px] font-semibold text-secondary">Kategori{row.suggested_category_id ? ' (foreslået ud fra tidligere køb)' : ''}</p>
               <CategoryPicker categories={choices} value={categoryId} onChange={setCategoryId} />
+              <p className="mt-2 px-1 text-[13px] text-secondary">
+                Appen husker valget: andre og fremtidige køb hos {row.counterparty || 'samme butik'} kommer automatisk i samme kategori. Kan slås fra under Indstillinger → Bank.
+              </p>
             </div>
           )}
           {error && <p role="alert" className="mt-3 rounded-2xl bg-danger-soft px-4 py-3 text-[14px] font-medium text-danger">{bankErrorMessage(error)}</p>}

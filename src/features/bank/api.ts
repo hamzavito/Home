@@ -173,6 +173,43 @@ export function useIgnoreAll() {
   })
 }
 
+/** Godkend alle nye udgifter, der har et kategoriforslag (ikke mulige dubletter) */
+export function useImportSuggested() {
+  const refresh = useRefresh()
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc('bank_import_suggested')
+      if (error) throw error
+      return data
+    },
+    onSuccess: refresh,
+  })
+}
+
+/** Huskede butikker: køb hos dem godkendes automatisk i den valgte kategori */
+export function useBankRules() {
+  const { id } = useHousehold()
+  return useQuery({
+    queryKey: ['bank', id, 'rules'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('bank_rules_list')
+      if (error) throw error
+      return data
+    },
+  })
+}
+
+export function useDisableRule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc('bank_rule_disable', { p_id: id })
+      if (error) throw error
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['bank'] }),
+  })
+}
+
 // ---------------------------------------------------------------- indtægter
 
 export function useMonthIncome(month: string, next: string) {

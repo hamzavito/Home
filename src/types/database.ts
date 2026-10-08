@@ -810,6 +810,9 @@ export type Database = {
       bank_link_existing: { Args: { p_id: string; p_transaction_id: string }; Returns: undefined }
       bank_set_ignored: { Args: { p_id: string; p_ignored: boolean }; Returns: undefined }
       bank_ignore_all: { Args: Record<string, never>; Returns: number }
+      bank_import_suggested: { Args: Record<string, never>; Returns: number }
+      bank_rules_list: { Args: Record<string, never>; Returns: Array<{ id: string; label: string; category_id: string; updated_at: string }> }
+      bank_rule_disable: { Args: { p_id: string }; Returns: undefined }
       suggest_category: { Args: { p_merchant: string }; Returns: string | null }
       budget_month_summary: {
         Args: { p_month: string }

@@ -8,7 +8,8 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Skeleton } from '@/components/ui/Spinner'
 import { daysLeft } from '@/lib/billing'
 import { formatLongDate } from '@/lib/dates'
-import { bankErrorMessage, useBankConnections, useBanks, useConnectBank, useDisconnectBank, useSyncBank } from './api'
+import { useCategories } from '@/features/finance/api'
+import { bankErrorMessage, useBankConnections, useBankRules, useBanks, useConnectBank, useDisableRule, useDisconnectBank, useSyncBank } from './api'
 
 /** Forbind egne bankkonti (MitID hos banken) – kun læseadgang, højst 180 dage ad gangen. */
 export function BankSettingsPage() {
@@ -78,6 +79,8 @@ export function BankSettingsPage() {
       {sync.isSuccess && <p role="status" className="mt-3 px-1 text-[14px] text-secondary">{sync.data.imported ? `${sync.data.imported} nye posteringer hentet.` : 'Ingen nye posteringer.'}</p>}
       <p className="mt-4 px-1 text-[13px] text-secondary">Nye posteringer hentes automatisk hver nat. Efter 180 dage skal du godkende adgangen igen med MitID – det er et krav fra EU.</p>
 
+      <RememberedShops />
+
       <BottomSheet open={picker} onClose={() => setPicker(false)} title="Vælg din bank">
         {picker && <BankPicker />}
       </BottomSheet>
@@ -122,6 +125,35 @@ function BankPicker() {
         )}
       </div>
       <p className="mt-3 px-1 text-[13px] text-secondary">Du sendes videre til banken og logger ind med MitID. Bagefter kommer du tilbage hertil.</p>
+    </>
+  )
+}
+
+/** Butikker, hvor køb automatisk godkendes i en bestemt kategori */
+function RememberedShops() {
+  const rules = useBankRules()
+  const categories = useCategories()
+  const disable = useDisableRule()
+  const list = rules.data ?? []
+  if (list.length === 0) return null
+  const name = (id: string) => categories.data?.find((c) => c.id === id)?.name ?? 'Kategori'
+  return (
+    <>
+      <h2 className="mb-2 mt-8 px-1 text-[17px] font-bold">Huskede butikker</h2>
+      <p className="mb-2 px-1 text-[13px] text-secondary">Køb her godkendes automatisk i kategorien. Vælg en anden kategori på en postering for at ændre det.</p>
+      <ListGroup>
+        {list.map((r) => (
+          <div key={r.id} className="flex min-h-[56px] items-center gap-3 px-4 py-2">
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-[16px] font-medium">{r.label}</span>
+              <span className="truncate text-[13px] text-secondary">{name(r.category_id)}</span>
+            </span>
+            <Button size="sm" variant="secondary" loading={disable.isPending && disable.variables === r.id} onClick={() => disable.mutate(r.id)} aria-label={`Glem ${r.label}`}>
+              Glem
+            </Button>
+          </div>
+        ))}
+      </ListGroup>
     </>
   )
 }
