@@ -16,7 +16,7 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import type { Frequency } from '@/types/database'
 import { formatLongDate, formatShortDate, fromIsoDate } from '@/lib/dates'
 import { cn } from '@/lib/cn'
-import { bankErrorMessage, useBankConnections, useBankInbox, useIgnoreAll, useImportBankTransaction, useImportSuggested, useLinkBankTransaction, useMarkFixed, useSetIgnored, useSyncBank, type BankTransaction } from './api'
+import { bankErrorMessage, syncMessage, useBankConnections, useBankInbox, useIgnoreAll, useImportBankTransaction, useImportSuggested, useLinkBankTransaction, useMarkFixed, useSetIgnored, useSyncBank, type BankTransaction } from './api'
 
 /** Posteringer fra banken, der venter på at blive godkendt som udgift eller indtægt. Kun egne. */
 export function BankInboxPage() {
@@ -35,6 +35,7 @@ export function BankInboxPage() {
   const other = rows.filter((r) => r.state !== 'new')
   const hasConnection = (connections.data ?? []).length > 0
   const activeCategories = new Set((categories.data ?? []).filter((c) => !c.archived_at).map((c) => c.id))
+  const lastSynced = (connections.data ?? []).map((c) => c.last_synced_at).filter((x): x is string => !!x).sort().at(-1)
   const withSuggestion = fresh.filter((r) => r.amount_ore < 0 && r.suggested_category_id && activeCategories.has(r.suggested_category_id) && !r.possible_duplicate_id)
 
   return (
@@ -50,8 +51,9 @@ export function BankInboxPage() {
           ) : undefined
         }
       />
+      {lastSynced && !sync.isPending && <p className="mb-2 px-1 text-[13px] text-secondary">Sidst hentet {lastSyncedLabel(lastSynced)}</p>}
       {sync.isError && <p role="alert" className="mb-3 rounded-2xl bg-danger-soft px-4 py-3 text-[14px] font-medium text-danger">{bankErrorMessage(sync.error)}</p>}
-      {sync.isSuccess && <p role="status" className="mb-3 px-1 text-[14px] text-secondary">{sync.data.imported ? `${sync.data.imported} nye posteringer hentet.` : 'Ingen nye posteringer.'}</p>}
+      {sync.isSuccess && <p role="status" className="mb-3 px-1 text-[14px] text-secondary">{syncMessage(sync.data)}</p>}
 
       {inbox.isPending ? (
         <Skeleton className="h-40 w-full" />
@@ -68,7 +70,7 @@ export function BankInboxPage() {
           <p className="mb-2 px-1 text-[13px] font-semibold text-secondary">
             {fresh.length} {fresh.length === 1 ? 'ny postering' : 'nye posteringer'} · kun du kan se dem
           </p>
-          <p className="mb-3 px-1 text-[13px] text-secondary">Indtægter kommer automatisk med under Økonomi → Indtægter.</p>
+          <p className="mb-3 px-1 text-[13px] text-secondary">Indtægter kommer automatisk med under Økonomi → Indtægter – undtagen MobilePay, som du selv godkender.</p>
           <div className="mb-3 flex flex-wrap gap-2">
             {withSuggestion.length > 0 && (
               <Button size="sm" onClick={() => setConfirmAll('suggested')}>
@@ -350,4 +352,10 @@ function FixedForm({ row, onDone, onCancel }: { row: BankTransaction; onDone: ()
       </div>
     </div>
   )
+}
+
+function lastSyncedLabel(iso: string): string {
+  const d = new Date(iso)
+  const time = d.toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' })
+  return d.toDateString() === new Date().toDateString() ? `i dag kl. ${time}` : `${formatLongDate(d)} kl. ${time}`
 }

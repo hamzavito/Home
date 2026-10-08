@@ -492,12 +492,12 @@ const readOnlyError = () => new PgError('Abonnementet er udløbet. I kan se og e
 const bankConnections = () => (db['private.bank_connections'] ??= [])
 const bankRules = () => (db['private.bank_rules'] ??= [])
 const merchantKey = (b: Row) => String(b.counterparty || b.description).toLowerCase().replace(/[0-9#*/.,:-]+/g, ' ').replace(/\s+/g, ' ').trim()
-/** Som bank_auto_income: indtægter godkendes automatisk efter hentningen */
+/** Som bank_auto_income: indtægter (undtagen MobilePay) godkendes automatisk efter hentningen */
 function demoAutoIncome() {
   if (!writeAccess()) return 0
   let n = 0
   for (const b of db.bank_transactions!)
-    if (b.user_id === CUR && b.state === 'new' && b.amount_ore > 0) {
+    if (b.user_id === CUR && b.state === 'new' && b.amount_ore > 0 && !/mobile ?pay|mobilpay/.test(`${b.counterparty ?? ''} ${b.description ?? ''}`.toLowerCase())) {
       const id = uuid()
       db.income_entries!.push({ id, household_id: HID, amount_ore: b.amount_ore, received_on: b.booked_on, description: b.counterparty || b.description, note: null, received_by_kind: 'member', received_by_user_id: b.user_id, source: 'bank', created_by: b.user_id, created_at: nowIso(), updated_at: nowIso() })
       Object.assign(b, { state: 'imported', income_id: id })
@@ -518,6 +518,7 @@ function demoBankIngest(conn: Row) {
     { key: 'netto2', booked_on: d(0), amount_ore: -5000, description: 'NETTO 5678 AARHUS N', counterparty: 'Netto', state: 'new', suggested_category_id: cat },
     { key: 'husleje', booked_on: d(0), amount_ore: -950000, description: 'HUSLEJE', counterparty: 'Boligselskabet', state: 'new', suggested_category_id: null },
     { key: 'lon', booked_on: d(0), amount_ore: 2850000, description: 'LØN', counterparty: 'Arbejdsgiver A/S', state: 'new', suggested_category_id: null },
+    { key: 'mobilepay', booked_on: d(0), amount_ore: 25000, description: 'MobilePay Sara', counterparty: 'MobilePay', state: 'new', suggested_category_id: null },
     { key: 'opsparing', booked_on: d(0), amount_ore: -200000, description: 'Overførsel til opsparing', counterparty: null, state: 'transfer', suggested_category_id: null },
     { key: 'reserveret', booked_on: d(0), amount_ore: -4500, description: 'Reservation', counterparty: null, state: 'pending', suggested_category_id: null },
   ]

@@ -21,6 +21,13 @@ async function bank(body: Record<string, unknown>): Promise<FnResult> {
   throw new Error(code ?? 'server')
 }
 
+/** Besked efter "Hent": hvor mange nye – eller hvorfor der ikke kom nogen */
+export function syncMessage(r: FnResult): string {
+  const n = r.imported ?? 0
+  if (n === 0) return 'Ingen nye bogførte posteringer. Kortkøb dukker op, når banken har bogført dem – typisk efter 1–3 dage.'
+  return `${n} ${n === 1 ? 'ny postering' : 'nye posteringer'} hentet.`
+}
+
 export function bankErrorMessage(e: unknown): string {
   if (isReadOnlyError(e)) return READ_ONLY_MESSAGE
   switch ((e as Error | null)?.message) {

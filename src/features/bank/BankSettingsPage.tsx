@@ -10,7 +10,7 @@ import { daysLeft } from '@/lib/billing'
 import { formatLongDate } from '@/lib/dates'
 import { useCategories } from '@/features/finance/api'
 import { useFixedItems } from '@/features/fixed/api'
-import { bankErrorMessage, useBankConnections, useBankRules, useBanks, useConnectBank, useDisableRule, useDisconnectBank, useSyncBank } from './api'
+import { bankErrorMessage, syncMessage, useBankConnections, useBankRules, useBanks, useConnectBank, useDisableRule, useDisconnectBank, useSyncBank } from './api'
 
 /** Forbind egne bankkonti (MitID hos banken) – kun læseadgang, højst 180 dage ad gangen. */
 export function BankSettingsPage() {
@@ -77,7 +77,7 @@ export function BankSettingsPage() {
         )}
       </div>
       {sync.isError && <p role="alert" className="mt-3 text-[14px] text-danger">{bankErrorMessage(sync.error)}</p>}
-      {sync.isSuccess && <p role="status" className="mt-3 px-1 text-[14px] text-secondary">{sync.data.imported ? `${sync.data.imported} nye posteringer hentet.` : 'Ingen nye posteringer.'}</p>}
+      {sync.isSuccess && <p role="status" className="mt-3 px-1 text-[14px] text-secondary">{syncMessage(sync.data)}</p>}
       <p className="mt-4 px-1 text-[13px] text-secondary">Nye posteringer hentes automatisk hver nat. Efter 180 dage skal du godkende adgangen igen med MitID – det er et krav fra EU.</p>
 
       <RememberedShops />

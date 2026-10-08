@@ -24,7 +24,9 @@ do $$ begin
     jsonb_build_object('external_id', repeat('2', 64), 'booked_on', '2026-09-01', 'amount_ore', -950000, 'description', 'HUSLEJE SEP', 'counterparty', 'Boligselskabet'),
     jsonb_build_object('external_id', repeat('3', 64), 'booked_on', '2026-10-02', 'amount_ore', -9900, 'description', 'NETFLIX', 'counterparty', 'Netflix'),
     jsonb_build_object('external_id', repeat('4', 64), 'booked_on', '2026-09-30', 'amount_ore', 2500000, 'description', 'LØN', 'counterparty', 'Arbejdsgiver'),
-    jsonb_build_object('external_id', repeat('5', 64), 'booked_on', '2026-10-05', 'amount_ore', 50000, 'description', 'Til opsparing')
+    jsonb_build_object('external_id', repeat('5', 64), 'booked_on', '2026-10-05', 'amount_ore', 50000, 'description', 'Til opsparing'),
+    jsonb_build_object('external_id', repeat('a', 64), 'booked_on', '2026-10-06', 'amount_ore', 25000, 'description', 'MobilePay Sara', 'counterparty', 'Sara Jensen'),
+    jsonb_build_object('external_id', repeat('b', 64), 'booked_on', '2026-10-06', 'amount_ore', 15000, 'description', 'Overførsel', 'counterparty', 'MOBILEPAY')
   ));
   -- Den anden side af overførslen (egen konto) samme dag
   perform public.bank_ingest('b1000000-0000-0000-0000-0000000000a2', jsonb_build_array(
@@ -38,7 +40,10 @@ declare n int;
 begin
   assert (select state from public.bank_transactions where external_id = repeat('4', 64)) = 'new', 'venter til efter hentningen';
   n := public.bank_auto_income(null);
-  assert n = 1, 'kun lønnen (overførslen er parret)';
+  assert n = 1, 'kun lønnen (overførslen er parret, MobilePay venter)';
+  assert (select count(*) from public.bank_transactions where external_id in (repeat('a', 64), repeat('b', 64)) and state = 'new') = 2, 'MobilePay venter på godkendelse';
+  assert private.is_mobilepay(null, 'MobilePay Sara') and private.is_mobilepay('MOBILEPAY', 'x') and private.is_mobilepay(null, 'Mobile Pay 1234'), 'MobilePay genkendes';
+  assert not private.is_mobilepay('Arbejdsgiver', 'LØN'), 'løn er ikke MobilePay';
   assert (select state from public.bank_transactions where external_id = repeat('4', 64)) = 'imported', 'løn godkendt';
   assert (select amount_ore = 2500000 and description = 'Arbejdsgiver' and source = 'bank' and received_by_user_id = '00000000-0000-0000-0000-0000000000a1'
           from public.income_entries where description = 'Arbejdsgiver'), 'som indtægt';
