@@ -168,7 +168,9 @@ export function SettingsPage() {
         <ListRow icon={LogOut} iconColor="var(--danger)" title="Log ud" tone="danger" onClick={() => setSheet('logout')} />
       </ListGroup>
 
-      <p className="mt-6 text-center text-[12px] text-secondary">Hjem {__APP_VERSION__}</p>
+      <p className="mt-6 text-center text-[12px] text-secondary">
+        Hjem {__APP_VERSION__} · <Link to="/privatliv" className="underline">Privatliv</Link> · <Link to="/vilkaar" className="underline">Vilkår</Link>
+      </p>
 
       <BottomSheet open={sheet === 'password'} onClose={() => setSheet(null)} title="Adgangskode">
         {sheet === 'password' && <PasswordForm onDone={() => setSheet(null)} />}

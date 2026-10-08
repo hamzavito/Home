@@ -155,3 +155,14 @@ test('ejeren kan fjerne en voksen, og den fjernede mister adgangen', async ({ pa
   await codeLogin(page, 'sumaya@demo.dk')
   await expect(page.getByRole('button', { name: /Opret husstand/ })).toBeVisible()
 })
+
+test('privatlivspolitik og vilkår kan læses uden login', async ({ page }) => {
+  await startFresh(page)
+  await page.getByRole('link', { name: 'Privatlivspolitik' }).click()
+  await expect(page.getByRole('heading', { name: 'Privatlivspolitik' })).toBeVisible()
+  await expect(page.getByText('Hjem drives af Hamza Chahade')).toBeVisible()
+  await page.goto('/vilkaar')
+  await expect(page.getByRole('heading', { name: 'Vilkår' })).toBeVisible()
+  await page.getByRole('button', { name: 'Tilbage' }).click()
+  await expect(page.getByRole('heading', { name: 'Velkommen hjem' })).toBeVisible()
+})

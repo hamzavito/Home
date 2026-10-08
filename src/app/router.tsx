@@ -35,6 +35,7 @@ import { MorePage } from '@/features/more/MorePage'
 import { AddChildPage } from '@/features/settings/ChildLogin'
 import { MemberPage } from '@/features/settings/MemberPage'
 import { InviteLandingPage } from '@/features/onboarding/InviteLandingPage'
+import { PrivacyPage, TermsPage } from '@/features/legal/LegalPages'
 import { SubscriptionPage } from '@/features/billing/SubscriptionPage'
 import { BankCallbackPage } from '@/features/bank/BankCallbackPage'
 import { BankInboxPage } from '@/features/bank/BankInboxPage'
@@ -48,6 +49,8 @@ export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/glemt-adgangskode', element: <ForgotPasswordPage /> },
   { path: '/invitation/:code', element: <InviteLandingPage /> },
+  { path: '/privatliv', element: <PrivacyPage /> },
+  { path: '/vilkaar', element: <TermsPage /> },
   {
     element: <RequireHousehold />,
     children: [

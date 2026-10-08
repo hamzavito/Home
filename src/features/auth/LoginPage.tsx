@@ -283,6 +283,9 @@ export function LoginPage() {
             Ny her? Fortsæt med {appleEnabled() || googleEnabled() ? 'Apple, Google eller ' : ''}en kode på mail. Så oprettes din konto, og du kan oprette jeres husstand eller tage imod en invitation.
           </p>
         )}
+        <p className="mt-4 text-center text-[13px] text-secondary">
+          <Link to="/privatliv" className="font-semibold underline">Privatlivspolitik</Link> · <Link to="/vilkaar" className="font-semibold underline">Vilkår</Link>
+        </p>
       </div>
     </div>
   )
