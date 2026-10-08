@@ -110,3 +110,33 @@ do $$ begin
 end $$;
 SQL
 echo "  ✓ udbetalingsjobbet kørt samtidig: ingen dubletter"
+
+# To personer tager imod samme invitation samtidig → kun én bliver medlem
+"${PSQL[@]}" <<'SQL'
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-00000000c0d1', 'inv1@test.dk'),
+  ('00000000-0000-0000-0000-00000000c0d2', 'inv2@test.dk');
+insert into private.household_invites (household_id, code_hash, created_by, expires_at)
+values ('33333333-3333-3333-3333-333333333333', private.invite_hash('SAMTID22'), '00000000-0000-0000-0000-00000000c0c1', now() + interval '1 day');
+SQL
+accept() {
+  "${PSQL[@]}" -c "set role authenticated; set request.jwt.claim.sub = '$1';
+begin;
+select public.invite_accept('SAMTID22');
+select pg_sleep(0.6);
+commit;"
+}
+accept 00000000-0000-0000-0000-00000000c0d1 &
+P1=$!
+sleep 0.15
+accept 00000000-0000-0000-0000-00000000c0d2 &
+P2=$!
+wait $P1
+wait $P2
+"${PSQL[@]}" <<'SQL'
+do $$ begin
+  assert (select count(*) from public.household_members where user_id in ('00000000-0000-0000-0000-00000000c0d1', '00000000-0000-0000-0000-00000000c0d2')) = 1,
+    'en invitation kan kun bruges én gang – også samtidig';
+end $$;
+SQL
+echo "  ✓ samme invitation brugt samtidig: kun ét nyt medlem"

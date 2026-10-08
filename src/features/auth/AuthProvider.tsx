@@ -5,6 +5,7 @@ import { clearPrivateDeviceData } from '@/lib/device-data'
 import { disablePush } from '@/lib/push'
 import { supabase } from '@/lib/supabase'
 import { setRememberMe } from '@/lib/session-storage'
+import type { IdTokenResult } from '@/lib/social-login'
 
 type AuthState = {
   session: Session | null
@@ -12,7 +13,22 @@ type AuthState = {
   signIn: (email: string, password: string, remember: boolean) => Promise<{ error: string | null }>
   /** Barn: husstandskode + brugernavn + PIN (kontrolleres på serveren) */
   childSignIn: (code: string, username: string, pin: string, remember: boolean) => Promise<{ error: string | null }>
+  /** E-mail med engangskode. Opretter kontoen, hvis den ikke findes. */
+  sendEmailCode: (email: string) => Promise<{ error: string | null }>
+  verifyEmailCode: (email: string, code: string, remember: boolean) => Promise<{ error: string | null }>
+  /** Apple/Google: ID-token fra deres eget login-vindue */
+  idTokenSignIn: (provider: 'apple' | 'google', r: IdTokenResult, remember: boolean) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
+}
+
+const NAME_KEY = 'hjem.signup.name'
+/** Navnet fra Apple (kun ved første login) – foreslås, når husstanden oprettes */
+export function signupName(): string | null {
+  try {
+    return sessionStorage.getItem(NAME_KEY)
+  } catch {
+    return null
+  }
 }
 
 const AuthContext = createContext<AuthState | null>(null)
@@ -65,6 +81,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: 'Login mislykkedes. Tjek din forbindelse og prøv igen.' }
   }
 
+  const sendEmailCode: AuthState['sendEmailCode'] = async (email) => {
+    const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: true } })
+    if (!error) return { error: null }
+    if (error.status === 429 || /rate/i.test(error.code ?? '')) return { error: 'For mange forsøg. Vent et øjeblik og prøv igen.' }
+    if (/invalid.*email|email.*invalid/i.test(error.message)) return { error: 'Tjek e-mailadressen.' }
+    return { error: 'Koden kunne ikke sendes. Tjek forbindelsen og prøv igen.' }
+  }
+
+  const verifyEmailCode: AuthState['verifyEmailCode'] = async (email, code, remember) => {
+    setRememberMe(remember)
+    const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: 'email' })
+    if (!error) return { error: null }
+    if (error.status === 429) return { error: 'For mange forsøg. Vent et øjeblik og prøv igen.' }
+    return { error: 'Koden er forkert eller udløbet. Tjek koden, eller send en ny.' }
+  }
+
+  const idTokenSignIn: AuthState['idTokenSignIn'] = async (provider, r, remember) => {
+    setRememberMe(remember)
+    const { error } = await supabase.auth.signInWithIdToken({ provider, token: r.token, nonce: r.nonce })
+    if (error) return { error: 'Login mislykkedes. Prøv igen.' }
+    if (r.name) {
+      try {
+        sessionStorage.setItem(NAME_KEY, r.name)
+      } catch {
+        /* ignorér */
+      }
+    }
+    return { error: null }
+  }
+
   const signOut = async () => {
     // Ingen notifikationer til en telefon, der er logget ud (højst 3 sek. – også uden net)
     await Promise.race([disablePush().catch(() => {}), new Promise((r) => setTimeout(r, 3000))])
@@ -78,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  return <AuthContext value={{ session, loading, signIn, childSignIn, signOut }}>{children}</AuthContext>
+  return <AuthContext value={{ session, loading, signIn, childSignIn, sendEmailCode, verifyEmailCode, idTokenSignIn, signOut }}>{children}</AuthContext>
 }
 
 export function useAuth() {

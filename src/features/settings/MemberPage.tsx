@@ -11,6 +11,7 @@ import { useChildPin, useSetMemberRole } from '@/features/child/api'
 import { useHousehold, type HouseholdMember } from '@/features/household/HouseholdProvider'
 import { cn } from '@/lib/cn'
 import { ChildLoginControls } from './ChildLogin'
+import { RemoveMember } from './HouseholdAccess'
 
 /** Ejefald: "Noahs", men "Jonas'" */
 export const genitive = (name: string) => (/[sxz]$/i.test(name) ? `${name}'` : `${name}s`)
@@ -55,6 +56,7 @@ export function MemberPage() {
         </ListGroup>
       )}
       {member.username && !household.me.isChild && <ChildPinRow child={member} />}
+      {household.me.role === 'owner' && !member.isMe && !member.isChild && <RemoveMember member={member} />}
     </>
   )
 }

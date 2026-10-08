@@ -32,7 +32,7 @@ test('eksport giver en JSON-fil med husstandens data', async ({ page }) => {
 
 test('skift adgangskode validerer og bekræfter', async ({ page }) => {
   await startEmpty(page, '/indstillinger')
-  await page.getByRole('button', { name: 'Skift adgangskode' }).click()
+  await page.getByRole('button', { name: /^Adgangskode/ }).click()
   const sheet = page.locator('dialog[open]')
   await sheet.getByLabel('Ny adgangskode').fill('kort')
   await expect(sheet.getByText('Mindst 8 tegn')).toBeVisible()

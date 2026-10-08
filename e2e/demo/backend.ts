@@ -25,6 +25,8 @@ const FILES_KEY = 'hjem-demo-files-v2'
 const MODE_KEY = 'hjem-demo-mode' // 'empty' = start uden demodata (bruges af tests)
 const KIDS_KEY = 'hjem-demo-kids' // '1' = husstanden har to børn (Noah og Lina)
 const AS_KEY = 'hjem-demo-as' // bruger-id der er logget ind (standard: Hamza)
+/** Ny bruger uden husstand (tilmeldingstests) */
+export const NEWUSER = '00000000-0000-4000-8000-0000000000a9'
 export const KID1 = '00000000-0000-4000-8000-0000000000b1'
 export const KID2 = '00000000-0000-4000-8000-0000000000b2'
 const readLs = (k: string) => {
@@ -377,6 +379,16 @@ function seedEmpty(): Db {
   return baseDb()
 }
 
+/** 'fresh': ingen husstand endnu – brugerne skal oprette eller tage imod en invitation */
+function seedFresh(): Db {
+  const d = baseDb()
+  d.households = []
+  d.household_members = []
+  d['private.login_codes'] = []
+  d.profiles!.push({ id: NEWUSER, display_name: 'ny', color: null, default_paid_by: 'me', notify_calendar: true, notify_shopping: true, created_at: nowIso(), updated_at: nowIso() })
+  return d
+}
+
 const ready: Promise<void> = (async () => {
   let mode: string | null = null
   try {
@@ -398,7 +410,7 @@ const ready: Promise<void> = (async () => {
     db = { ...emptyDb(), ...stored }
     loadFiles()
   } else {
-    db = mode === 'empty' ? seedEmpty() : await seedDemo()
+    db = mode === 'fresh' ? seedFresh() : mode === 'empty' ? seedEmpty() : await seedDemo()
     // Demo-børn kan logge ind: HJEM42 + noah/lina + PIN
     if (readLs(KIDS_KEY) === '1')
       db['private.child_credentials'] = [
@@ -415,7 +427,9 @@ const ready: Promise<void> = (async () => {
 })()
 
 // ------------------------------------------------------------------ roller (spejler RLS)
-const roleOf = (uid: string) => db.household_members!.find((m) => m.user_id === uid)?.role as string | undefined
+/** Aktivt medlemskab (tidligere medlemmer har left_at) */
+const activeMember = (uid: string) => db.household_members!.find((m) => m.user_id === uid && !m.left_at)
+const roleOf = (uid: string) => activeMember(uid)?.role as string | undefined
 const isAdult = () => roleOf(CUR) !== 'child'
 /** Hvad et barn må læse. Alt andet er usynligt for børn (som i databasen). */
 const CHILD_READ: Record<string, (r: Row) => boolean> = {
@@ -430,9 +444,13 @@ const CHILD_READ: Record<string, (r: Row) => boolean> = {
   child_wallet_transactions: (r) => r.child_id === CUR,
   child_savings_goals: (r) => r.child_id === CUR,
 }
-const isDisabled = (uid: string) => Boolean(db.household_members!.find((m) => m.user_id === uid)?.disabled_at)
+// Uden aktivt medlemskab ses intet (som i databasen)
+const isDisabled = (uid: string) => {
+  const m = activeMember(uid)
+  return !m || Boolean(m.disabled_at)
+}
 // Deaktiverede medlemmer ser intet (som i databasen)
-const visibleRows = (table: string, rows: Row[]) => (isDisabled(CUR) ? [] : isAdult() ? rows : rows.filter((r) => CHILD_READ[table]?.(r) ?? false))
+const visibleRows = (table: string, rows: Row[]) => (isDisabled(CUR) ? (table === 'profiles' ? rows.filter((r) => r.id === CUR) : []) : isAdult() ? rows : rows.filter((r) => CHILD_READ[table]?.(r) ?? false))
 
 // ------------------------------------------------------------------ barnelogin (spejler child_login_verify m.fl.)
 async function pinHash(pin: string): Promise<string> {
@@ -444,6 +462,28 @@ const throttle = () => db['private.login_throttle']!
 const loginCode = () => db['private.login_codes']![0]!.code as string
 const isOwner = () => roleOf(CUR) === 'owner' && !isDisabled(CUR)
 const rlsError = () => new PgError('new row violates row-level security policy', '42501', 403)
+
+// ------------------------------------------------------------------ tilmelding (spejler household_create, invite_* m.fl.)
+const invites = () => (db['private.invites'] ??= [])
+const findInvite = (code: unknown) => {
+  const c = String(code ?? '').toUpperCase().replace(/[\s-]/g, '')
+  return invites().find((i) => i.code === c && !i.used_at && !i.revoked_at && i.expires_at > nowIso())
+}
+function setDisplayName(uid: string, name: unknown) {
+  const n = String(name ?? '').trim()
+  const pr = db.profiles!.find((x) => x.id === uid)
+  if (n && pr) pr.display_name = n.slice(0, 40)
+}
+const otherActiveAdults = (uid: string) => db.household_members!.filter((m) => m.user_id !== uid && !m.left_at && !m.disabled_at && m.role !== 'child').length
+function memberDepart(uid: string) {
+  const m = activeMember(uid)!
+  if (!db.household_members!.some((x) => x.user_id !== uid && x.role === 'owner' && !x.left_at && !x.disabled_at)) {
+    const next = db.household_members!.filter((x) => x.user_id !== uid && x.role === 'adult' && !x.left_at && !x.disabled_at).sort((x, y) => x.created_at.localeCompare(y.created_at))[0]
+    if (next) next.role = 'owner'
+  }
+  Object.assign(m, { left_at: nowIso(), disabled_at: nowIso(), role: m.role === 'owner' ? 'adult' : m.role })
+  for (const i of invites()) if (i.created_by === uid && !i.used_at && !i.revoked_at) i.revoked_at = nowIso()
+}
 
 const walletEffect = (t: Row) => (['allowance', 'deposit', 'from_goal'].includes(t.kind) ? t.amount_ore : -t.amount_ore)
 const childBalance = (child: string) => db.child_wallet_transactions!.filter((t) => t.child_id === child && !t.voided_at).reduce((s2, t) => s2 + walletEffect(t), 0)
@@ -707,6 +747,68 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
     r.retention = a.p_retention
     r.delete_at = deleteAtFor(a.p_retention, a.p_custom_date, new Date(r.approved_at))
     return r.delete_at
+  },
+  household_create: (a) => {
+    if (activeMember(CUR)) throw new PgError('Du er allerede med i en husstand', '23505', 409)
+    const name = String(a.p_name ?? '').trim()
+    if (name.length < 1 || name.length > 80) throw new PgError('Skriv et navn på husstanden', '23514')
+    // Demoen har én husstand ad gangen (alle data hører til HID)
+    if (db.households!.some((h) => h.id === HID)) throw new PgError('Demo: der findes allerede en husstand', '23514')
+    setDisplayName(CUR, a.p_display_name)
+    db.households!.push({ id: HID, name, default_receipt_retention: '30d', grocery_category_id: null, created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
+    db.household_members!.push({ household_id: HID, user_id: CUR, role: 'owner', child_username: null, disabled_at: null, left_at: null, created_at: nowIso() })
+    db['private.login_codes'] = [{ household_id: HID, code: DEMO_LOGIN_CODE }]
+    return HID
+  },
+  invite_create: () => {
+    if (!isAdult() || isDisabled(CUR)) throw rlsError()
+    const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+    const code = Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => alphabet[b % 31]).join('')
+    const inv = { id: uuid(), code, household_id: HID, created_by: CUR, created_at: nowIso(), expires_at: new Date(Date.now() + 7 * 86_400_000).toISOString(), used_at: null, revoked_at: null }
+    invites().push(inv)
+    return [{ invite_id: inv.id, code, expires_at: inv.expires_at }]
+  },
+  invite_list: () =>
+    isAdult() && !isDisabled(CUR)
+      ? invites()
+          .filter((i) => !i.used_at && !i.revoked_at && i.expires_at > nowIso())
+          .map((i) => ({ invite_id: i.id, created_by: i.created_by, created_at: i.created_at, expires_at: i.expires_at }))
+      : [],
+  invite_revoke: (a) => {
+    const i = invites().find((x) => x.id === a.p_invite_id && !x.revoked_at && !x.used_at)
+    if (!i || !isAdult() || isDisabled(CUR)) throw new PgError('Invitationen findes ikke', 'P0002')
+    i.revoked_at = nowIso()
+    return null
+  },
+  invite_preview: (a) => {
+    const i = findInvite(a.p_code)
+    if (!i) return []
+    return [{ household_name: db.households!.find((h) => h.id === i.household_id)?.name ?? '', invited_by: db.profiles!.find((x) => x.id === i.created_by)?.display_name ?? 'Et medlem', expires_at: i.expires_at }]
+  },
+  invite_accept: (a) => {
+    if (activeMember(CUR)) throw new PgError('Du er allerede med i en husstand', '23505', 409)
+    const i = findInvite(a.p_code)
+    if (!i) return null
+    setDisplayName(CUR, a.p_display_name)
+    const old = db.household_members!.find((m) => m.household_id === i.household_id && m.user_id === CUR)
+    if (old) Object.assign(old, { left_at: null, disabled_at: null, role: 'adult' })
+    else db.household_members!.push({ household_id: i.household_id, user_id: CUR, role: 'adult', child_username: null, disabled_at: null, left_at: null, created_at: nowIso() })
+    Object.assign(i, { used_at: nowIso(), used_by: CUR })
+    return i.household_id
+  },
+  household_leave: () => {
+    const m = activeMember(CUR)
+    if (!m || m.role === 'child') throw new PgError('Du er ikke med i en husstand', 'P0002')
+    if (otherActiveAdults(CUR) === 0) throw new PgError('Du er den eneste voksne. Slet kontoen for at slette husstanden.', '23514')
+    memberDepart(CUR)
+    return null
+  },
+  household_remove_member: (a) => {
+    if (!isOwner()) throw new PgError('Kun ejere kan fjerne medlemmer', '42501', 403)
+    const m = activeMember(a.p_user)
+    if (!m || a.p_user === CUR || m.role === 'child') throw new PgError('Medlemmet findes ikke', 'P0002')
+    memberDepart(a.p_user)
+    return null
   },
   attach_receipt: (a) => {
     const r = db.receipts!.find((x) => x.id === a.p_receipt_id)
@@ -1076,9 +1178,13 @@ const FAR = Math.floor(Date.now() / 1000) + 3600 * 24 * 365
 const b64 = (o: unknown) => btoa(JSON.stringify(o)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_')
 const jwtFor = (uid: string) => `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: uid, exp: FAR, role: 'authenticated', aud: 'authenticated' })}.demo`
 const emailFor = (uid: string) =>
-  uid === ME ? 'hamza@demo.dk' : uid === WIFE ? 'sumaya@demo.dk' : db?.['private.child_credentials']?.some((c) => c.user_id === uid) ? `child-${uid}@internal.home` : `${uid.slice(-2)}@demo.dk`
+  uid === ME ? 'hamza@demo.dk' : uid === WIFE ? 'sumaya@demo.dk' : uid === NEWUSER ? 'ny@demo.dk' : db?.['private.child_credentials']?.some((c) => c.user_id === uid) ? `child-${uid}@internal.home` : `${uid.slice(-2)}@demo.dk`
 const userFor = (uid: string) => ({ id: uid, email: emailFor(uid), aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' })
 const sessionFor = (uid: string) => ({ access_token: jwtFor(uid), token_type: 'bearer', expires_in: 3600 * 24 * 365, expires_at: FAR, refresh_token: `demo:${uid}`, user: userFor(uid) })
+const uidForEmail = (email: unknown) => {
+  const e = String(email ?? '').trim().toLowerCase()
+  return e === 'sumaya@demo.dk' ? WIFE : e === 'ny@demo.dk' ? NEWUSER : ME
+}
 /** Bruger-id fra "Authorization: Bearer <jwt>" (anon-nøglen giver null) */
 function subOf(auth: string | null): string | null {
   const part = auth?.replace(/^Bearer\s+/i, '').split('.')[1]
@@ -1114,25 +1220,47 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
     // ---------------- Auth
     if (p === '/auth/v1/token') {
       const refresh = typeof body?.refresh_token === 'string' && body.refresh_token.startsWith('demo:') ? body.refresh_token.slice(5) : null
-      return json(sessionFor(refresh ?? (body?.email === 'sumaya@demo.dk' ? WIFE : ME)))
+      return json(sessionFor(refresh ?? uidForEmail(body?.email)))
     }
     if (p === '/auth/v1/user') return json(userFor(CUR))
     if (p === '/auth/v1/logout') return empty()
     if (p === '/auth/v1/recover') return json({})
-    if (p === '/auth/v1/verify') return body?.token === '123456' ? json(sessionFor(ME)) : json({ code: 'otp_expired', msg: 'Token has expired or is invalid' }, 403)
+    if (p === '/auth/v1/otp') return json({})
+    if (p === '/auth/v1/verify') return body?.token === '123456' ? json(sessionFor(body?.type === 'email' ? uidForEmail(body?.email) : ME)) : json({ code: 'otp_expired', msg: 'Token has expired or is invalid' }, 403)
 
     // ---------------- Husstand
     if (p === '/rest/v1/household_members') {
       if (isDisabled(CUR)) return json([])
-      if (url.searchParams.get('select') === 'household_id') return json([{ household_id: HID }])
+      if (url.searchParams.get('select') === 'household_id') return json([{ household_id: activeMember(CUR)!.household_id }])
       return json(
-        [...db.household_members!]
+        [...db.household_members!.filter((m) => !m.left_at)]
           .sort((a, b) => a.created_at.localeCompare(b.created_at))
           .map((m) => {
             const pr = db.profiles!.find((x) => x.id === m.user_id)!
             return { user_id: m.user_id, role: m.role, created_at: m.created_at, child_username: m.child_username ?? null, disabled_at: m.disabled_at ?? null, profiles: { display_name: pr.display_name, color: pr.color, default_paid_by: pr.default_paid_by } }
           }),
       )
+    }
+
+    // ---------------- Edge Function: slet konto
+    if (p === '/functions/v1/account-delete') {
+      if (!subOf(headers.get('authorization'))) return json({ ok: false, error: 'unauthorized' }, 401)
+      if (body?.confirm !== 'SLET') return json({ ok: false, error: 'bad_request' }, 400)
+      const m = activeMember(CUR)
+      if (m?.role === 'child') return json({ ok: false, error: 'not_allowed' }, 403)
+      if (m && otherActiveAdults(CUR) === 0) {
+        // Sidste voksne: hele husstanden slettes
+        const fresh = seedFresh()
+        for (const t of TABLES) db[t] = fresh[t] ?? []
+        db['private.login_codes'] = []
+        db['private.invites'] = []
+        files.clear()
+        void saveFiles()
+      } else if (m) memberDepart(CUR)
+      const pr = db.profiles!.find((x) => x.id === CUR)
+      if (pr) Object.assign(pr, { display_name: 'Tidligere medlem', color: null })
+      save()
+      return json({ ok: true })
     }
 
     // ---------------- Edge Function: barnelogin
@@ -1314,7 +1442,8 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
 try {
   // Ny session, hvis der ikke er en – eller hvis testen har skiftet bruger (hjem-demo-as)
   const stored = JSON.parse(authStorage.getItem('hjem.auth') ?? 'null') as { user?: { id?: string } } | null
-  if (!stored || (stored.user?.id && stored.user.id !== DEFAULT_USER && readLs(AS_KEY))) authStorage.setItem('hjem.auth', JSON.stringify(sessionFor(DEFAULT_USER)))
+  // 'fresh': ingen automatisk login – tilmeldingen testes fra login-siden
+  if (readLs(MODE_KEY) !== 'fresh' && (!stored || (stored.user?.id && stored.user.id !== DEFAULT_USER && readLs(AS_KEY)))) authStorage.setItem('hjem.auth', JSON.stringify(sessionFor(DEFAULT_USER)))
 } catch {
   /* ignorér */
 }

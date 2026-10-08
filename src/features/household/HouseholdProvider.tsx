@@ -37,6 +37,7 @@ async function fetchHousehold(userId: string): Promise<Household | null> {
     .from('household_members')
     .select('household_id')
     .eq('user_id', userId)
+    .is('left_at', null)
     .maybeSingle()
   if (error) throw error
   if (!membership) return null
@@ -47,6 +48,8 @@ async function fetchHousehold(userId: string): Promise<Household | null> {
       .from('household_members')
       .select('user_id, role, created_at, child_username, disabled_at, profiles ( display_name, color, default_paid_by )')
       .eq('household_id', membership.household_id)
+      // Tidligere medlemmer vises ikke (historikken viser "Tidligere medlem")
+      .is('left_at', null)
       .order('created_at'),
   ])
   if (hErr) throw hErr

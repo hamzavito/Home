@@ -17,6 +17,7 @@ import { retentionOptions } from '@/lib/retention'
 import { applyTheme, getThemePreference, type ThemePreference } from '@/lib/theme'
 import type { DefaultPaidBy, DefaultRetention } from '@/types/database'
 import { LoginCodeCard } from './ChildLogin'
+import { AccountDanger, InviteRows } from './HouseholdAccess'
 import { roleLabels } from './MemberPage'
 import { NotificationSettings } from './NotificationSettings'
 import { useChangePassword, useExportData, useUpdateProfile, useUpdateRetentionDefault } from './api'
@@ -61,7 +62,7 @@ export function SettingsPage() {
         {profile.isError && <p className="mt-2 px-1 text-[13px] text-danger">Det kunne ikke gemmes. Prøv igen.</p>}
       </div>
       <ListGroup className="mt-3">
-        <ListRow icon={KeyRound} title="Skift adgangskode" onClick={() => setSheet('password')} />
+        <ListRow icon={KeyRound} title="Adgangskode" subtitle="Skift eller opret en adgangskode" onClick={() => setSheet('password')} />
       </ListGroup>
 
       <SectionHeader title="Standardvalg" />
@@ -115,7 +116,7 @@ export function SettingsPage() {
 
       <SectionHeader title="Husstand" />
       <ListGroup>
-        <ListRow title={household.name} subtitle={`${household.members.length} medlemmer`} />
+        <ListRow title={household.name} subtitle={`${household.members.length} ${household.members.length === 1 ? 'medlem' : 'medlemmer'}`} />
         {household.members.map((m, i) => (
           <Link key={m.userId} to={`/indstillinger/medlem/${m.userId}`} className="flex min-h-[56px] items-center gap-3 px-4 py-2 transition-colors active:bg-surface-secondary">
             <Avatar name={m.displayName} color={m.color} index={i} />
@@ -132,6 +133,7 @@ export function SettingsPage() {
             <ChevronRight className="size-5 shrink-0 text-muted" />
           </Link>
         ))}
+        <InviteRows />
         {household.me.role === 'owner' && <ListRow icon={UserPlus} title="Tilføj barn" subtitle="Eget login med brugernavn og PIN" to="/indstillinger/barn/ny" />}
       </ListGroup>
 
@@ -156,13 +158,16 @@ export function SettingsPage() {
         {exportData.isSuccess ? 'Eksporten er klar.' : exportData.isError ? 'Eksporten mislykkedes. Prøv igen.' : 'Kvitteringsbilleder er ikke med. Gem filen et sikkert sted – den indeholder jeres økonomi.'}
       </p>
 
+      <SectionHeader title="Konto" />
+      <AccountDanger />
+
       <ListGroup className="mt-8">
         <ListRow icon={LogOut} iconColor="var(--danger)" title="Log ud" tone="danger" onClick={() => setSheet('logout')} />
       </ListGroup>
 
       <p className="mt-6 text-center text-[12px] text-secondary">Hjem {__APP_VERSION__}</p>
 
-      <BottomSheet open={sheet === 'password'} onClose={() => setSheet(null)} title="Skift adgangskode">
+      <BottomSheet open={sheet === 'password'} onClose={() => setSheet(null)} title="Adgangskode">
         {sheet === 'password' && <PasswordForm onDone={() => setSheet(null)} />}
       </BottomSheet>
       <BottomSheet open={sheet === 'logout'} onClose={() => setSheet(null)} title="Log ud?">

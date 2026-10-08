@@ -67,7 +67,7 @@ export type Database = {
         Relationships: []
       }
       household_members: {
-        Row: { household_id: string; user_id: string; role: HouseholdRole; created_at: string; child_username: string | null; disabled_at: string | null }
+        Row: { household_id: string; user_id: string; role: HouseholdRole; created_at: string; child_username: string | null; disabled_at: string | null; left_at: string | null }
         Insert: { household_id: string; user_id: string; role?: HouseholdRole }
         Update: { role?: HouseholdRole }
         Relationships: [
@@ -81,7 +81,7 @@ export type Database = {
           {
             foreignKeyName: 'household_members_user_id_fkey'
             columns: ['user_id']
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: 'profiles'
             referencedColumns: ['id']
           },
@@ -736,6 +736,14 @@ export type Database = {
       delete_transaction: { Args: { p_transaction_id: string }; Returns: string | null }
       attach_receipt: { Args: { p_receipt_id: string; p_transaction_id: string; p_retention: ReceiptRetention; p_custom_date?: string | null }; Returns: string | null }
       remove_receipt_image: { Args: { p_receipt_id: string }; Returns: string | null }
+      household_create: { Args: { p_name: string; p_display_name?: string | null }; Returns: string }
+      invite_create: { Args: Record<string, never>; Returns: Array<{ invite_id: string; code: string; expires_at: string }> }
+      invite_list: { Args: Record<string, never>; Returns: Array<{ invite_id: string; created_by: string; created_at: string; expires_at: string }> }
+      invite_revoke: { Args: { p_invite_id: string }; Returns: undefined }
+      invite_preview: { Args: { p_code: string }; Returns: Array<{ household_name: string; invited_by: string; expires_at: string }> }
+      invite_accept: { Args: { p_code: string; p_display_name?: string | null }; Returns: string | null }
+      household_leave: { Args: Record<string, never>; Returns: undefined }
+      household_remove_member: { Args: { p_user: string }; Returns: undefined }
       suggest_category: { Args: { p_merchant: string }; Returns: string | null }
       budget_month_summary: {
         Args: { p_month: string }

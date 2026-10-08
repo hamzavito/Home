@@ -34,6 +34,7 @@ import { RecipePage } from '@/features/mealplan/RecipePage'
 import { MorePage } from '@/features/more/MorePage'
 import { AddChildPage } from '@/features/settings/ChildLogin'
 import { MemberPage } from '@/features/settings/MemberPage'
+import { InviteLandingPage } from '@/features/onboarding/InviteLandingPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { AppLayout } from './AppLayout'
 import { FocusLayout } from './FocusLayout'
@@ -41,6 +42,7 @@ import { FocusLayout } from './FocusLayout'
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/glemt-adgangskode', element: <ForgotPasswordPage /> },
+  { path: '/invitation/:code', element: <InviteLandingPage /> },
   {
     element: <RequireHousehold />,
     children: [
