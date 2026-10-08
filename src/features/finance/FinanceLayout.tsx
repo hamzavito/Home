@@ -9,6 +9,7 @@ const tabs = [
   { to: '/okonomi/budgetter', label: 'Budgetter', end: true },
   { to: '/okonomi/faste', label: 'Faste poster', end: true },
   { to: '/okonomi/transaktioner', label: 'Transaktioner', end: true },
+  { to: '/okonomi/indtaegter', label: 'Indtægter', end: true },
 ]
 
 /** Økonomi med faner. Valgt måned (?m=) følger med mellem fanerne. */

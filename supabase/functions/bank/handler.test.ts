@@ -1,0 +1,91 @@
+import { describe, expect, it, vi } from 'vitest'
+import { handleBank, type BankDeps } from './handler'
+
+function deps(over: Partial<BankDeps> = {}) {
+  const rpcCalls: Array<[string, Record<string, unknown>]> = []
+  const ebCalls: Array<[string, string, unknown]> = []
+  const d: BankDeps = {
+    configured: true,
+    caller: async () => 'u1',
+    isCron: async () => false,
+    eb: async (method, path, body) => {
+      ebCalls.push([method, path, body])
+      if (path.startsWith('/aspsps')) return { aspsps: [{ name: 'Danske Bank', logo: 'x' }, { name: 'Nordea' }] }
+      if (path === '/auth') return { url: 'https://tilisy.example/auth' }
+      if (path === '/sessions') return { session_id: 'sess-1', accounts: [{ uid: 'acc-1', product: 'Lønkonto', account_id: { iban: 'DK1' } }], access: { valid_until: '2027-04-01T00:00:00Z' } }
+      if (path.includes('/transactions')) {
+        const first = !path.includes('continuation_key')
+        return first
+          ? { transactions: [{ entry_reference: 'a', transaction_amount: { amount: '10.00', currency: 'DKK' }, credit_debit_indicator: 'DBIT', booking_date: '2026-10-01' }], continuation_key: 'k2' }
+          : { transactions: [{ entry_reference: 'b', transaction_amount: { amount: '20.00', currency: 'DKK' }, credit_debit_indicator: 'CRDT', booking_date: '2026-10-02' }] }
+      }
+      return {}
+    },
+    rpc: async (fn, args) => {
+      rpcCalls.push([fn, args])
+      if (fn === 'bank_sync_targets') return [{ connection_id: 'c1', user_id: 'u1', session_id: 's', account_id: 'a1', account_uid: 'acc-1', since: '2026-07-10' }]
+      if (fn === 'bank_ingest') return (args.p_rows as unknown[]).length
+      if (fn === 'bank_connection_revoke') return 'sess-1'
+      return null
+    },
+    randomState: () => 'state-123',
+    appUrl: 'https://hjem.test/',
+    ...over,
+  }
+  return { d, rpcCalls, ebCalls }
+}
+
+describe('bank', () => {
+  it('kræver opsætning og login', async () => {
+    expect((await handleBank({ action: 'banks' }, deps({ configured: false }).d)).body.error).toBe('not_configured')
+    expect((await handleBank({ action: 'banks' }, deps({ caller: async () => null }).d)).status).toBe(401)
+    expect((await handleBank({ action: 'sync-all' }, deps().d)).status).toBe(401)
+  })
+
+  it('liste over banker', async () => {
+    const r = await handleBank({ action: 'banks' }, deps().d)
+    expect(r.body).toEqual({ ok: true, banks: [{ name: 'Danske Bank', logo: 'x' }, { name: 'Nordea', logo: null }] })
+  })
+
+  it('forbind: state gemmes først, og banken sender tilbage til appen', async () => {
+    const { d, rpcCalls, ebCalls } = deps()
+    const r = await handleBank({ action: 'connect', aspsp: 'Danske Bank' }, d)
+    expect(r.body).toEqual({ ok: true, url: 'https://tilisy.example/auth' })
+    expect(rpcCalls[0]).toEqual(['bank_connection_start', { p_user: 'u1', p_aspsp: 'Danske Bank', p_country: 'DK', p_state: 'state-123' }])
+    expect(ebCalls[0]![2]).toMatchObject({ aspsp: { name: 'Danske Bank', country: 'DK' }, state: 'state-123', redirect_url: 'https://hjem.test/bank/callback', psu_type: 'personal' })
+  })
+
+  it('skrivebeskyttet abonnement: kan ikke forbinde', async () => {
+    const r = await handleBank({ action: 'connect', aspsp: 'Nordea' }, deps({ rpc: async () => Promise.reject({ code: 'PT402' }) }).d)
+    expect(r).toEqual({ status: 402, body: { ok: false, error: 'read_only' } })
+  })
+
+  it('tilbagekald: session → konti → første hentning (alle sider)', async () => {
+    const { d, rpcCalls } = deps()
+    const r = await handleBank({ action: 'callback', code: 'c', state: 'state-123' }, d)
+    expect(r.body).toMatchObject({ ok: true, accounts: 1, imported: 2, failed: 0 })
+    const act = rpcCalls.find(([f]) => f === 'bank_connection_activate')![1]
+    expect(act).toMatchObject({ p_session: 'sess-1', p_valid_until: '2027-04-01T00:00:00Z', p_accounts: [{ uid: 'acc-1', name: 'Lønkonto', iban: 'DK1', currency: 'DKK' }] })
+    expect(rpcCalls.filter(([f]) => f === 'bank_ingest')).toHaveLength(2)
+    expect(rpcCalls.find(([f]) => f === 'bank_mark_synced')![1]).toEqual({ p_connection: 'c1', p_error: null })
+  })
+
+  it('fejl hos banken gemmes på forbindelsen', async () => {
+    const { d, rpcCalls } = deps({ eb: async () => Promise.reject(new Error('Enable Banking 429: limit')) })
+    const r = await handleBank({ action: 'sync' }, d)
+    expect(r.body).toMatchObject({ ok: true, imported: 0, failed: 1 })
+    expect(rpcCalls.find(([f]) => f === 'bank_mark_synced')![1]).toEqual({ p_connection: 'c1', p_error: 'Enable Banking 429: limit' })
+  })
+
+  it('dagligt job med hemmelighed', async () => {
+    const r = await handleBank({ action: 'sync-all' }, deps({ isCron: async () => true, caller: async () => null }).d)
+    expect(r.body).toMatchObject({ ok: true, imported: 2 })
+  })
+
+  it('fjern: lukker også sessionen hos banken', async () => {
+    const del = vi.fn(async () => ({}))
+    const { d } = deps({ eb: del })
+    expect((await handleBank({ action: 'disconnect', id: 'c1' }, d)).body).toEqual({ ok: true })
+    expect(del).toHaveBeenCalledWith('DELETE', '/sessions/sess-1')
+  })
+})

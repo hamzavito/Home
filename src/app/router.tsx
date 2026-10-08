@@ -36,6 +36,10 @@ import { AddChildPage } from '@/features/settings/ChildLogin'
 import { MemberPage } from '@/features/settings/MemberPage'
 import { InviteLandingPage } from '@/features/onboarding/InviteLandingPage'
 import { SubscriptionPage } from '@/features/billing/SubscriptionPage'
+import { BankCallbackPage } from '@/features/bank/BankCallbackPage'
+import { BankInboxPage } from '@/features/bank/BankInboxPage'
+import { BankSettingsPage } from '@/features/bank/BankSettingsPage'
+import { IncomePage } from '@/features/bank/IncomePage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { AppLayout } from './AppLayout'
 import { FocusLayout } from './FocusLayout'
@@ -63,6 +67,7 @@ export const router = createBrowserRouter([
               { path: 'budgetter', element: <BudgetsPage /> },
               { path: 'faste', element: <FixedPage /> },
               { path: 'transaktioner', element: <TransactionsPage /> },
+              { path: 'indtaegter', element: <IncomePage /> },
             ],
           },
           { path: '/okonomi/faste/ny', element: <FixedNewPage /> },
@@ -87,6 +92,9 @@ export const router = createBrowserRouter([
           { path: '/indstillinger', element: <SettingsPage /> },
           { path: '/indstillinger/medlem/:id', element: <MemberPage /> },
           { path: '/indstillinger/abonnement', element: <SubscriptionPage /> },
+          { path: '/indstillinger/bank', element: <BankSettingsPage /> },
+          { path: '/bank/callback', element: <BankCallbackPage /> },
+          { path: '/okonomi/bank', element: <BankInboxPage /> },
           { path: '/indstillinger/barn/ny', element: <AddChildPage /> },
           { path: '/okonomi/kommende', element: <UpcomingPage /> },
           { path: '/okonomi/kommende/ny', element: <UpcomingFormPage /> },

@@ -70,6 +70,8 @@ const TABLES = [
   'child_wallet_transactions',
   'child_allowance_schedules',
   'child_allowance_payouts',
+  'income_entries',
+  'bank_transactions',
 ] as const
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -451,7 +453,12 @@ const isDisabled = (uid: string) => {
   return !m || Boolean(m.disabled_at)
 }
 // Deaktiverede medlemmer ser intet (som i databasen)
-const visibleRows = (table: string, rows: Row[]) => (isDisabled(CUR) ? (table === 'profiles' ? rows.filter((r) => r.id === CUR) : []) : isAdult() ? rows : rows.filter((r) => CHILD_READ[table]?.(r) ?? false))
+const visibleRows = (table: string, rows: Row[]) =>
+  isDisabled(CUR)
+    ? table === 'profiles' ? rows.filter((r) => r.id === CUR) : []
+    : table === 'bank_transactions' // kun egne bankposteringer
+      ? isAdult() ? rows.filter((r) => r.user_id === CUR) : []
+      : isAdult() ? rows : rows.filter((r) => CHILD_READ[table]?.(r) ?? false)
 
 // ------------------------------------------------------------------ barnelogin (spejler child_login_verify m.fl.)
 async function pinHash(pin: string): Promise<string> {
@@ -480,6 +487,29 @@ const writeAccess = () => {
   return !s.billing_enabled || s.status === 'active' || s.status === 'comped' || (s.trial_ends_at && s.trial_ends_at > nowIso())
 }
 const readOnlyError = () => new PgError('Abonnementet er udløbet. I kan se og eksportere jeres data, men ikke ændre noget, før abonnementet er fornyet.', 'PT402', 402)
+
+// ------------------------------------------------------------------ bank (spejler bank_* funktionerne)
+const bankConnections = () => (db['private.bank_connections'] ??= [])
+function demoBankIngest(conn: Row) {
+  const d = (n: number) => iso(new Date(Date.now() - n * 86_400_000))
+  const cat = db.budget_categories!.find((c) => c.name === 'Dagligvarer' && !c.archived_at)?.id ?? null
+  const rows = [
+    { key: 'netto', booked_on: d(0), amount_ore: -14995, description: 'NETTO 1234 AARHUS C', counterparty: 'Netto', state: 'new', suggested_category_id: cat },
+    { key: 'lon', booked_on: d(0), amount_ore: 2850000, description: 'LØN', counterparty: 'Arbejdsgiver A/S', state: 'new', suggested_category_id: null },
+    { key: 'opsparing', booked_on: d(0), amount_ore: -200000, description: 'Overførsel til opsparing', counterparty: null, state: 'transfer', suggested_category_id: null },
+    { key: 'reserveret', booked_on: d(0), amount_ore: -4500, description: 'Reservation', counterparty: null, state: 'pending', suggested_category_id: null },
+  ]
+  let n = 0
+  for (const r of rows) {
+    if (r.state === 'pending') continue // reservationer springes over
+    const ext = `${conn.id}:${r.key}`
+    if (db.bank_transactions!.some((x) => x.external_id === ext)) continue
+    db.bank_transactions!.push({ id: uuid(), household_id: HID, user_id: conn.user_id, account_id: conn.id, external_id: ext, booked_on: r.booked_on, amount_ore: r.amount_ore, description: r.description, counterparty: r.counterparty, state: r.state, suggested_category_id: r.suggested_category_id, possible_duplicate_id: null, transaction_id: null, income_id: null, created_at: nowIso(), updated_at: nowIso() })
+    n++
+  }
+  conn.last_synced_at = nowIso()
+  return n
+}
 
 const invites = () => (db['private.invites'] ??= [])
 const findInvite = (code: unknown) => {
@@ -764,6 +794,40 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
     r.retention = a.p_retention
     r.delete_at = deleteAtFor(a.p_retention, a.p_custom_date, new Date(r.approved_at))
     return r.delete_at
+  },
+  bank_connection_list: () =>
+    bankConnections()
+      .filter((c) => c.user_id === CUR && c.status === 'active')
+      .map((c) => ({ id: c.id, aspsp_name: c.aspsp_name, status: 'active', valid_until: c.valid_until, last_synced_at: c.last_synced_at, last_error: null, accounts: ['Lønkonto'] })),
+  bank_import: (a) => {
+    const b = db.bank_transactions!.find((x) => x.id === a.p_id && x.user_id === CUR)
+    if (!b) throw new PgError('Posteringen findes ikke', 'P0002')
+    if (b.state === 'imported') return b.transaction_id ?? b.income_id
+    if (!writeAccess()) throw readOnlyError()
+    const descr = String(a.p_description ?? '').trim() || b.counterparty || b.description
+    if (b.amount_ore < 0) {
+      if (!a.p_category_id) throw new PgError('Vælg en kategori', '23514')
+      const t = insertTransaction({ category_id: a.p_category_id, amount_ore: -b.amount_ore, occurred_on: b.booked_on, description: descr, note: null, paid_by_kind: 'member', paid_by_user_id: CUR, source: 'bank' })
+      Object.assign(b, { state: 'imported', transaction_id: t.id })
+      return t.id
+    }
+    const id = uuid()
+    db.income_entries!.push({ id, household_id: HID, amount_ore: b.amount_ore, received_on: b.booked_on, description: descr, note: null, received_by_kind: 'member', received_by_user_id: CUR, source: 'bank', created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
+    Object.assign(b, { state: 'imported', income_id: id })
+    return id
+  },
+  bank_link_existing: (a) => {
+    const b = db.bank_transactions!.find((x) => x.id === a.p_id && x.user_id === CUR)
+    if (!b) throw new PgError('Posteringen findes ikke', 'P0002')
+    Object.assign(b, { state: 'imported', transaction_id: a.p_transaction_id, possible_duplicate_id: null })
+    return null
+  },
+  bank_set_ignored: (a) => {
+    const b = db.bank_transactions!.find((x) => x.id === a.p_id && x.user_id === CUR && x.state !== 'imported')
+    if (!b) throw new PgError('Posteringen findes ikke', 'P0002')
+    if (!writeAccess()) throw readOnlyError()
+    b.state = a.p_ignored ? 'ignored' : 'new'
+    return null
   },
   subscription_info: () => {
     const s = subscription()
@@ -1261,6 +1325,43 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
             return { user_id: m.user_id, role: m.role, created_at: m.created_at, child_username: m.child_username ?? null, disabled_at: m.disabled_at ?? null, profiles: { display_name: pr.display_name, color: pr.color, default_paid_by: pr.default_paid_by } }
           }),
       )
+    }
+
+    // ---------------- Edge Function: bank (demo: "Demo Bank" uden MitID)
+    if (p === '/functions/v1/bank') {
+      if (!subOf(headers.get('authorization'))) return json({ ok: false, error: 'unauthorized' }, 401)
+      if (!isAdult()) return json({ ok: false, error: 'not_allowed' }, 403)
+      if (body?.action === 'banks') return json({ ok: true, banks: ['Danske Bank', 'Nordea', 'Jyske Bank', 'Lunar', 'Sydbank'].map((name) => ({ name, logo: null })) })
+      if (body?.action === 'connect') {
+        if (!writeAccess()) return json({ ok: false, error: 'read_only' }, 402)
+        const state = uuid()
+        bankConnections().push({ id: uuid(), user_id: CUR, aspsp_name: String(body.aspsp), state, status: 'pending', valid_until: new Date(Date.now() + 179 * 86_400_000).toISOString(), last_synced_at: null })
+        save()
+        return json({ ok: true, url: `/bank/callback?code=demo&state=${state}` })
+      }
+      if (body?.action === 'callback') {
+        const c = bankConnections().find((x) => x.state === body.state && x.user_id === CUR && x.status === 'pending')
+        if (!c) return json({ ok: false, error: 'not_found' }, 404)
+        c.status = 'active'
+        const imported = demoBankIngest(c)
+        save()
+        return json({ ok: true, accounts: 1, imported, failed: 0 })
+      }
+      if (body?.action === 'sync') {
+        let imported = 0
+        for (const c of bankConnections().filter((x) => x.user_id === CUR && x.status === 'active')) imported += demoBankIngest(c)
+        save()
+        return json({ ok: true, imported, failed: 0 })
+      }
+      if (body?.action === 'disconnect') {
+        const c = bankConnections().find((x) => x.id === body.id && x.user_id === CUR)
+        if (!c) return json({ ok: false, error: 'not_found' }, 404)
+        c.status = 'revoked'
+        db.bank_transactions = db.bank_transactions!.filter((x) => !(x.account_id === c.id && x.state !== 'imported'))
+        save()
+        return json({ ok: true })
+      }
+      return json({ ok: false, error: 'bad_request' }, 400)
     }
 
     // ---------------- Edge Function: abonnement (demo: betalingen gennemføres med det samme)

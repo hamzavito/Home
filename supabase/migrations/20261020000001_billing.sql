@@ -70,13 +70,15 @@ stable
 security definer
 set search_path = ''
 as $$
-  select
+  -- coalesce: en manglende dato (null) må aldrig give adgang ved en fejl
+  select coalesce(
     not s.billing_enabled
     or sub.household_id is null
     or sub.status in ('comped', 'active')
     -- Prøveperioden gælder fuldt ud, også hvis et betalt abonnement opsiges undervejs
-    or sub.trial_ends_at > now()
-    or (sub.status = 'past_due' and coalesce(sub.current_period_end, now()) + make_interval(days => s.grace_days) > now())
+    or coalesce(sub.trial_ends_at > now(), false)
+    or (sub.status = 'past_due' and coalesce(sub.current_period_end, now()) + make_interval(days => s.grace_days) > now()),
+    false)
   from private.app_settings s
   left join public.household_subscriptions sub on sub.household_id = hid;
 $$;

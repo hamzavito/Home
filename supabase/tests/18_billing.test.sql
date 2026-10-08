@@ -131,6 +131,10 @@ begin
   -- Det gamle abonnements sene "opsagt" overskriver ikke det nye
   assert not public.billing_apply(hid, 'cus_TEST1', 'sub_TEST1', 'canceled', 'monthly', now(), false, null, now() + interval '5 seconds'), 'gammelt abonnement rører ikke det nye';
   assert private.has_write_access(hid), 'stadig aktiv';
+  -- Opsagt uden prøveperiode (null-dato) giver aldrig adgang
+  update public.household_subscriptions set trial_ends_at = null where household_id = hid;
+  perform public.billing_apply(hid, 'cus_TEST1', 'sub_TEST2', 'canceled', 'yearly', now() - interval '1 day', false, null, now() + interval '6 seconds');
+  assert private.has_write_access(hid) is false, 'opsagt uden prøveperiode: ingen adgang (ikke null)';
   -- Slettet husstand: ignoreres
   assert not public.billing_apply('12345678-1234-1234-1234-123456789012', 'cus_X', 'sub_X', 'active', 'monthly', now(), false, null, now()), 'ukendt husstand';
   -- Gammel husstand der alligevel betaler: forbliver gratis indtil Stripe siger andet

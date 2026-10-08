@@ -4,12 +4,20 @@ project_id = "hjem"
 [auth]
 # Indsæt jeres Vercel-URL her, så evt. links i e-mails peger på appen.
 site_url = "http://localhost:5173"
-# Ingen offentlig tilmelding – brugere oprettes manuelt i dashboardet.
-enable_signup = false
+# Åben tilmelding: nye kunder opretter sig med Apple, Google eller e-mail (kode).
+# Husstand oprettes/tilgås bagefter i appen (household_create / invite_accept).
+enable_signup = true
 
 [auth.email]
-enable_signup = false
+enable_signup = true
 enable_confirmations = false
+otp_length = 6
+
+[auth.external.apple]
+enabled = true
+
+[auth.external.google]
+enabled = true
 
 # Kaldes af Supabase Cron med en delt hemmelighed (x-cleanup-secret), ikke med en brugers JWT.
 [functions.cleanup-receipts]
@@ -29,3 +37,19 @@ verify_jwt = false
 
 [functions.child-admin]
 verify_jwt = true
+
+# Kræver login. Sletter den indloggede brugers konto (og husstand, hvis sidste voksne).
+[functions.account-delete]
+verify_jwt = true
+
+# Kræver login. Starter Stripe Checkout / kundeportal.
+[functions.billing]
+verify_jwt = true
+
+# Kaldes af Stripe – signaturen (Stripe-Signature) tjekkes i funktionen.
+[functions.stripe-webhook]
+verify_jwt = false
+
+# Login tjekkes i funktionen; det daglige job kalder med x-bank-secret i stedet.
+[functions.bank]
+verify_jwt = false

@@ -1,4 +1,4 @@
-import { ChevronRight, Download, KeyRound, Lock, LogOut, UserPlus } from 'lucide-react'
+import { ChevronRight, Download, KeyRound, Landmark, Lock, LogOut, UserPlus } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { Avatar } from '@/components/ui/Avatar'
@@ -64,6 +64,7 @@ export function SettingsPage() {
       </div>
       <ListGroup className="mt-3">
         <ListRow icon={KeyRound} title="Adgangskode" subtitle="Skift eller opret en adgangskode" onClick={() => setSheet('password')} />
+        <ListRow icon={Landmark} title="Bank" subtitle="Hent dine udgifter og indtægter automatisk" to="/indstillinger/bank" />
       </ListGroup>
 
       <SectionHeader title="Standardvalg" />

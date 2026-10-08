@@ -132,6 +132,11 @@ insert into public.child_wallet_transactions (id, household_id, child_id, kind, 
 insert into public.child_allowance_schedules (id, household_id, child_id, amount_ore, frequency, weekday, start_on, pay_from, created_by) values ('9e000000-0000-0000-0000-0000000000a1', '11111111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-0000000000a1', 5000, 'weekly', 5, '2026-10-01', '2026-10-01', '00000000-0000-0000-0000-0000000000a1');
 insert into public.child_allowance_payouts (schedule_id, household_id, period_key, due_on, amount_ore, tx_id) values ('9e000000-0000-0000-0000-0000000000a1', '11111111-1111-1111-1111-111111111111', '2026-W40', '2026-10-02', 5000, '9d000000-0000-0000-0000-0000000000a1');
 
+insert into public.income_entries (household_id, amount_ore, received_on, description, received_by_kind, created_by) values ('11111111-1111-1111-1111-111111111111', 2500000, '2026-10-01', 'Løn', 'shared', '00000000-0000-0000-0000-0000000000a1');
+insert into private.bank_connections (id, household_id, user_id, aspsp_name, state_hash, status) values ('b0000000-0000-0000-0000-0000000000a1', '11111111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-0000000000a1', 'Bank', repeat('a', 64), 'active');
+insert into private.bank_accounts (id, connection_id, household_id, user_id, account_uid, name) values ('b1000000-0000-0000-0000-0000000000a1', 'b0000000-0000-0000-0000-0000000000a1', '11111111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-0000000000a1', 'acc-a1', 'Konto');
+insert into public.bank_transactions (household_id, user_id, account_id, external_id, booked_on, amount_ore, description) values ('11111111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-0000000000a1', 'b1000000-0000-0000-0000-0000000000a1', repeat('e', 64), '2026-10-01', -5000, 'Netto');
+
 create temp table audit_tables as
   select c.relname::text as t from pg_class c join pg_namespace n on n.oid = c.relnamespace join pg_attribute a on a.attrelid = c.oid
   where n.nspname = 'public' and c.relkind = 'r' and a.attname = 'household_id' and not a.attisdropped;

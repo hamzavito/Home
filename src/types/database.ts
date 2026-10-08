@@ -8,7 +8,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 /** 'member' er den gamle betegnelse for voksen */
 export type HouseholdRole = 'owner' | 'adult' | 'child' | 'member'
 export type PaidByKind = 'member' | 'shared'
-export type TransactionSource = 'manual' | 'receipt' | 'upcoming'
+export type TransactionSource = 'manual' | 'receipt' | 'upcoming' | 'bank'
 export type BudgetSource = 'override' | 'default' | 'none'
 export type BudgetMode = 'amount' | 'percent'
 export type CategoryKind = 'spending' | 'reserve'
@@ -173,6 +173,63 @@ export type Database = {
           paid_by_kind?: PaidByKind
           paid_by_user_id?: string | null
         }
+        Relationships: []
+      }
+      income_entries: {
+        Row: {
+          id: string
+          household_id: string
+          amount_ore: number
+          received_on: string
+          description: string
+          note: string | null
+          received_by_kind: PaidByKind
+          received_by_user_id: string | null
+          source: 'manual' | 'bank'
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          household_id: string
+          amount_ore: number
+          received_on: string
+          description: string
+          note?: string | null
+          received_by_kind?: PaidByKind
+          received_by_user_id?: string | null
+        }
+        Update: {
+          amount_ore?: number
+          received_on?: string
+          description?: string
+          note?: string | null
+          received_by_kind?: PaidByKind
+          received_by_user_id?: string | null
+        }
+        Relationships: []
+      }
+      bank_transactions: {
+        Row: {
+          id: string
+          household_id: string
+          user_id: string
+          account_id: string
+          external_id: string
+          booked_on: string
+          amount_ore: number
+          description: string
+          counterparty: string | null
+          state: 'new' | 'imported' | 'ignored' | 'transfer'
+          suggested_category_id: string | null
+          possible_duplicate_id: string | null
+          transaction_id: string | null
+          income_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: never
+        Update: never
         Relationships: []
       }
       fixed_groups: {
@@ -745,6 +802,13 @@ export type Database = {
       household_leave: { Args: Record<string, never>; Returns: undefined }
       household_remove_member: { Args: { p_user: string }; Returns: undefined }
       subscription_info: { Args: Record<string, never>; Returns: Json }
+      bank_connection_list: {
+        Args: Record<string, never>
+        Returns: Array<{ id: string; aspsp_name: string; status: 'active' | 'expired'; valid_until: string | null; last_synced_at: string | null; last_error: string | null; accounts: string[] }>
+      }
+      bank_import: { Args: { p_id: string; p_category_id?: string | null; p_description?: string | null }; Returns: string }
+      bank_link_existing: { Args: { p_id: string; p_transaction_id: string }; Returns: undefined }
+      bank_set_ignored: { Args: { p_id: string; p_ignored: boolean }; Returns: undefined }
       suggest_category: { Args: { p_merchant: string }; Returns: string | null }
       budget_month_summary: {
         Args: { p_month: string }

@@ -17,6 +17,7 @@ import { useHousehold } from '@/features/household/HouseholdProvider'
 import { formatMonth, fromIsoDate, monthKey } from '@/lib/dates'
 import { formatAmount } from '@/lib/money'
 import { cumulativeByDay, daysInMonth, elapsedDays } from '@/lib/series'
+import { BankInboxLink } from '@/features/bank/BankInboxLink'
 import { useBudgetMonth, useMonthTransactions } from './api'
 import { useMonthParam } from './useMonthParam'
 
@@ -75,6 +76,7 @@ export function OverviewPage() {
   return (
     <>
       <MonthSwitcher month={month} onChange={setMonth} />
+      <BankInboxLink />
 
       {loading ? (
         <div className="mt-4 space-y-3">
