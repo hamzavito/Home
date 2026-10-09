@@ -807,6 +807,10 @@ export type Database = {
         Args: Record<string, never>
         Returns: Array<{ id: string; aspsp_name: string; status: 'active' | 'expired'; valid_until: string | null; last_synced_at: string | null; last_error: string | null; accounts: string[] }>
       }
+      bank_pending_list: {
+        Args: Record<string, never>
+        Returns: Array<{ account_name: string; booked_on: string; amount_ore: number; description: string; counterparty: string | null }>
+      }
       bank_import: { Args: { p_id: string; p_category_id?: string | null; p_description?: string | null }; Returns: string }
       bank_link_existing: { Args: { p_id: string; p_transaction_id: string }; Returns: undefined }
       bank_set_ignored: { Args: { p_id: string; p_ignored: boolean }; Returns: undefined }

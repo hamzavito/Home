@@ -522,9 +522,11 @@ function demoBankIngest(conn: Row) {
     { key: 'opsparing', booked_on: d(0), amount_ore: -200000, description: 'Overførsel til opsparing', counterparty: null, state: 'transfer', suggested_category_id: null },
     { key: 'reserveret', booked_on: d(0), amount_ore: -4500, description: 'Reservation', counterparty: null, state: 'pending', suggested_category_id: null },
   ]
+  // Reservationer gemmes som øjebliksbillede på forbindelsen (som bank_set_pending)
+  conn.pending = rows.filter((r) => r.state === 'pending').map((r) => ({ account_name: 'Lønkonto', booked_on: r.booked_on, amount_ore: r.amount_ore, description: r.description, counterparty: r.counterparty }))
   let n = 0
   for (const r of rows) {
-    if (r.state === 'pending') continue // reservationer springes over
+    if (r.state === 'pending') continue // reservationer indlæses ikke som posteringer
     const ext = `${conn.id}:${r.key}`
     if (db.bank_transactions!.some((x) => x.external_id === ext)) continue
     db.bank_transactions!.push({ id: uuid(), household_id: HID, user_id: conn.user_id, account_id: conn.id, external_id: ext, booked_on: r.booked_on, amount_ore: r.amount_ore, description: r.description, counterparty: r.counterparty, state: r.state, suggested_category_id: r.suggested_category_id, possible_duplicate_id: null, transaction_id: null, income_id: null, created_at: nowIso(), updated_at: nowIso() })
@@ -818,6 +820,7 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
     r.delete_at = deleteAtFor(a.p_retention, a.p_custom_date, new Date(r.approved_at))
     return r.delete_at
   },
+  bank_pending_list: () => bankConnections().filter((c) => c.user_id === CUR && c.status === 'active').flatMap((c) => (c.pending ?? []) as Row[]),
   bank_connection_list: () =>
     bankConnections()
       .filter((c) => c.user_id === CUR && c.status === 'active')
@@ -1422,14 +1425,18 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
         const imported = demoBankIngest(c)
         const income = demoAutoIncome()
         save()
-        return json({ ok: true, accounts: 1, imported, failed: 0, income })
+        return json({ ok: true, accounts: 1, imported, failed: 0, income, pending: c.pending.length })
       }
       if (body?.action === 'sync') {
         let imported = 0
-        for (const c of bankConnections().filter((x) => x.user_id === CUR && x.status === 'active')) imported += demoBankIngest(c)
+        let pending = 0
+        for (const c of bankConnections().filter((x) => x.user_id === CUR && x.status === 'active')) {
+          imported += demoBankIngest(c)
+          pending += c.pending.length
+        }
         const income = demoAutoIncome()
         save()
-        return json({ ok: true, imported, failed: 0, income })
+        return json({ ok: true, imported, failed: 0, income, pending })
       }
       if (body?.action === 'disconnect') {
         const c = bankConnections().find((x) => x.id === body.id && x.user_id === CUR)

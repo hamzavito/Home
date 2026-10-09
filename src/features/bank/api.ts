@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import { useHousehold } from '@/features/household/HouseholdProvider'
 import { isReadOnlyError, READ_ONLY_MESSAGE } from '@/lib/billing'
 import { supabase } from '@/lib/supabase'
@@ -7,7 +8,7 @@ import type { Frequency, Tables } from '@/types/database'
 export type BankTransaction = Tables<'bank_transactions'>
 export type IncomeEntry = Tables<'income_entries'>
 
-type FnResult = { ok: boolean; error?: string; url?: string; banks?: Array<{ name: string; logo: string | null }>; imported?: number; income?: number; accounts?: number; failed?: number }
+type FnResult = { ok: boolean; error?: string; url?: string; banks?: Array<{ name: string; logo: string | null }>; imported?: number; income?: number; accounts?: number; failed?: number; pending?: number }
 
 /** Kald Edge Function "bank". Fejlkoden fra funktionen kastes som Error(message = kode). */
 async function bank(body: Record<string, unknown>): Promise<FnResult> {
@@ -24,6 +25,8 @@ async function bank(body: Record<string, unknown>): Promise<FnResult> {
 /** Besked efter "Hent": hvor mange nye – eller hvorfor der ikke kom nogen */
 export function syncMessage(r: FnResult): string {
   const n = r.imported ?? 0
+  const p = r.pending ?? 0
+  if (n === 0 && p > 0) return `Ingen nye bogførte posteringer. ${p} ${p === 1 ? 'kortkøb er reserveret' : 'kortkøb er reserveret'} og kommer til godkendelse, når banken har bogført ${p === 1 ? 'det' : 'dem'}.`
   if (n === 0) return 'Ingen nye bogførte posteringer. Kortkøb dukker op, når banken har bogført dem – typisk efter 1–3 dage.'
   return `${n} ${n === 1 ? 'ny postering' : 'nye posteringer'} hentet.`
 }
@@ -51,6 +54,7 @@ export function bankErrorMessage(e: unknown): string {
 const keys = {
   connections: (hid: string) => ['bank', hid, 'connections'] as const,
   inbox: (hid: string) => ['bank', hid, 'inbox'] as const,
+  pending: (hid: string) => ['bank', hid, 'pending'] as const,
   banks: ['bank', 'aspsps'] as const,
 }
 
@@ -83,6 +87,45 @@ export function useBankInbox() {
       return data
     },
   })
+}
+
+/** Egne reservationer: kortkøb, banken ikke har bogført endnu (kan ikke godkendes endnu) */
+export function useBankPending() {
+  const { id } = useHousehold()
+  return useQuery({
+    queryKey: keys.pending(id),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('bank_pending_list')
+      if (error) throw error
+      return data
+    },
+  })
+}
+
+const AUTO_SYNC_MS = 10 * 60_000
+let lastAutoSync = 0
+
+/** Hent automatisk, når appen åbnes eller kommer frem igen – højst hvert 10. minut */
+export function useAutoSync() {
+  const connections = useBankConnections()
+  const sync = useSyncBank()
+  const { mutate } = sync
+  const [visible, setVisible] = useState(0)
+  useEffect(() => {
+    const on = () => document.visibilityState === 'visible' && setVisible((n) => n + 1)
+    document.addEventListener('visibilitychange', on)
+    return () => document.removeEventListener('visibilitychange', on)
+  }, [])
+  useEffect(() => {
+    const active = (connections.data ?? []).filter((c) => c.status === 'active')
+    if (!active.length) return
+    const newest = Math.max(...active.map((c) => (c.last_synced_at ? Date.parse(c.last_synced_at) : 0)))
+    const now = Date.now()
+    if (now - newest < AUTO_SYNC_MS || now - lastAutoSync < AUTO_SYNC_MS) return
+    lastAutoSync = now
+    mutate()
+  }, [connections.data, mutate, visible])
+  return sync
 }
 
 export function useBanks(enabled: boolean) {

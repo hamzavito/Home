@@ -30,21 +30,31 @@ function dbError(e: unknown): BankResponse {
   return fail(500, 'server')
 }
 
-async function syncTargets(deps: BankDeps, targets: SyncTarget[]): Promise<{ imported: number; failed: number }> {
+async function syncTargets(deps: BankDeps, targets: SyncTarget[]): Promise<{ imported: number; failed: number; pending: number }> {
   let imported = 0
   let failed = 0
+  let pending = 0
   const errors = new Map<string, string | null>()
   for (const t of targets) {
     try {
       let key: string | undefined
+      const reserved: IngestRow[] = []
       for (let page = 0; page < MAX_PAGES; page++) {
         const q = new URLSearchParams({ date_from: t.since })
         if (key) q.set('continuation_key', key)
         const res = await deps.eb('GET', `/accounts/${encodeURIComponent(t.account_uid)}/transactions?${q}`)
         const rows = (await Promise.all(((res.transactions ?? []) as EbTransaction[]).map((x) => toIngestRow(x, t.account_uid)))).filter((r): r is IngestRow => r !== null)
-        if (rows.length) imported += Number(await deps.rpc('bank_ingest', { p_account_id: t.account_id, p_rows: rows })) || 0
+        reserved.push(...rows.filter((r) => r.pending))
+        const booked = rows.filter((r) => !r.pending)
+        if (booked.length) imported += Number(await deps.rpc('bank_ingest', { p_account_id: t.account_id, p_rows: booked })) || 0
         key = typeof res.continuation_key === 'string' && res.continuation_key ? res.continuation_key : undefined
         if (!key) break
+      }
+      // Reservationer (kortkøb, der ikke er bogført endnu) vises med det samme – listen erstattes hver gang
+      try {
+        pending += Number(await deps.rpc('bank_set_pending', { p_account_id: t.account_id, p_rows: reserved })) || 0
+      } catch (e) {
+        deps.log?.(`reservationer ${t.account_id}: ${(e as Error)?.message}`)
       }
       if (!errors.has(t.connection_id)) errors.set(t.connection_id, null)
     } catch (e) {
@@ -54,7 +64,7 @@ async function syncTargets(deps: BankDeps, targets: SyncTarget[]): Promise<{ imp
     }
   }
   for (const [id, err] of errors) await deps.rpc('bank_mark_synced', { p_connection: id, p_error: err }).catch(() => {})
-  return { imported, failed }
+  return { imported, failed, pending }
 }
 
 /** Indtægter godkendes automatisk – efter at ALLE konti er hentet, så overførsler mellem egne konti er parret først */

@@ -44,7 +44,10 @@ test('forbind bank → gennemgå posteringer → udgift og indtægt; kun egne', 
   await page.locator('dialog[open]').getByRole('button', { name: 'Gem indtægt' }).click()
   await expect(page.getByText('Alt er gennemgået')).toBeVisible()
   await page.getByRole('button', { name: 'Hent nye posteringer' }).click()
-  await expect(page.getByText(/^Ingen nye bogførte posteringer\. Kortkøb dukker op/)).toBeVisible()
+  await expect(page.getByText('Ingen nye bogførte posteringer. 1 kortkøb er reserveret og kommer til godkendelse, når banken har bogført det.')).toBeVisible()
+  // Reservationen vises med det samme, men kan ikke godkendes endnu
+  await expect(page.getByText('Reserveret – venter på banken (1)')).toBeVisible()
+  await expect(page.getByText('Reservation', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: /Frasorteret/ }).click()
   await expect(page.getByText('Overførsel til opsparing')).toBeVisible()
   await expect(page.getByRole('button', { name: /^Boligselskabet.*Fast udgift/ })).toBeVisible()
@@ -128,4 +131,20 @@ test('godkend alle med kategoriforslag på én gang', async ({ page }) => {
   await expect(page.getByRole('button', { name: /^Godkend \d+ med forslag/ })).toHaveCount(0)
   await page.goto('/okonomi/transaktioner')
   await expect.poll(async () => norm(await page.locator('main').textContent())).toContain('2 udgifter')
+})
+
+test('henter automatisk, når appen åbnes og der er gået et stykke tid', async ({ page }) => {
+  await startEmpty(page, '/indstillinger/bank')
+  await page.getByRole('button', { name: 'Forbind bank' }).click()
+  await page.locator('dialog[open]').getByRole('button', { name: /Lunar/ }).click()
+  await expect(page.getByText('Banken er forbundet')).toBeVisible()
+  // Sidste hentning for to dage siden
+  await page.evaluate(() => {
+    const db = JSON.parse(localStorage.getItem('hjem-demo-db-v9')!)
+    for (const c of db['private.bank_connections']) c.last_synced_at = new Date(Date.now() - 2 * 86_400_000).toISOString()
+    localStorage.setItem('hjem-demo-db-v9', JSON.stringify(db))
+  })
+  await page.goto('/okonomi/bank')
+  await expect(page.getByText(/^Sidst hentet i dag kl\./)).toBeVisible()
+  await expect(page.getByText('Reserveret – venter på banken (1)')).toBeVisible()
 })

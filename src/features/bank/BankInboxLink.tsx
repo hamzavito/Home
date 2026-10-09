@@ -1,10 +1,11 @@
 import { ChevronRight, Landmark } from 'lucide-react'
 import { Link } from 'react-router'
-import { useBankInbox } from './api'
+import { useAutoSync, useBankInbox } from './api'
 
 /** "3 nye posteringer fra banken" – vises kun, når der er noget at gennemgå */
 export function BankInboxLink() {
   const inbox = useBankInbox()
+  useAutoSync()
   const n = (inbox.data ?? []).filter((r) => r.state === 'new').length
   if (!n) return null
   return (

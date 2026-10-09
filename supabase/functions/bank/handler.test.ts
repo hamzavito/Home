@@ -17,7 +17,10 @@ function deps(over: Partial<BankDeps> = {}) {
         const first = !path.includes('continuation_key')
         return first
           ? { transactions: [{ entry_reference: 'a', transaction_amount: { amount: '10.00', currency: 'DKK' }, credit_debit_indicator: 'DBIT', booking_date: '2026-10-01' }], continuation_key: 'k2' }
-          : { transactions: [{ entry_reference: 'b', transaction_amount: { amount: '20.00', currency: 'DKK' }, credit_debit_indicator: 'CRDT', booking_date: '2026-10-02' }] }
+          : { transactions: [
+              { entry_reference: 'b', transaction_amount: { amount: '20.00', currency: 'DKK' }, credit_debit_indicator: 'CRDT', booking_date: '2026-10-02' },
+              { transaction_amount: { amount: '45.00', currency: 'DKK' }, credit_debit_indicator: 'DBIT', status: 'PDNG', transaction_date: '2026-10-09', creditor: { name: 'Shell' } },
+            ] }
       }
       return {}
     },
@@ -25,6 +28,7 @@ function deps(over: Partial<BankDeps> = {}) {
       rpcCalls.push([fn, args])
       if (fn === 'bank_sync_targets') return [{ connection_id: 'c1', user_id: 'u1', session_id: 's', account_id: 'a1', account_uid: 'acc-1', since: '2026-07-10' }]
       if (fn === 'bank_ingest') return (args.p_rows as unknown[]).length
+      if (fn === 'bank_set_pending') return (args.p_rows as unknown[]).length
       if (fn === 'bank_connection_revoke') return 'sess-1'
       if (fn === 'bank_auto_income') return 1
       return null
@@ -64,12 +68,16 @@ describe('bank', () => {
   it('tilbagekald: session → konti → første hentning (alle sider)', async () => {
     const { d, rpcCalls } = deps()
     const r = await handleBank({ action: 'callback', code: 'c', state: 'state-123' }, d)
-    expect(r.body).toMatchObject({ ok: true, accounts: 1, imported: 2, failed: 0, income: 1 })
+    expect(r.body).toMatchObject({ ok: true, accounts: 1, imported: 2, failed: 0, income: 1, pending: 1 })
     // Indtægter godkendes efter alle konti (sidste kald)
     expect(rpcCalls.at(-1)).toEqual(['bank_auto_income', { p_user: 'u1' }])
     const act = rpcCalls.find(([f]) => f === 'bank_connection_activate')![1]
     expect(act).toMatchObject({ p_session: 'sess-1', p_valid_until: '2027-04-01T00:00:00Z', p_accounts: [{ uid: 'acc-1', name: 'Lønkonto', iban: 'DK1', currency: 'DKK' }] })
     expect(rpcCalls.filter(([f]) => f === 'bank_ingest')).toHaveLength(2)
+    // Reservationen indlæses ikke som postering, men gemmes som reservation
+    expect(rpcCalls.flatMap(([f, a]) => (f === 'bank_ingest' ? (a.p_rows as Array<{ pending: boolean }>) : [])).every((x) => !x.pending)).toBe(true)
+    const pend = rpcCalls.find(([f]) => f === 'bank_set_pending')![1]
+    expect(pend).toMatchObject({ p_account_id: 'a1', p_rows: [{ amount_ore: -4500, counterparty: 'Shell', booked_on: '2026-10-09', pending: true }] })
     expect(rpcCalls.find(([f]) => f === 'bank_mark_synced')![1]).toEqual({ p_connection: 'c1', p_error: null })
   })
 
@@ -78,6 +86,13 @@ describe('bank', () => {
     const r = await handleBank({ action: 'sync' }, d)
     expect(r.body).toMatchObject({ ok: true, imported: 0, failed: 1 })
     expect(rpcCalls.find(([f]) => f === 'bank_mark_synced')![1]).toEqual({ p_connection: 'c1', p_error: 'Enable Banking 429: limit' })
+  })
+
+  it('reservationer: fejl ved gemning stopper ikke hentningen', async () => {
+    const base = deps()
+    const { d } = deps({ rpc: async (fn, args) => (fn === 'bank_set_pending' ? Promise.reject(new Error('mangler')) : base.d.rpc(fn, args)) })
+    const r = await handleBank({ action: 'sync' }, d)
+    expect(r.body).toMatchObject({ ok: true, imported: 2, failed: 0, pending: 0 })
   })
 
   it('dagligt job med hemmelighed', async () => {

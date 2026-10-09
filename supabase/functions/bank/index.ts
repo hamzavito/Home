@@ -22,6 +22,10 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => null)
   const jwt = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? ''
   const secret = req.headers.get('x-bank-secret') ?? ''
+  // Når brugeren selv henter, fortæller vi banken det (PSD2: så gælder grænsen på 4 hentninger i døgnet ikke)
+  const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0]!.trim()
+  const ua = (req.headers.get('user-agent') ?? '').slice(0, 300)
+  const psu: Record<string, string> = jwt && ip ? { 'Psu-Ip-Address': ip, ...(ua ? { 'Psu-User-Agent': ua } : {}) } : {}
 
   const res = await handleBank(body, {
     configured: Boolean(APP_ID && PRIVATE_KEY),
@@ -38,7 +42,7 @@ Deno.serve(async (req) => {
     eb: async (method, path, payload) => {
       const r = await fetch(`${EB_API}${path}`, {
         method,
-        headers: { Authorization: `Bearer ${await ebJwt(APP_ID, PRIVATE_KEY)}`, 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${await ebJwt(APP_ID, PRIVATE_KEY)}`, 'Content-Type': 'application/json', ...(path.startsWith('/accounts/') ? psu : {}) },
         body: payload === undefined ? undefined : JSON.stringify(payload),
       })
       const text = await r.text()

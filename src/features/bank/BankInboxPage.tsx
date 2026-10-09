@@ -1,4 +1,4 @@
-import { ArrowLeftRight, ChevronDown, Landmark, RefreshCw, Repeat } from 'lucide-react'
+import { ArrowLeftRight, ChevronDown, Clock, Landmark, RefreshCw, Repeat } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { BottomSheet } from '@/components/ui/BottomSheet'
@@ -16,13 +16,15 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import type { Frequency } from '@/types/database'
 import { formatLongDate, formatShortDate, fromIsoDate } from '@/lib/dates'
 import { cn } from '@/lib/cn'
-import { bankErrorMessage, syncMessage, useBankConnections, useBankInbox, useIgnoreAll, useImportBankTransaction, useImportSuggested, useLinkBankTransaction, useMarkFixed, useSetIgnored, useSyncBank, type BankTransaction } from './api'
+import { bankErrorMessage, syncMessage, useAutoSync, useBankConnections, useBankInbox, useBankPending, useIgnoreAll, useImportBankTransaction, useImportSuggested, useLinkBankTransaction, useMarkFixed, useSetIgnored, useSyncBank, type BankTransaction } from './api'
 
 /** Posteringer fra banken, der venter på at blive godkendt som udgift eller indtægt. Kun egne. */
 export function BankInboxPage() {
   const inbox = useBankInbox()
   const connections = useBankConnections()
   const sync = useSyncBank()
+  const auto = useAutoSync()
+  const pending = useBankPending()
   const [open, setOpen] = useState<BankTransaction | null>(null)
   const [showOther, setShowOther] = useState(false)
   const [confirmAll, setConfirmAll] = useState<'ignore' | 'suggested' | null>(null)
@@ -51,7 +53,11 @@ export function BankInboxPage() {
           ) : undefined
         }
       />
-      {lastSynced && !sync.isPending && <p className="mb-2 px-1 text-[13px] text-secondary">Sidst hentet {lastSyncedLabel(lastSynced)}</p>}
+      {auto.isPending && !sync.isPending ? (
+        <p role="status" className="mb-2 px-1 text-[13px] text-secondary">Henter nye posteringer …</p>
+      ) : (
+        lastSynced && !sync.isPending && <p className="mb-2 px-1 text-[13px] text-secondary">Sidst hentet {lastSyncedLabel(lastSynced)}</p>
+      )}
       {sync.isError && <p role="alert" className="mb-3 rounded-2xl bg-danger-soft px-4 py-3 text-[14px] font-medium text-danger">{bankErrorMessage(sync.error)}</p>}
       {sync.isSuccess && <p role="status" className="mb-3 px-1 text-[14px] text-secondary">{syncMessage(sync.data)}</p>}
 
@@ -87,6 +93,26 @@ export function BankInboxPage() {
             ))}
           </ListGroup>
         </>
+      )}
+
+      {(pending.data ?? []).length > 0 && (
+        <section className="mt-6">
+          <h2 className="mb-2 flex items-center gap-2 px-1 text-[14px] font-semibold text-secondary">
+            <Clock className="size-4" /> Reserveret – venter på banken ({pending.data!.length})
+          </h2>
+          <ListGroup>
+            {pending.data!.map((p, i) => (
+              <div key={i} className="flex min-h-[56px] items-center gap-3 px-4 py-2.5">
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-[16px] font-medium">{p.counterparty || p.description}</span>
+                  <span className="truncate text-[13px] text-secondary">{formatShortDate(fromIsoDate(p.booked_on))} · Reserveret</span>
+                </span>
+                <Money ore={Math.abs(p.amount_ore)} size="md" sign={p.amount_ore > 0 ? 'income' : 'expense'} className="text-secondary" decimals="always" />
+              </div>
+            ))}
+          </ListGroup>
+          <p className="mt-2 px-1 text-[13px] text-secondary">Kortkøb, som banken ikke har bogført endnu. De kommer op til godkendelse, når banken har bogført dem.</p>
+        </section>
       )}
 
       {other.length > 0 && (

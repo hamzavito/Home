@@ -28,10 +28,11 @@ begin
 end;
 $$;
 
--- Hver nat kl. 04:41 UTC (PSD2 tillader et begrænset antal hentninger uden brugeren; én om natten er rigeligt)
+-- Fire gange i døgnet (PSD2 tillader højst 4 hentninger om dagen, når brugeren ikke selv er i appen).
+-- Når brugeren åbner appen, hentes der desuden automatisk.
 select cron.schedule(
   'bank-sync',
-  '41 4 * * *',
+  '41 4,9,14,19 * * *',
   $$
   select net.http_post(
     url := (select decrypted_secret from vault.decrypted_secrets where name = 'bank_sync_url'),
