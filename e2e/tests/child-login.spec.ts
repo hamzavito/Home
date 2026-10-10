@@ -157,3 +157,69 @@ test('voksne (ikke ejere) kan hverken se husstandskoden eller tilføje børn', a
   await page.goto('/indstillinger/barn/ny')
   await expect(page.getByText('Kun ejere kan tilføje børn.')).toBeVisible()
 })
+
+test('lille barn uden login og lommepenge; login gives senere; barnet kan slettes', async ({ page }) => {
+  await startEmpty(page, '/indstillinger/barn/ny')
+  await page.getByLabel('Navn', { exact: true }).fill('Ella')
+  await page.getByRole('radio', { name: 'Uden login' }).click()
+  await expect(page.getByLabel('Brugernavn')).toHaveCount(0)
+  await expect(page.getByRole('switch', { name: /Lommepenge/ })).toHaveAttribute('aria-checked', 'false')
+  await expectReadable(page, 'barn uden login')
+  await page.getByRole('button', { name: 'Opret barn' }).click()
+  await expect(page.getByRole('heading', { name: 'Ella er oprettet' })).toBeVisible()
+  await expect(page.getByText(/har ikke sit eget login/)).toBeVisible()
+  await page.getByRole('button', { name: 'Færdig' }).click()
+
+  // Barnets side: uden login, ingen rolle-ændring, lommepenge slået fra
+  await expect(page.getByText('Barn · uden eget login')).toBeVisible()
+  await expect(page.getByRole('radiogroup', { name: 'Rolle' })).toHaveCount(0)
+  await expect(page.getByRole('switch', { name: /Lommepenge/ })).toHaveAttribute('aria-checked', 'false')
+
+  // Børneoverblik uden saldo og lommepenge
+  await page.getByRole('link', { name: /Åbn Ellas overblik/ }).click()
+  await expect(page.getByText('Uden eget login · uden lommepenge')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Giv eller træk penge' })).toHaveCount(0)
+  await expect(page.getByText('Faste lommepenge')).toHaveCount(0)
+  await page.goto('/hjemmet')
+  await expect(page.getByRole('link', { name: /^Ella/ })).not.toContainText('kr.')
+
+  // Giv login senere
+  await page.goto('/indstillinger')
+  await page.getByRole('link', { name: /^Ella/ }).click()
+  await page.getByRole('button', { name: /Giv eget login/ }).click()
+  await expect(sheet(page).getByLabel('Brugernavn')).toHaveValue('ella')
+  await sheet(page).getByLabel('PIN', { exact: true }).fill('482611')
+  await sheet(page).getByLabel('Gentag PIN').fill('482611')
+  await sheet(page).getByRole('button', { name: 'Giv login' }).click()
+  await expect(sheet(page).getByText(/logger nu ind under «Barn»/)).toBeVisible()
+  await sheet(page).getByRole('button', { name: 'OK' }).click()
+  await expect(page.getByText(/Barn · brugernavn ella/)).toBeVisible()
+
+  // Barnet logger ind: ingen Penge-fane, når lommepenge er slået fra
+  await page.goto('/indstillinger')
+  await logout(page)
+  await childLogin(page, 'HJEM42', 'ella', '482611')
+  await expect(page.getByRole('navigation', { name: 'Hovednavigation' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Penge' })).toHaveCount(0)
+  await expect(page.getByText('Mine penge')).toHaveCount(0)
+  await page.getByRole('link', { name: 'Mere' }).click()
+  await logout(page)
+
+  // Ejeren slår lommepenge til og sletter derefter barnet
+  await adultLogin(page, 'hamza@demo.dk')
+  await expect(page.getByRole('navigation', { name: 'Hovednavigation' })).toBeVisible()
+  await page.goto('/indstillinger')
+  await page.getByRole('link', { name: /^Ella/ }).click()
+  await page.getByRole('switch', { name: /Lommepenge/ }).click()
+  await expect(page.getByRole('switch', { name: /Lommepenge/ })).toHaveAttribute('aria-checked', 'true')
+  await page.getByRole('button', { name: 'Slet Ella' }).click()
+  await expect(sheet(page).getByRole('button', { name: 'Slet Ella' })).toBeDisabled()
+  await sheet(page).getByLabel('Skriv "SLET" for at bekræfte').fill('slet')
+  await sheet(page).getByRole('button', { name: 'Slet Ella' }).click()
+  await page.waitForURL(/\/indstillinger$/)
+  await expect(page.getByRole('link', { name: /^Ella/ })).toHaveCount(0)
+  // Login virker ikke længere
+  await logout(page)
+  await childLogin(page, 'HJEM42', 'ella', '482611')
+  await expect(page.getByRole('heading', { name: 'Velkommen hjem' })).toBeVisible()
+})

@@ -1,4 +1,4 @@
-// Ejerens administration af børns login: opret, slå fra, slå til.
+// Ejerens administration af børn: opret (med eller uden login), giv login, slå fra/til, slet.
 // Kun ejere (tjekkes i databasen ud fra den indloggede brugers id).
 // Oprettelse: auth-identitet → profil + medlemskab + PIN-hash i én transaktion.
 // Fejler databasedelen, slettes auth-identiteten igen, så intet efterlades halvt.
@@ -14,6 +14,13 @@ export type AdminDeps = {
   deleteAuthUser: (id: string) => Promise<void>
   /** Kaster en fejl med Postgres-kode (fx 23505) ved fejl */
   createAccount: (owner: string, child: string, name: string, username: string, pin: string, pinLength: number) => Promise<void>
+  /** Barn uden login (ingen brugernavn/PIN) */
+  createProfile: (owner: string, child: string, name: string, wallet: boolean) => Promise<void>
+  addLogin: (owner: string, child: string, username: string, pin: string, pinLength: number) => Promise<void>
+  /** Sletter barnets data i databasen (tjekker at kalderen er ejer) */
+  deleteChild: (owner: string, child: string) => Promise<void>
+  /** soft=true: identiteten bevares spærret og anonymiseret (historik peger på den) */
+  deleteUser: (id: string, soft: boolean) => Promise<void>
   setDisabled: (owner: string, child: string, disabled: boolean) => Promise<void>
   setBanned: (child: string, banned: boolean) => Promise<void>
   randomId: () => string
@@ -42,6 +49,80 @@ export async function handleAdmin(body: unknown, deps: AdminDeps): Promise<Admin
   const owner = await deps.callerId().catch(() => null)
   if (!owner) return fail(401, 'unauthorized')
   const b = (body ?? {}) as Record<string, unknown>
+
+  if (b.action === 'create' && b.login === false) {
+    const name = typeof b.name === 'string' ? b.name.trim() : ''
+    if (!isValidName(name)) return fail(400, 'invalid_name')
+    let childId: string
+    try {
+      childId = await deps.createAuthUser(hiddenEmail(deps.randomId()), deps.randomPassword(), name)
+    } catch {
+      return fail(500, 'server')
+    }
+    try {
+      // Ingen kan logge ind som barnet, før det får et login
+      await deps.setBanned(childId, true)
+      await deps.createProfile(owner, childId, name, b.wallet === true)
+    } catch (e) {
+      await deps.deleteAuthUser(childId).catch(() => deps.log?.(`oprydning mislykkedes for ${childId}`))
+      const err = pgError(e)
+      return fail(err === 'not_owner' ? 403 : err === 'server' ? 500 : 400, err)
+    }
+    return { status: 200, body: { ok: true, userId: childId } }
+  }
+
+  if (b.action === 'add-login') {
+    const child = typeof b.childId === 'string' && UUID_RE.test(b.childId) ? b.childId : null
+    const username = typeof b.username === 'string' ? normalizeUsername(b.username) : ''
+    const pin = typeof b.pin === 'string' ? b.pin : ''
+    const pinLength = b.pinLength === 4 ? 4 : b.pinLength === 6 ? 6 : 0
+    if (!child) return fail(400, 'bad_request')
+    if (!USERNAME_RE.test(username)) return fail(400, 'invalid_username')
+    if (!isValidPin(pin, pinLength)) return fail(400, 'invalid_pin')
+    try {
+      const check = await deps.check(owner, username)
+      if (check === 'not_owner') return fail(403, 'not_owner')
+      if (check === 'username_taken') return fail(409, 'username_taken')
+      if (check !== 'ok') return fail(400, 'invalid_username')
+    } catch {
+      return fail(500, 'server')
+    }
+    try {
+      await deps.setBanned(child, false)
+    } catch {
+      return fail(500, 'server')
+    }
+    try {
+      await deps.addLogin(owner, child, username, pin, pinLength)
+    } catch (e) {
+      // Spær igen, så barnet ikke står halvt oprettet
+      await deps.setBanned(child, true).catch(() => deps.log?.(`kunne ikke spærre ${child} igen`))
+      const err = pgError(e)
+      return fail(err === 'username_taken' ? 409 : err === 'not_owner' ? 403 : err === 'not_found' ? 404 : err === 'server' ? 500 : 400, err)
+    }
+    return { status: 200, body: { ok: true } }
+  }
+
+  if (b.action === 'delete') {
+    const child = typeof b.childId === 'string' && UUID_RE.test(b.childId) ? b.childId : null
+    if (!child || b.confirm !== 'SLET') return fail(400, 'bad_request')
+    try {
+      await deps.deleteChild(owner, child)
+    } catch (e) {
+      const err = pgError(e)
+      return fail(err === 'not_owner' ? 403 : err === 'not_found' ? 404 : 500, err)
+    }
+    // Data er slettet; login-identiteten fjernes (eller spærres, hvis historik peger på den)
+    try {
+      await deps.deleteUser(child, false)
+    } catch {
+      await deps.deleteUser(child, true).catch(async () => {
+        deps.log?.(`kunne ikke slette auth-bruger ${child}; spærrer`)
+        await deps.setBanned(child, true).catch(() => {})
+      })
+    }
+    return { status: 200, body: { ok: true } }
+  }
 
   if (b.action === 'create') {
     const name = typeof b.name === 'string' ? b.name.trim() : ''

@@ -1,4 +1,4 @@
-// Edge Function: ejerens administration af børns login (opret, slå fra/til).
+// Edge Function: ejerens administration af børn (opret med/uden login, giv login, slå fra/til, slet).
 // Kræver login; databasen afgør om kalderen er ejer. Service role-nøglen findes kun her.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { handleAdmin } from './admin.ts'
@@ -53,6 +53,22 @@ Deno.serve(async (req) => {
       const { error } = await admin.rpc('child_account_create', {
         p_owner: owner, p_child: child, p_name: name, p_username: username, p_pin: pin, p_pin_length: pinLength,
       })
+      if (error) throw error
+    },
+    createProfile: async (owner, child, name, wallet) => {
+      const { error } = await admin.rpc('child_profile_create', { p_owner: owner, p_child: child, p_name: name, p_wallet: wallet })
+      if (error) throw error
+    },
+    addLogin: async (owner, child, username, pin, pinLength) => {
+      const { error } = await admin.rpc('child_add_login', { p_owner: owner, p_child: child, p_username: username, p_pin: pin, p_pin_length: pinLength })
+      if (error) throw error
+    },
+    deleteChild: async (owner, child) => {
+      const { error } = await admin.rpc('child_delete_prepare', { p_owner: owner, p_child: child })
+      if (error) throw error
+    },
+    deleteUser: async (id, soft) => {
+      const { error } = await admin.auth.admin.deleteUser(id, soft)
       if (error) throw error
     },
     setDisabled: async (owner, child, disabled) => {

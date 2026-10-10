@@ -4,6 +4,7 @@ import { cn } from '@/lib/cn'
 import { ChildDinnerPage } from './ChildDinnerPage'
 import { ChildCalendar, ChildHome, ChildMoney, ChildMore, ChildTasks } from './ChildPages'
 import { SubscriptionBanner } from '@/features/billing/SubscriptionBanner'
+import { useHousehold } from '@/features/household/HouseholdProvider'
 
 const tabs = [
   { to: '/', label: 'Hjem', icon: LayoutGrid },
@@ -19,13 +20,15 @@ const tabs = [
  */
 export function ChildApp() {
   const location = useLocation()
+  const { me } = useHousehold()
+  const visibleTabs = me.walletEnabled ? tabs : tabs.filter((t) => t.to !== '/penge')
   const path = location.pathname.replace(/\/+$/, '') || '/'
   const dinner = /^\/aftensmad\/([0-9a-f-]{36})$/.exec(path)
   const page =
     path === '/' ? <ChildHome /> :
     path === '/opgaver' ? <ChildTasks /> :
     path === '/kalender' ? <ChildCalendar /> :
-    path === '/penge' ? <ChildMoney /> :
+    path === '/penge' && me.walletEnabled ? <ChildMoney /> :
     path === '/mere' ? <ChildMore /> :
     dinner ? <ChildDinnerPage id={dinner[1]!} /> :
     null
@@ -39,7 +42,7 @@ export function ChildApp() {
       </main>
       <nav aria-label="Hovednavigation" className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <ul className="glass mx-auto grid h-[66px] max-w-md grid-cols-5 items-center rounded-[26px] border border-[var(--border-subtle)] px-1 shadow-raised">
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <li key={tab.to}>
               <NavLink
                 to={tab.to}

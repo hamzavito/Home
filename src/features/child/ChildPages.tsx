@@ -71,9 +71,13 @@ export function ChildHome() {
         <h1 className="text-[28px] font-bold leading-tight tracking-[-0.025em]">{firstName(me.displayName)}</h1>
       </header>
 
-      {/* Pengene først, så kalender, aftensmad, opgaver og opsparing */}
-      <SectionHeader title="Mine penge" to="/penge" linkLabel="Se alle" />
-      <MoneySection only="summary" />
+      {/* Pengene først (hvis barnet har lommepenge), så kalender, aftensmad, opgaver og opsparing */}
+      {me.walletEnabled && (
+        <>
+          <SectionHeader title="Mine penge" to="/penge" linkLabel="Se alle" />
+          <MoneySection only="summary" />
+        </>
+      )}
 
       <SectionHeader title="I dag" to="/kalender" linkLabel="Kalender" />
       {events.isPending ? (
@@ -109,8 +113,12 @@ export function ChildHome() {
       <TasksSection />
 
 
-      <SectionHeader title="Opsparing" to="/penge" linkLabel="Mine penge" />
-      <MoneySection only="goals" />
+      {me.walletEnabled && (
+        <>
+          <SectionHeader title="Opsparing" to="/penge" linkLabel="Mine penge" />
+          <MoneySection only="goals" />
+        </>
+      )}
     </>
   )
 }

@@ -1253,7 +1253,16 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
     m.child_username = u
     return null
   },
+  child_set_wallet: (a) => {
+    if (roleOf(CUR) !== 'owner') throw new PgError('Kun ejere kan ændre lommepenge', '42501', 403)
+    const m = db.household_members!.find((x) => x.user_id === a.p_child && x.role === 'child')
+    if (!m) throw new PgError('Barnet findes ikke', 'P0002')
+    if (!a.p_enabled && (db.child_allowance_schedules ?? []).some((x) => x.child_id === a.p_child && !x.stopped_at)) throw new PgError('Stop de faste lommepenge først', '23514')
+    m.wallet_enabled = a.p_enabled === true
+    return null
+  },
   set_member_role: (a) => {
+    if (a.p_role !== 'child' && db.household_members!.some((x) => x.user_id === a.p_user && x.no_login)) throw new PgError('Et barns login kan ikke gøres til voksen', '23514')
     if (roleOf(CUR) !== 'owner') throw new PgError('Kun ejere kan ændre roller', '42501', 403)
     if (a.p_role !== 'child' && credentials().some((c) => c.user_id === a.p_user)) throw new PgError('Et barns login kan ikke gøres til voksen', '23514')
     if (a.p_user === CUR) throw new PgError('Du kan ikke ændre din egen rolle', '42501', 403)
@@ -1401,7 +1410,7 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
           .sort((a, b) => a.created_at.localeCompare(b.created_at))
           .map((m) => {
             const pr = db.profiles!.find((x) => x.id === m.user_id)!
-            return { user_id: m.user_id, role: m.role, created_at: m.created_at, child_username: m.child_username ?? null, disabled_at: m.disabled_at ?? null, profiles: { display_name: pr.display_name, color: pr.color, default_paid_by: pr.default_paid_by } }
+            return { user_id: m.user_id, role: m.role, created_at: m.created_at, child_username: m.child_username ?? null, disabled_at: m.disabled_at ?? null, no_login: m.no_login === true, wallet_enabled: m.wallet_enabled !== false, profiles: { display_name: pr.display_name, color: pr.color, default_paid_by: pr.default_paid_by } }
           }),
       )
     }
@@ -1515,6 +1524,44 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
     if (p === '/functions/v1/child-admin') {
       if (!subOf(headers.get('authorization'))) return json({ ok: false, error: 'unauthorized' }, 401)
       if (!isOwner()) return json({ ok: false, error: 'not_owner' }, 403)
+      if (body?.action === 'create' && body.login === false) {
+        const name = String(body.name ?? '').trim()
+        if (!isValidName(name)) return json({ ok: false, error: 'invalid_name' }, 400)
+        const id = uuid()
+        const created = nowIso()
+        db.profiles!.push({ id, display_name: name, color: null, default_paid_by: 'me', notify_calendar: true, notify_shopping: true, created_at: created, updated_at: created })
+        db.household_members!.push({ household_id: HID, user_id: id, role: 'child', child_username: null, disabled_at: null, no_login: true, wallet_enabled: body.wallet === true, created_at: created })
+        save()
+        return json({ ok: true, userId: id })
+      }
+      if (body?.action === 'add-login') {
+        const m = db.household_members!.find((x) => x.user_id === body.childId && x.role === 'child' && x.no_login)
+        const username = normalizeUsername(String(body.username ?? ''))
+        if (!USERNAME_RE.test(username)) return json({ ok: false, error: 'invalid_username' }, 400)
+        if (!isValidPin(String(body.pin ?? ''), body.pinLength)) return json({ ok: false, error: 'invalid_pin' }, 400)
+        if (db.household_members!.some((x) => x.child_username === username)) return json({ ok: false, error: 'username_taken' }, 409)
+        if (!m) return json({ ok: false, error: 'not_found' }, 404)
+        Object.assign(m, { no_login: false, child_username: username })
+        credentials().push({ user_id: m.user_id, pin_hash: await pinHash(body.pin), pin_length: body.pinLength, pin_view: body.pin })
+        save()
+        return json({ ok: true })
+      }
+      if (body?.action === 'delete') {
+        if (body.confirm !== 'SLET') return json({ ok: false, error: 'bad_request' }, 400)
+        const child = String(body.childId ?? '')
+        if (!db.household_members!.some((x) => x.user_id === child && x.role === 'child')) return json({ ok: false, error: 'not_found' }, 404)
+        // Som child_delete_prepare
+        db.household_members = db.household_members!.filter((x) => x.user_id !== child)
+        for (const t of ['child_wallet_transactions', 'child_savings_goals', 'child_allowance_schedules']) if (db[t]) db[t] = db[t]!.filter((x) => x.child_id !== child)
+        db.calendar_events = (db.calendar_events ?? []).filter((e) => !(e.participant_ids?.length === 1 && e.participant_ids[0] === child))
+        for (const e of db.calendar_events) if (e.participant_ids?.includes(child)) e.participant_ids = e.participant_ids.filter((x: string) => x !== child)
+        for (const t of db.household_tasks ?? []) if (t.assignee_id === child) t.assignee_id = null
+        const prof = db.profiles!.find((x) => x.id === child)
+        if (prof) Object.assign(prof, { display_name: 'Tidligere medlem', color: null })
+        credentials().splice(0, credentials().length, ...credentials().filter((c) => c.user_id !== child))
+        save()
+        return json({ ok: true })
+      }
       if (body?.action === 'create') {
         const name = String(body.name ?? '').trim()
         const username = normalizeUsername(String(body.username ?? ''))

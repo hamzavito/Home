@@ -14,6 +14,10 @@ function deps(over: Partial<AdminDeps> = {}) {
     createAccount: vi.fn(async () => {}),
     setDisabled: vi.fn(async () => {}),
     setBanned: vi.fn(async () => {}),
+    createProfile: vi.fn(async () => {}),
+    addLogin: vi.fn(async () => {}),
+    deleteChild: vi.fn(async () => {}),
+    deleteUser: vi.fn(async () => {}),
     randomId: () => 'rnd',
     randomPassword: () => 'pw-hemmelig',
     ...over,
@@ -105,5 +109,70 @@ describe('regler', () => {
   it('normalisering', () => {
     expect(normalizeCode(' vh jm42 ')).toBe('VHJM42')
     expect(normalizeUsername(' Noah ')).toBe('noah')
+  })
+})
+
+describe('barn uden login', () => {
+  it('opretter spærret identitet og profil uden brugernavn/PIN', async () => {
+    const d = deps()
+    const r = await handleAdmin({ action: 'create', login: false, name: ' Ella ', wallet: false }, d)
+    expect(r).toEqual({ status: 200, body: { ok: true, userId: CHILD } })
+    expect(d.setBanned).toHaveBeenCalledWith(CHILD, true)
+    expect(d.createProfile).toHaveBeenCalledWith(OWNER, CHILD, 'Ella', false)
+    expect(d.createAccount).not.toHaveBeenCalled()
+    expect(d.check).not.toHaveBeenCalled()
+  })
+
+  it('rydder op, hvis databasen afviser', async () => {
+    const d = deps({ createProfile: vi.fn(async () => Promise.reject({ code: '42501' })) })
+    expect(await handleAdmin({ action: 'create', login: false, name: 'Ella' }, d)).toEqual({ status: 403, body: { ok: false, error: 'not_owner' } })
+    expect(d.deleteAuthUser).toHaveBeenCalledWith(CHILD)
+  })
+
+  it('kræver navn', async () => {
+    expect((await handleAdmin({ action: 'create', login: false, name: ' ' }, deps())).body).toEqual({ ok: false, error: 'invalid_name' })
+  })
+
+  it('giv login senere: låser op og gemmer brugernavn + PIN', async () => {
+    const d = deps()
+    const r = await handleAdmin({ action: 'add-login', childId: CHILD, username: 'Ella', pin: '4826', pinLength: 4 }, d)
+    expect(r).toEqual({ status: 200, body: { ok: true } })
+    expect(d.check).toHaveBeenCalledWith(OWNER, 'ella')
+    expect(d.setBanned).toHaveBeenCalledWith(CHILD, false)
+    expect(d.addLogin).toHaveBeenCalledWith(OWNER, CHILD, 'ella', '4826', 4)
+  })
+
+  it('giv login: optaget brugernavn og fejl i databasen spærrer igen', async () => {
+    expect((await handleAdmin({ action: 'add-login', childId: CHILD, username: 'ella', pin: '4826', pinLength: 4 }, deps({ check: vi.fn(async () => 'username_taken') }))).status).toBe(409)
+    const d = deps({ addLogin: vi.fn(async () => Promise.reject({ code: 'P0002' })) })
+    expect((await handleAdmin({ action: 'add-login', childId: CHILD, username: 'ella', pin: '4826', pinLength: 4 }, d)).status).toBe(404)
+    expect(d.setBanned).toHaveBeenLastCalledWith(CHILD, true)
+  })
+})
+
+describe('slet barn', () => {
+  it('kræver bekræftelse', async () => {
+    const d = deps()
+    expect((await handleAdmin({ action: 'delete', childId: CHILD }, d)).status).toBe(400)
+    expect(d.deleteChild).not.toHaveBeenCalled()
+  })
+
+  it('sletter data og derefter login-identiteten', async () => {
+    const d = deps()
+    expect(await handleAdmin({ action: 'delete', childId: CHILD, confirm: 'SLET' }, d)).toEqual({ status: 200, body: { ok: true } })
+    expect(d.deleteChild).toHaveBeenCalledWith(OWNER, CHILD)
+    expect(d.deleteUser).toHaveBeenCalledWith(CHILD, false)
+  })
+
+  it('blød sletning, hvis historik peger på barnet', async () => {
+    const d = deps({ deleteUser: vi.fn(async (_id: string, soft: boolean) => (soft ? undefined : Promise.reject(new Error('fk')))) })
+    expect((await handleAdmin({ action: 'delete', childId: CHILD, confirm: 'SLET' }, d)).status).toBe(200)
+    expect(d.deleteUser).toHaveBeenLastCalledWith(CHILD, true)
+  })
+
+  it('kun ejere', async () => {
+    const d = deps({ deleteChild: vi.fn(async () => Promise.reject({ code: '42501' })) })
+    expect(await handleAdmin({ action: 'delete', childId: CHILD, confirm: 'SLET' }, d)).toEqual({ status: 403, body: { ok: false, error: 'not_owner' } })
+    expect(d.deleteUser).not.toHaveBeenCalled()
   })
 })

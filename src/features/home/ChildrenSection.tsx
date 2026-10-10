@@ -29,8 +29,8 @@ export function ChildrenSection() {
           const parts = [
             tasks.isPending ? null : plural(open, 'opgave', 'opgaver'),
             pending > 0 ? `${pending} afventer godkendelse` : null,
-            wallets.isPending ? null : `${formatAmount(walletBalance(txs))} kr.`,
-            goals > 0 ? plural(goals, 'opsparingsmål', 'opsparingsmål') : null,
+            wallets.isPending || !c.walletEnabled ? null : `${formatAmount(walletBalance(txs))} kr.`,
+            goals > 0 && c.walletEnabled ? plural(goals, 'opsparingsmål', 'opsparingsmål') : null,
           ].filter(Boolean)
           return (
             <Link key={c.userId} to={`/hjemmet/barn/${c.userId}`} className="flex min-h-[64px] items-center gap-3 px-4 py-3 active:bg-surface-secondary">

@@ -164,6 +164,45 @@ export function useCreateChild() {
   })
 }
 
+/** Barn uden eget login (lille barn). Lommepenge kan slås til senere. */
+export function useCreateChildWithoutLogin() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (i: { name: string; wallet: boolean }) => callChildAdmin({ action: 'create', login: false, ...i }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['household'] }),
+  })
+}
+
+/** Giv et barn uden login sit eget brugernavn og PIN */
+export function useAddChildLogin() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (i: { childId: string; username: string; pin: string; pinLength: 4 | 6 }) => callChildAdmin({ action: 'add-login', ...i }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['household'] }),
+  })
+}
+
+/** Slet et barn: login, lommepenge, mål og aftaler kun for barnet */
+export function useDeleteChild() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (childId: string) => callChildAdmin({ action: 'delete', childId, confirm: 'SLET' }),
+    onSuccess: () => qc.invalidateQueries(),
+  })
+}
+
+/** Lommepenge til/fra for et barn (ejere) */
+export function useSetChildWallet() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (i: { childId: string; enabled: boolean }) => {
+      const { error } = await supabase.rpc('child_set_wallet', { p_child: i.childId, p_enabled: i.enabled })
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['household'] }),
+  })
+}
+
 export function useSetChildDisabled() {
   const qc = useQueryClient()
   return useMutation({

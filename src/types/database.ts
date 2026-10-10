@@ -67,7 +67,7 @@ export type Database = {
         Relationships: []
       }
       household_members: {
-        Row: { household_id: string; user_id: string; role: HouseholdRole; created_at: string; child_username: string | null; disabled_at: string | null; left_at: string | null }
+        Row: { household_id: string; user_id: string; role: HouseholdRole; created_at: string; child_username: string | null; disabled_at: string | null; left_at: string | null; no_login: boolean; wallet_enabled: boolean }
         Insert: { household_id: string; user_id: string; role?: HouseholdRole }
         Update: { role?: HouseholdRole }
         Relationships: [
@@ -807,6 +807,7 @@ export type Database = {
         Args: Record<string, never>
         Returns: Array<{ id: string; aspsp_name: string; status: 'active' | 'expired'; valid_until: string | null; last_synced_at: string | null; last_error: string | null; accounts: string[] }>
       }
+      child_set_wallet: { Args: { p_child: string; p_enabled: boolean }; Returns: undefined }
       bank_pending_list: {
         Args: Record<string, never>
         Returns: Array<{ account_name: string; booked_on: string; amount_ore: number; description: string; counterparty: string | null }>

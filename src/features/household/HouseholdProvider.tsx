@@ -16,6 +16,10 @@ export type HouseholdMember = {
   username: string | null
   /** Login slået fra af en ejer */
   disabled: boolean
+  /** Barn uden eget login (fx et lille barn) – kan få login senere */
+  noLogin: boolean
+  /** Barnet har lommepenge (kan slås fra for små børn) */
+  walletEnabled: boolean
   defaultPaidBy: DefaultPaidBy
 }
 
@@ -46,7 +50,7 @@ async function fetchHousehold(userId: string): Promise<Household | null> {
     supabase.from('households').select('id, name, default_receipt_retention, grocery_category_id').eq('id', membership.household_id).single(),
     supabase
       .from('household_members')
-      .select('user_id, role, created_at, child_username, disabled_at, profiles ( display_name, color, default_paid_by )')
+      .select('user_id, role, created_at, child_username, disabled_at, no_login, wallet_enabled, profiles ( display_name, color, default_paid_by )')
       .eq('household_id', membership.household_id)
       // Tidligere medlemmer vises ikke (historikken viser "Tidligere medlem")
       .is('left_at', null)
@@ -64,6 +68,8 @@ async function fetchHousehold(userId: string): Promise<Household | null> {
     isChild: m.role === 'child',
     username: m.child_username ?? null,
     disabled: m.disabled_at !== null && m.disabled_at !== undefined,
+    noLogin: m.no_login === true,
+    walletEnabled: m.wallet_enabled !== false,
     defaultPaidBy: m.profiles?.default_paid_by ?? 'me',
   }))
   const me = mapped.find((m) => m.isMe)

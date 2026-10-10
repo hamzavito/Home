@@ -137,7 +137,7 @@ export function SettingsPage() {
         ))}
         <SubscriptionRow />
         <InviteRows />
-        {household.me.role === 'owner' && <ListRow icon={UserPlus} title="Tilføj barn" subtitle="Eget login med brugernavn og PIN" to="/indstillinger/barn/ny" />}
+        {household.me.role === 'owner' && <ListRow icon={UserPlus} title="Tilføj barn" subtitle="Med eget login eller uden (små børn)" to="/indstillinger/barn/ny" />}
       </ListGroup>
 
       {household.me.role === 'owner' && <LoginCodeCard />}
