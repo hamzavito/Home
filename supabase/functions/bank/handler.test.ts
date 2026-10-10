@@ -81,6 +81,16 @@ describe('bank', () => {
     expect(rpcCalls.find(([f]) => f === 'bank_mark_synced')![1]).toEqual({ p_connection: 'c1', p_error: null })
   })
 
+  it('tilbagekald uden konti: ikke forbundet, sessionen lukkes', async () => {
+    const base = deps()
+    const eb = vi.fn(async (method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown) => (path === '/sessions' ? { session_id: 'sess-0', accounts: [] } : base.d.eb(method, path, body)))
+    const { d, rpcCalls } = deps({ eb })
+    const r = await handleBank({ action: 'callback', code: 'c', state: 'state-123' }, d)
+    expect(r).toEqual({ status: 409, body: { ok: false, error: 'no_accounts' } })
+    expect(rpcCalls.find(([f]) => f === 'bank_connection_activate')).toBeUndefined()
+    expect(eb).toHaveBeenCalledWith('DELETE', '/sessions/sess-0')
+  })
+
   it('fejl hos banken gemmes på forbindelsen', async () => {
     const { d, rpcCalls } = deps({ eb: async () => Promise.reject(new Error('Enable Banking 429: limit')) })
     const r = await handleBank({ action: 'sync' }, d)

@@ -40,6 +40,8 @@ export function bankErrorMessage(e: unknown): string {
       return READ_ONLY_MESSAGE
     case 'not_found':
       return 'Forbindelsen blev ikke fundet eller er udløbet. Prøv at forbinde igen.'
+    case 'no_accounts':
+      return 'Banken gav ikke adgang til nogen konti. Bankforbindelse er lige nu kun åben for udvalgte konti, mens appen er i testfasen.'
     case 'bank_error':
       return 'Banken svarer ikke lige nu. Prøv igen om lidt.'
     default: {

@@ -16,7 +16,7 @@ export type BankDeps = {
   log?: (msg: string) => void
 }
 
-type Err = 'unauthorized' | 'not_configured' | 'bad_request' | 'not_allowed' | 'read_only' | 'not_found' | 'bank_error' | 'server'
+type Err = 'unauthorized' | 'not_configured' | 'bad_request' | 'not_allowed' | 'read_only' | 'not_found' | 'no_accounts' | 'bank_error' | 'server'
 export type BankResponse = { status: number; body: Record<string, unknown> & { ok: boolean; error?: Err } }
 
 const fail = (status: number, error: Err): BankResponse => ({ status, body: { ok: false, error } })
@@ -125,6 +125,11 @@ export async function handleBank(body: unknown, deps: BankDeps): Promise<BankRes
         if (!code || !state) return fail(400, 'bad_request')
         const session = await deps.eb('POST', '/sessions', { code })
         const accounts = ((session.accounts ?? []) as EbAccount[]).map(accountForDb)
+        // Ingen konti (fx fordi Enable Banking-appen er i begrænset tilstand og kontoen ikke er godkendt): luk igen
+        if (accounts.length === 0) {
+          if (session.session_id) await deps.eb('DELETE', `/sessions/${encodeURIComponent(String(session.session_id))}`).catch(() => {})
+          return fail(409, 'no_accounts')
+        }
         const validUntil = (session.access as { valid_until?: string } | undefined)?.valid_until ?? new Date(Date.now() + 179 * 86_400_000).toISOString()
         try {
           await deps.rpc('bank_connection_activate', { p_user: user, p_state: state, p_session: String(session.session_id), p_valid_until: validUntil, p_accounts: accounts })
