@@ -42,3 +42,11 @@ jobs:
       - run: npm run test:e2e
         env:
           CI: true
+      # Ved fejl: skærmbillede og fejlkontekst, så en ustabil test kan undersøges
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-fejl
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
