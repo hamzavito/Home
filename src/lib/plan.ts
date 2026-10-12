@@ -1,13 +1,16 @@
 // Månedens plan – samme regler som databasen (month_income, category_budgets, month_plan).
 // Bruges af demoen og til forhåndsvisning; databasen er sandheden i appen.
 //
-//   1. Indtægter: pr. kilde de faktiske indtægter i måneden, ellers det forventede beløb
+//   1. Indtægter: pr. kilde de faktiske indtægter i måneden, ellers det forventede beløb.
+//      Små beløb (under halvdelen af det forventede) erstatter ikke den forventede løn,
+//      og indtægter uden kilde tæller først med, når de er godkendt til en kilde.
 //   2. − faste udgifter                          = tilbage
 //   3. − kategorier med fast beløb (inkl. månedens overstyring)
 //   4. resten fordeles på procentkategorier (største-rest, præcist i øre)
 //   5. det, der ikke er fordelt, vises som ufordelt (negativt = overfordelt)
 
-export type PlanIncome = { actualOre: number; entryCount: number; expectedOre: number | null }
+export type PlanIncome = { actualOre: number; entryCount: number; expectedOre: number | null; /** false = indtægter uden kilde (ikke godkendt) */ assigned?: boolean }
+export type IncomeStatus = 'actual' | 'expected' | 'unassigned'
 export type PlanCategory = { id: string; mode: 'amount' | 'percent' | 'none'; amountOre?: number | null; percentBp?: number | null; overrideOre?: number | null }
 
 export type PlanResult = {
@@ -27,9 +30,14 @@ export type PlanResult = {
 
 export const MAX_PERCENT_BP = 10000
 
-/** Pr. kilde: faktisk, hvis der er indtægter i måneden, ellers forventet */
-export function incomeUsed(i: PlanIncome): { ore: number; status: 'actual' | 'expected' } {
-  return i.entryCount > 0 ? { ore: i.actualOre, status: 'actual' } : { ore: i.expectedOre ?? 0, status: 'expected' }
+/**
+ * Pr. kilde: faktisk, når indtægten er kommet (mindst halvdelen af det forventede), ellers forventet.
+ * Indtægter uden kilde tæller ikke med, før de er godkendt til en kilde.
+ */
+export function incomeUsed(i: PlanIncome): { ore: number; status: IncomeStatus } {
+  if (i.assigned === false) return { ore: 0, status: 'unassigned' }
+  if (i.entryCount > 0 && (i.expectedOre === null || i.actualOre * 2 >= i.expectedOre)) return { ore: i.actualOre, status: 'actual' }
+  return { ore: i.expectedOre ?? 0, status: 'expected' }
 }
 
 /** Fordel `total` øre efter vægte (basispoint), så summen går præcis op (største-rest-metoden). */

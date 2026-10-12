@@ -828,7 +828,7 @@ export type Database = {
           actual_ore: number
           expected_ore: number | null
           used_ore: number
-          status: 'actual' | 'expected'
+          status: 'actual' | 'expected' | 'unassigned'
           entry_count: number
           unconfirmed_count: number
         }>

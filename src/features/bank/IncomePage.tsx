@@ -56,7 +56,7 @@ export function IncomePage() {
   const list = entries.data ?? []
   const rows = bySource.data ?? []
   const actual = list.reduce((s, x) => s + x.amount_ore, 0)
-  const expected = rows.filter((r) => r.status === 'expected').reduce((s, r) => s + r.used_ore, 0)
+  const expected = rows.filter((r) => r.status === 'expected').reduce((s, r) => s + Math.max(r.used_ore - r.actual_ore, 0), 0)
   const sourceName = new Map((sources.data ?? []).map((s) => [s.id, s.name]))
   const q = month === monthKey(new Date()) ? '' : `?m=${month.slice(0, 7)}`
 
@@ -96,12 +96,20 @@ export function IncomePage() {
                   <span className="truncate text-[16px] font-medium">{r.name}</span>
                   <span className="truncate text-[13px] text-secondary">
                     {r.type_name ?? 'Indtægt'}
-                    {r.status === 'expected' ? ' · Forventet – ikke modtaget' : r.entry_count > 1 ? ` · ${r.entry_count} indtægter` : ''}
+                    {r.status === 'unassigned'
+                      ? ' · Tæller ikke med, før du vælger en kilde'
+                      : r.status === 'expected'
+                        ? r.actual_ore > 0
+                          ? ` · Forventet – ${formatAmount(r.actual_ore, { decimals: 'auto' })} kr. modtaget indtil videre`
+                          : ' · Forventet – ikke modtaget'
+                        : r.entry_count > 1
+                          ? ` · ${r.entry_count} indtægter`
+                          : ''}
                     {r.unconfirmed_count > 0 && ' · Forslag venter'}
                   </span>
                 </span>
-                <span className={cn('tabular shrink-0 text-[16px] font-semibold', r.status === 'expected' ? 'text-secondary' : 'text-positive')}>
-                  {formatAmount(r.used_ore, { decimals: 'always' })} kr.
+                <span className={cn('tabular shrink-0 text-[16px] font-semibold', r.status === 'actual' ? 'text-positive' : 'text-secondary')}>
+                  {formatAmount(r.status === 'unassigned' ? r.actual_ore : r.used_ore, { decimals: 'always' })} kr.
                 </span>
               </>
             )

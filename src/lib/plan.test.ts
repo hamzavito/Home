@@ -19,6 +19,14 @@ describe('indtægter', () => {
     const p = computePlan({ incomes: [salary(3021143), salary(0, 0, 2500000)], fixedExpensesOre: 0, categories: [] })
     expect(p).toMatchObject({ incomeOre: 5521143, actualIncomeOre: 3021143, expectedIncomeOre: 2500000 })
   })
+  it('små beløb på lønkilden erstatter ikke den forventede løn', () => {
+    expect(incomeUsed(salary(7200, 2))).toEqual({ ore: 2900000, status: 'expected' })
+    expect(incomeUsed(salary(1450000, 1))).toEqual({ ore: 1450000, status: 'actual' })
+  })
+  it('indtægter uden kilde tæller ikke med, før de er godkendt', () => {
+    const p = computePlan({ incomes: [salary(2900000), { actualOre: 272100, entryCount: 5, expectedOre: null, assigned: false }], fixedExpensesOre: 0, categories: [] })
+    expect(p.incomeOre).toBe(2900000)
+  })
   it('manuel løn uden forventet beløb', () => {
     expect(computePlan({ incomes: [salary(2900000, 1, null)], fixedExpensesOre: 0, categories: [] }).incomeOre).toBe(2900000)
   })
@@ -53,11 +61,11 @@ describe('fordeling', () => {
     expect(percentProblem(10001)).toMatch(/højst være 100 %/)
   })
   it('over 100 % (gamle data) fordeler aldrig mere end der er', () => {
-    const p = computePlan({ incomes: [salary(1000000)], fixedExpensesOre: 0, categories: [{ id: 'a', mode: 'percent', percentBp: 8000 }, { id: 'b', mode: 'percent', percentBp: 4000 }] })
+    const p = computePlan({ incomes: [salary(1000000, 1, null)], fixedExpensesOre: 0, categories: [{ id: 'a', mode: 'percent', percentBp: 8000 }, { id: 'b', mode: 'percent', percentBp: 4000 }] })
     expect(p.budgets.a!.ore + p.budgets.b!.ore).toBe(1000000)
   })
   it('negativt rådighedsbeløb: procentkategorier får 0', () => {
-    const p = computePlan({ incomes: [salary(1000000)], fixedExpensesOre: 1500000, categories: cats })
+    const p = computePlan({ incomes: [salary(1000000, 1, null)], fixedExpensesOre: 1500000, categories: cats })
     expect(p.distributableOre).toBe(0)
     expect(p.budgets.mad!.ore).toBe(0)
     expect(p.unallocatedOre).toBeLessThan(0)

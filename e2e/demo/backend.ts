@@ -10,7 +10,7 @@ import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { authStorage } from '@/lib/session-storage'
 import { isDueOn, periodKey } from '@/lib/allowance'
-import { computePlan, MAX_PERCENT_BP, type PlanCategory } from '@/lib/plan'
+import { computePlan, incomeUsed, MAX_PERCENT_BP, type PlanCategory } from '@/lib/plan'
 import { isValidName, isValidPin, normalizeUsername, USERNAME_RE } from '../../supabase/functions/_shared/child-rules'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -614,14 +614,14 @@ function monthIncome(month: string) {
     const actual = act.reduce((x, e) => x + e.amount_ore, 0)
     rows.push({
       source_id: s.id, name: s.name, type_name: typeName(s.type_id), owner_kind: s.owner_kind, owner_user_id: s.owner_user_id,
-      actual_ore: actual, expected_ore: exp, used_ore: act.length ? actual : (exp ?? 0), status: act.length ? 'actual' : 'expected',
+      actual_ore: actual, expected_ore: exp, ...(({ ore, status }) => ({ used_ore: ore, status }))(incomeUsed({ actualOre: actual, entryCount: act.length, expectedOre: exp })),
       entry_count: act.length, unconfirmed_count: act.filter((e) => !e.matched_by_user).length,
     })
   }
   const none = entries.filter((e) => !e.source_id)
   if (none.length) {
     const t = none.reduce((x, e) => x + e.amount_ore, 0)
-    rows.push({ source_id: null, name: 'Uden kilde', type_name: null, owner_kind: null, owner_user_id: null, actual_ore: t, expected_ore: null, used_ore: t, status: 'actual', entry_count: none.length, unconfirmed_count: 0 })
+    rows.push({ source_id: null, name: 'Uden kilde', type_name: null, owner_kind: null, owner_user_id: null, actual_ore: t, expected_ore: null, used_ore: 0, status: 'unassigned', entry_count: none.length, unconfirmed_count: 0 })
   }
   return rows.sort((a, b) => a.status.localeCompare(b.status) || a.name.localeCompare(b.name))
 }
@@ -794,7 +794,7 @@ function planFor(month: string) {
     const o = db.monthly_budgets!.find((x) => x.category_id === c.id && x.month === m)
     return { id: c.id, mode: (archivedBefore ? 'none' : (d?.mode ?? 'none')) as PlanCategory['mode'], percentBp: d?.percent_bp ?? null, amountOre: d?.amount_ore ?? null, overrideOre: archivedBefore ? null : (o?.amount_ore ?? null) }
   })
-  const incomes = monthIncome(m).map((r) => ({ actualOre: r.actual_ore, entryCount: r.entry_count, expectedOre: r.expected_ore }))
+  const incomes = monthIncome(m).map((r) => ({ actualOre: r.actual_ore, entryCount: r.entry_count, expectedOre: r.expected_ore, assigned: r.source_id !== null }))
   const fixedExpensesOre = (fixedItemsMonth(m) as any[]).filter((f) => f.kind === 'expense').reduce((x, f) => x + f.monthly_ore, 0)
   return { base, plan: computePlan({ incomes, fixedExpensesOre, categories: base }) }
 }

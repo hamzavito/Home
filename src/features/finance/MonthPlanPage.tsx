@@ -118,7 +118,23 @@ export function MonthPlanPage() {
             {sources.length > 0 && (
               <div className="pb-2">
                 {sources.map((s) => (
-                  <Line key={s.source_id ?? 'none'} muted label={s.name} sub={s.status === 'expected' ? 'Forventet – ikke modtaget endnu' : s.unconfirmed_count > 0 ? 'Faktisk · forslag til kilde' : 'Faktisk'} ore={s.used_ore} />
+                  <Line
+                    key={s.source_id ?? 'none'}
+                    muted
+                    label={s.status === 'unassigned' ? 'Uden kilde' : s.name}
+                    sub={
+                      s.status === 'unassigned'
+                        ? 'Ikke godkendt – tæller ikke med. Vælg en kilde under Indtægter.'
+                        : s.status === 'expected'
+                          ? s.actual_ore > 0
+                            ? `Forventet – ${kr(s.actual_ore)} modtaget indtil videre`
+                            : 'Forventet – ikke modtaget endnu'
+                          : s.unconfirmed_count > 0
+                            ? 'Faktisk · forslag til kilde'
+                            : 'Faktisk'
+                    }
+                    ore={s.status === 'unassigned' ? s.actual_ore : s.used_ore}
+                  />
                 ))}
               </div>
             )}
@@ -158,7 +174,7 @@ export function MonthPlanPage() {
         <p className="mt-3 flex items-start gap-2 rounded-2xl bg-notice-soft px-3.5 py-3 text-[13px] font-medium text-notice">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
           {p.available_ore < 0
-            ? 'De faste udgifter er større end indtægterne. Procentkategorierne er sat til 0.'
+            ? 'De faste udgifter er større end de forventede indtægter. Procentkategorierne er sat til 0.'
             : `Procenterne summer til ${formatPercent(p.percent_total_bp)}. Ret dem under Budgetter, så de højst er 100 %.`}
         </p>
       )}
@@ -166,7 +182,7 @@ export function MonthPlanPage() {
       <SectionHeader title="Sådan regnes det" />
       <Card variant="tonal" className="text-[14px] text-secondary">
         <ol className="list-decimal space-y-1 pl-5">
-          <li>Faktiske indtægter i måneden (forventet beløb, hvis en kilde ikke er kommet endnu)</li>
+          <li>Indtægter i måneden: det faktiske beløb, når det er kommet – ellers det forventede (fx løn fra faste poster). Indtægter uden kilde tæller først med, når du har valgt en kilde.</li>
           <li>minus faste udgifter</li>
           <li>minus kategorier med fast beløb</li>
           <li>resten fordeles i procent – præcist i øre</li>
