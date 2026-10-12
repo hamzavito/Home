@@ -60,3 +60,12 @@ export const suggestedCategories: Array<{ name: string; icon: string; color: str
   { name: 'Ferie', icon: 'plane', color: '#7fa82e' },
   { name: 'Diverse', icon: 'sparkles', color: '#b08a5a' },
 ]
+
+/**
+ * Forslag ud fra familiens sammensætning (familieoplysningerne – ikke antal børn med login).
+ * "Børn" foreslås kun, når der er børn i familien.
+ */
+export function suggestedCategoriesFor(family: { children: Array<{ age: number }> } | null): typeof suggestedCategories {
+  if (!family) return suggestedCategories
+  return suggestedCategories.filter((c) => c.name !== 'Børn' || family.children.length > 0)
+}

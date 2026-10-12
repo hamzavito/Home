@@ -34,6 +34,7 @@ import { RecipeFormPage } from '@/features/mealplan/RecipeFormPage'
 import { RecipePage } from '@/features/mealplan/RecipePage'
 import { MorePage } from '@/features/more/MorePage'
 import { AddChildPage } from '@/features/settings/ChildLogin'
+import { FamilyPage } from '@/features/settings/FamilyPage'
 import { MemberPage } from '@/features/settings/MemberPage'
 import { InviteLandingPage } from '@/features/onboarding/InviteLandingPage'
 import { PrivacyPage, TermsPage } from '@/features/legal/LegalPages'
@@ -96,6 +97,7 @@ export const router = createBrowserRouter([
           { path: '/mere', element: <MorePage /> },
           { path: '/indstillinger', element: <SettingsPage /> },
           { path: '/indstillinger/medlem/:id', element: <MemberPage /> },
+          { path: '/indstillinger/familie', element: <FamilyPage /> },
           { path: '/indstillinger/abonnement', element: <SubscriptionPage /> },
           { path: '/indstillinger/bank', element: <BankSettingsPage /> },
           { path: '/bank/callback', element: <BankCallbackPage /> },

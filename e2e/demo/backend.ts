@@ -10,6 +10,7 @@ import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { authStorage } from '@/lib/session-storage'
 import { isDueOn, periodKey } from '@/lib/allowance'
+import { ageOn } from '@/lib/family'
 import { computePlan, incomeUsed, MAX_PERCENT_BP, type PlanCategory } from '@/lib/plan'
 import { isValidName, isValidPin, normalizeUsername, USERNAME_RE } from '../../supabase/functions/_shared/child-rules'
 
@@ -67,6 +68,7 @@ const TABLES = [
   'meal_plan_entries',
   'ingredient_prices',
   'household_members',
+  'household_children',
   'child_savings_goals',
   'child_wallet_transactions',
   'child_allowance_schedules',
@@ -181,7 +183,7 @@ function drawReceipt(lines: string[]): Promise<Blob> {
 function baseDb(): Db {
   const d = emptyDb()
   const created = '2026-01-01T09:00:00.000Z'
-  d.households = [{ id: HID, name: 'Vores hjem', default_receipt_retention: '30d', grocery_category_id: null, created_at: created, updated_at: created }]
+  d.households = [{ id: HID, name: 'Vores hjem', default_receipt_retention: '30d', grocery_category_id: null, adults: null, created_at: created, updated_at: created }]
   d.profiles = [
     { id: ME, display_name: 'Hamza', color: null, default_paid_by: 'me', notify_calendar: true, notify_shopping: true, created_at: created, updated_at: created },
     { id: WIFE, display_name: 'Sumaya', color: null, default_paid_by: 'me', notify_calendar: true, notify_shopping: true, created_at: created, updated_at: created },
@@ -1087,7 +1089,7 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
     // Demoen har én husstand ad gangen (alle data hører til HID)
     if (db.households!.some((h) => h.id === HID)) throw new PgError('Demo: der findes allerede en husstand', '23514')
     setDisplayName(CUR, a.p_display_name)
-    db.households!.push({ id: HID, name, default_receipt_retention: '30d', grocery_category_id: null, created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
+    db.households!.push({ id: HID, name, default_receipt_retention: '30d', grocery_category_id: null, adults: null, created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
     db.household_members!.push({ household_id: HID, user_id: CUR, role: 'owner', child_username: null, disabled_at: null, left_at: null, created_at: nowIso() })
     db['private.login_codes'] = [{ household_id: HID, code: DEMO_LOGIN_CODE }]
     seedIncomeTypes(db)
@@ -1442,12 +1444,32 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
     m.role = a.p_role
     return null
   },
+  // Budgetmotorens input: fra familieoplysningerne, ikke fra antal børn med login
+  household_composition: (a) => {
+    const on = a.p_on ? new Date(String(a.p_on)) : new Date()
+    const h = db.households!.find((x) => x.id === HID)
+    const adults = h?.adults ?? db.household_members!.filter((m) => m.role !== 'child' && !m.left_at && !m.disabled_at).length
+    const children = [...db.household_children!]
+      .sort((x, y) => String(x.born_on).localeCompare(String(y.born_on)) || String(x.name).localeCompare(String(y.name)))
+      .map((c) => ({ id: c.id, name: c.name, born_on: c.born_on, age: ageOn(String(c.born_on), on), user_id: c.member_user_id ?? null }))
+    return { adults, children, source: 'family_info' }
+  },
   export_household_data: () => {
     if (!isAdult()) throw new PgError('Kun voksne kan eksportere', '42501', 403)
     const out: Row = { exported_at: nowIso(), household: { id: HID, name: 'Vores hjem' } }
     for (const t of TABLES) out[t] = db[t]
     return out
   },
+}
+
+/** Som databasen: koblingen skal være et barn i husstanden, og aldrig to gange */
+function checkChildLink(row: Row, others: Row[]) {
+  if (!row.member_user_id) {
+    row.member_user_id = null
+    return
+  }
+  if (!db.household_members!.some((m) => m.user_id === row.member_user_id && m.role === 'child' && !m.left_at)) throw new PgError('Barnet findes ikke i husstanden', '23514')
+  if (others.some((x) => x.member_user_id === row.member_user_id)) throw new PgError('duplicate', '23505', 409)
 }
 
 function insertTransaction(v: Row): Row {
@@ -1834,6 +1856,7 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
           if ((table === 'income_types' || table === 'income_sources') && rows.some((x) => !x.archived_at && x.name.toLowerCase() === String(row.name).trim().toLowerCase())) throw new PgError('duplicate', '23505', 409)
           if (table === 'transactions' && db.budget_categories!.find((c) => c.id === row.category_id)?.archived_at) throw new PgError('Kategorien er arkiveret', '23514')
           if (table === 'transactions') row.visibility ??= row.source === 'upcoming' ? 'shared' : 'private'
+          if (table === 'household_children') checkChildLink(row, rows)
           if (table === 'fixed_groups' && db.fixed_groups!.some((g) => !g.archived_at && g.name.toLowerCase() === String(row.name).toLowerCase())) throw new PgError('duplicate', '23505', 409)
           if (table === 'savings_movements' && row.kind === 'withdrawal') {
             const bal = db.savings_movements!.filter((m) => m.goal_id === row.goal_id).reduce((s2, m) => s2 + (m.kind === 'deposit' ? m.amount_ore : -m.amount_ore), 0)
@@ -1854,6 +1877,7 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
           if (table === 'shopping_items' && body && 'is_checked' in body && body.is_checked !== r.is_checked)
             Object.assign(r, body.is_checked ? { checked_by: CUR, checked_at: nowIso() } : { checked_by: null, checked_at: null })
           Object.assign(r, body, { updated_at: nowIso() })
+          if (table === 'household_children') checkChildLink(r, rows.filter((x) => x.id !== r.id))
           if (table === 'household_tasks') rewardStatus(r, old)
           // Som transactions_learn_visibility: butikken husker fælles/privat
           if (table === 'transactions' && r.source === 'bank' && (old.visibility ?? 'shared') !== r.visibility) {

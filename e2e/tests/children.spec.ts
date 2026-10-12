@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { expectReadable } from './helpers'
+import { expectReadable, startEmpty } from './helpers'
 
 const NOAH = '00000000-0000-4000-8000-0000000000b1'
 const LINA = '00000000-0000-4000-8000-0000000000b2'
@@ -245,4 +245,54 @@ test('barnet ser aftensmaden og kan læse opskriften', async ({ page }) => {
   await expect(page.getByRole('list', { name: 'Ingredienser' })).toContainText(/500\s*g\s*Pasta/)
   // Kun læsning: ingen redigering eller madplan-knapper
   await expect(page.getByRole('button', { name: /Redigér|Sæt på madplanen/ })).toHaveCount(0)
+})
+
+test('familieoplysninger: børn uden login tæller med – børn med login tælles ikke to gange', async ({ page }) => {
+  await startFamily(page, '/indstillinger')
+  // Noah og Lina har login, men familieoplysningerne er tomme → ingen børn i budgetgrundlaget
+  await expect(page.getByRole('link', { name: /Familieoplysninger/ })).toContainText('2 voksne · ingen børn')
+  await page.getByRole('link', { name: /Familieoplysninger/ }).click()
+  await expect(page.getByRole('heading', { name: 'Familieoplysninger' })).toBeVisible()
+  await expect(page.getByText('Noah har login, men står ikke i familien')).toBeVisible()
+
+  // Et lille barn uden login
+  await page.getByRole('button', { name: 'Tilføj barn' }).first().click()
+  const sheet = page.locator('dialog[open]')
+  await sheet.getByLabel('Navn').fill('Lille')
+  await sheet.getByLabel('Fødselsdato').fill('2023-05-01')
+  await sheet.getByRole('button', { name: 'Tilføj barn' }).click()
+  await expect(page.getByRole('button', { name: /Lille.*uden login i appen/ })).toBeVisible()
+
+  // Noah kobles til sit login (navnet udfyldes) – tæller kun én gang
+  await page.getByRole('button', { name: 'Tilføj barn' }).first().click()
+  await sheet.getByLabel('Login i appen').selectOption({ label: 'Noah' })
+  await expect(sheet.getByLabel('Navn')).toHaveValue('Noah')
+  await sheet.getByLabel('Fødselsdato').fill('2016-03-10')
+  await sheet.getByRole('button', { name: 'Tilføj barn' }).click()
+  await expect(page.getByRole('button', { name: /Noah.*har login som Noah/ })).toBeVisible()
+  await expect(page.getByText('Noah har login, men står ikke i familien')).toHaveCount(0)
+  await expect(page.getByText('Lina har login, men står ikke i familien')).toBeVisible()
+  await expect(page.getByText(/2 voksne · 2 børn \(\d+ og \d+ år\)/)).toBeVisible()
+
+  // Antal voksne kan sættes uafhængigt af logins
+  await page.getByRole('button', { name: 'Flere voksne' }).click()
+  await expect(page.getByText(/3 voksne · 2 børn/)).toBeVisible()
+  await page.getByRole('button', { name: /Brug antal voksne med login/ }).click()
+  await expect(page.getByText(/2 voksne · 2 børn/)).toBeVisible()
+
+  // Budgetforslagene følger familien ("Børn" kun med børn i familien)
+  await page.goto('/okonomi/budgetter')
+  await expect(page.getByText(/Dagligvarer · .*Børn/)).toBeVisible()
+
+  // Fjern et barn igen
+  await page.goto('/indstillinger/familie')
+  await page.getByRole('button', { name: /Lille/ }).click()
+  await sheet.getByRole('button', { name: 'Fjern fra familien' }).click()
+  await expect(page.getByRole('button', { name: /Lille/ })).toHaveCount(0)
+  await expect(page.getByText(/2 voksne · 1 barn/)).toBeVisible()
+})
+
+test('uden børn i familien foreslås "Børn" ikke som budgetkategori', async ({ page }) => {
+  await startEmpty(page, '/okonomi/budgetter')
+  await expect(page.getByText('Dagligvarer · Restaurant · Shopping · Bil · Ferie · Diverse')).toBeVisible()
 })

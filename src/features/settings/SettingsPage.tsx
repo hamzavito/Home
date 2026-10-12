@@ -1,4 +1,4 @@
-import { ChevronRight, Download, KeyRound, Landmark, Lock, LogOut, UserPlus } from 'lucide-react'
+import { ChevronRight, Download, KeyRound, Landmark, Lock, LogOut, UserPlus, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { Avatar } from '@/components/ui/Avatar'
@@ -14,6 +14,7 @@ import { useHousehold } from '@/features/household/HouseholdProvider'
 import { authErrorMessage } from '@/lib/auth-errors'
 import { cn } from '@/lib/cn'
 import { retentionOptions } from '@/lib/retention'
+import { describeFamily } from '@/lib/family'
 import { applyTheme, getThemePreference, type ThemePreference } from '@/lib/theme'
 import type { DefaultPaidBy, DefaultRetention } from '@/types/database'
 import { LoginCodeCard } from './ChildLogin'
@@ -21,6 +22,7 @@ import { AccountDanger, InviteRows } from './HouseholdAccess'
 import { SubscriptionRow } from '@/features/billing/SubscriptionRow'
 import { roleLabels } from './MemberPage'
 import { NotificationSettings } from './NotificationSettings'
+import { useFamilyComposition } from './family'
 import { useChangePassword, useExportData, useUpdateProfile, useUpdateRetentionDefault } from './api'
 
 const themes: Array<{ value: ThemePreference; label: string }> = [
@@ -135,6 +137,7 @@ export function SettingsPage() {
             <ChevronRight className="size-5 shrink-0 text-muted" />
           </Link>
         ))}
+        <FamilyRow />
         <SubscriptionRow />
         <InviteRows />
         {household.me.role === 'owner' && <ListRow icon={UserPlus} title="Tilføj barn" subtitle="Med eget login eller uden (små børn)" to="/indstillinger/barn/ny" />}
@@ -231,4 +234,10 @@ function PasswordForm({ onDone }: { onDone: () => void }) {
       </Button>
     </form>
   )
+}
+
+/** Familieoplysninger: hvem bor i husstanden (bruges til budgetforslag) */
+function FamilyRow() {
+  const composition = useFamilyComposition()
+  return <ListRow icon={Users} title="Familieoplysninger" subtitle={composition ? describeFamily(composition) : 'Voksne, børn og deres alder'} to="/indstillinger/familie" />
 }

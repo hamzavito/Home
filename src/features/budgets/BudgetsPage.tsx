@@ -14,7 +14,8 @@ import { Skeleton } from '@/components/ui/Spinner'
 import { errorMessage, useBudgetMonth, useCategories, useCreateSuggestedCategories, type BudgetLine } from '@/features/finance/api'
 import { useMonthParam } from '@/features/finance/useMonthParam'
 import { useMonthPlan } from '@/features/fixed/api'
-import { suggestedCategories } from '@/lib/categories'
+import { suggestedCategoriesFor } from '@/lib/categories'
+import { useFamilyComposition } from '@/features/settings/family'
 import { monthKey } from '@/lib/dates'
 import { formatAmount } from '@/lib/money'
 import { formatPercent } from '@/lib/percent'
@@ -34,6 +35,8 @@ export function BudgetsPage() {
   const plan = useMonthPlan(month)
   const categories = useCategories()
   const suggest = useCreateSuggestedCategories()
+  // Forslagene følger familieoplysningerne (fx "Børn" kun med børn i familien)
+  const suggested = suggestedCategoriesFor(useFamilyComposition())
 
   const lines = budget.data ?? []
   const spending = lines.filter((l) => !l.archived && l.kind === 'spending')
@@ -74,13 +77,13 @@ export function BudgetsPage() {
         <Card variant="tonal" className="mt-4">
           <EmptyState compact icon={WalletCards} title="Ingen budgetkategorier" text="Opret jeres egne kategorier, eller start med et sæt forslag.">
             <div className="flex flex-col items-center gap-2">
-              <Button onClick={() => suggest.mutate(suggestedCategories)} loading={suggest.isPending}>
+              <Button onClick={() => suggest.mutate(suggested)} loading={suggest.isPending}>
                 <Sparkles className="size-4" /> Opret forslag
               </Button>
               <Button variant="ghost" size="sm" onClick={() => navigate('/okonomi/budgetter/ny')}>
                 Opret selv
               </Button>
-              <p className="text-[12px] text-secondary">{suggestedCategories.map((c) => c.name).join(' · ')}</p>
+              <p className="text-[12px] text-secondary">{suggested.map((c) => c.name).join(' · ')}</p>
             </div>
           </EmptyState>
         </Card>

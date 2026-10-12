@@ -47,9 +47,9 @@ export type Database = {
   public: {
     Tables: {
       households: {
-        Row: { id: string; name: string; default_receipt_retention: DefaultRetention; grocery_category_id: string | null; created_at: string; updated_at: string }
+        Row: { id: string; name: string; default_receipt_retention: DefaultRetention; grocery_category_id: string | null; adults: number | null; created_at: string; updated_at: string }
         Insert: { id?: string; name: string; created_at?: string; updated_at?: string }
-        Update: { name?: string; default_receipt_retention?: DefaultRetention; grocery_category_id?: string | null }
+        Update: { name?: string; default_receipt_retention?: DefaultRetention; grocery_category_id?: string | null; adults?: number | null }
         Relationships: []
       }
       profiles: {
@@ -65,6 +65,13 @@ export type Database = {
         }
         Insert: { id: string; display_name: string; color?: string | null }
         Update: { display_name?: string; color?: string | null; default_paid_by?: DefaultPaidBy; notify_calendar?: boolean; notify_shopping?: boolean }
+        Relationships: []
+      }
+      /** Familieoplysninger: børn i familien – uanset om de har login i appen */
+      household_children: {
+        Row: { id: string; household_id: string; name: string; born_on: string; member_user_id: string | null; created_by: string; created_at: string; updated_at: string }
+        Insert: { household_id: string; name: string; born_on: string; member_user_id?: string | null }
+        Update: { name?: string; born_on?: string; member_user_id?: string | null }
         Relationships: []
       }
       household_members: {
@@ -752,6 +759,10 @@ export type Database = {
       undo_upcoming_payment: { Args: { p_id: string }; Returns: undefined }
       ensure_shopping_list: { Args: Record<PropertyKey, never>; Returns: string }
       export_household_data: { Args: Record<PropertyKey, never>; Returns: Record<string, unknown> }
+      household_composition: {
+        Args: { p_on?: string }
+        Returns: { adults: number; children: Array<{ id: string; name: string; born_on: string; age: number; user_id: string | null }>; source: 'family_info' }
+      }
       set_task_status: { Args: { p_task_id: string; p_status: TaskStatus }; Returns: string | null }
       child_wallet_add: {
         Args: { p_child: string; p_kind: WalletKind; p_amount_ore: number; p_note?: string | null; p_goal?: string | null; p_occurred_on?: string | null }
