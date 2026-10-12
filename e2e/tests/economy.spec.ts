@@ -128,3 +128,44 @@ test('udgift: opret, redigér, slet – budgettet følger med', async ({ page })
   await page.goto('/okonomi/transaktioner')
   await expect(page.getByText('Ingen udgifter')).toBeVisible()
 })
+
+test('private udgifter: kun ejeren ser dem, og de tæller ikke i fælles budgetter', async ({ page }) => {
+  await startEmpty(page, '/okonomi/budgetter')
+  await page.getByRole('button', { name: 'Opret forslag' }).click()
+  await expect(page.getByRole('link', { name: /Dagligvarer/ })).toBeVisible()
+
+  const add = async (shop: string, amount: string, shared: boolean) => {
+    await page.goto('/okonomi/ny')
+    await page.getByLabel('Beløb i kroner').fill(amount)
+    await page.getByPlaceholder('Fx Bilka').fill(shop)
+    await page.getByRole('radiogroup', { name: 'Kategori' }).getByText('Dagligvarer').click()
+    // Nye udgifter er private, indtil man vælger fælles
+    await expect(page.getByRole('radiogroup', { name: 'Hvem kan se udgiften' }).getByRole('radio', { name: 'Kun mig' })).toHaveAttribute('aria-checked', 'true')
+    if (shared) await page.getByRole('radiogroup', { name: 'Hvem kan se udgiften' }).getByText('Fælles').click()
+    await page.getByRole('button', { name: 'Gem udgift' }).click()
+    await page.waitForURL((u) => !u.pathname.endsWith('/ny'))
+  }
+  await add('Parfumeriet', '333', false)
+  await add('Bilka', '111', true)
+
+  // Ejeren ser begge – den private med mærke
+  await page.goto('/okonomi/transaktioner')
+  await expect(page.getByRole('link', { name: /Parfumeriet.*Privat/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: /Bilka/ })).not.toContainText('Privat')
+
+  // Budgettet tæller kun den fælles
+  await page.goto('/okonomi')
+  await expect(page.getByText('Dine private udgifter')).toBeVisible()
+  await page.goto('/okonomi/budgetter')
+  await expect(page.getByRole('link', { name: /Dagligvarer/ })).toBeVisible()
+  await expect.poll(async () => norm(await page.locator('main').textContent())).toContain('111')
+  expect(norm(await page.locator('main').textContent())).not.toContain('444')
+
+  // Partneren ser kun den fælles udgift
+  await page.evaluate(() => localStorage.setItem('hjem-demo-as', '00000000-0000-4000-8000-0000000000a2'))
+  await page.goto('/okonomi/transaktioner')
+  await expect(page.getByRole('link', { name: /Bilka/ })).toBeVisible()
+  await expect(page.getByText('Parfumeriet')).toHaveCount(0)
+  await page.goto('/okonomi')
+  await expect(page.getByText('Dine private udgifter')).toHaveCount(0)
+})

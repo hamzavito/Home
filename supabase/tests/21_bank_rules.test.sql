@@ -1,5 +1,7 @@
 -- Bank: husk butikken, godkend alle med forslag
 begin;
+-- Testene her er skrevet før private udgifter: udgifter uden synlighed er fælles (som før)
+alter table public.transactions alter column visibility set default 'shared';
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a1', 'a1@test.dk'),
   ('00000000-0000-0000-0000-0000000000a2', 'a2@test.dk');

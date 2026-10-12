@@ -1,5 +1,7 @@
 -- Børnerolle: hvad børn må og ikke må – håndhævet i databasen (RLS + RPC)
 begin;
+-- Testene her er skrevet før private udgifter: udgifter uden synlighed er fælles (som før)
+alter table public.transactions alter column visibility set default 'shared';
 -- Vores hjem: Far (owner), Mor (adult), Barn A og Barn B (child). Farhats hjem: F1 (owner) og et barn.
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000f1', 'far@test.dk'),

@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { Skeleton } from '@/components/ui/Spinner'
+import { PrivateBadge } from '@/features/finance/Visibility'
 import { useBudgetMonth, useCategories, useMonthTransactions, useRecentTransactions } from '@/features/finance/api'
 import { useMonthPlan } from '@/features/fixed/api'
 import { SavingsCard } from '@/components/finance/SavingsCard'
@@ -52,7 +53,7 @@ export function DashboardPage() {
   const spendingIds = new Set(lines.map((l) => l.category_id))
   const series = cumulativeByDay(
     month,
-    (monthTx.data ?? []).filter((t) => spendingIds.has(t.category_id)).map((t) => ({ date: t.occurred_on, ore: t.amount_ore })),
+    (monthTx.data ?? []).filter((t) => t.visibility === 'shared' && spendingIds.has(t.category_id)).map((t) => ({ date: t.occurred_on, ore: t.amount_ore })),
     elapsed,
   )
   const plan = planQuery.data
@@ -224,7 +225,17 @@ export function DashboardPage() {
               <TransactionRow
                 key={t.id}
                 title={t.description}
-                subtitle={`${c?.name ?? ''} · ${paidByLabel(t.paid_by_kind, t.paid_by_user_id, members)}`}
+                subtitle={
+                  <>
+                    {`${c?.name ?? ''} · ${paidByLabel(t.paid_by_kind, t.paid_by_user_id, members)}`}
+                    {t.visibility === 'private' && (
+                      <>
+                        {' · '}
+                        <PrivateBadge />
+                      </>
+                    )}
+                  </>
+                }
                 amountOre={t.amount_ore}
                 icon={c?.icon ?? null}
                 color={c?.color ?? null}

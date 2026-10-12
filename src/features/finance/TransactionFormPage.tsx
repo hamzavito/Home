@@ -16,6 +16,8 @@ import { parseKr, toInputValue } from '@/lib/money'
 import { errorMessage, today, useCategories, useDeleteTransaction, useSaveTransaction, useTransaction, type Transaction } from './api'
 import { CategoryPicker } from './CategoryPicker'
 import { decodePaidBy, defaultPaidBy, encodePaidBy, paidByLabel, paidByOptions } from './paidBy'
+import { VisibilityPicker } from './Visibility'
+import type { TransactionVisibility } from '@/types/database'
 import { useReceiptForTransaction, useSignedUrls } from '@/features/receipts/api'
 import { ReceiptImageActions } from '@/features/receipts/ReceiptImageActions'
 import { ReceiptThumb } from '@/features/receipts/ReceiptThumb'
@@ -48,6 +50,9 @@ function TransactionForm({ existing, categories }: { existing: Transaction | nul
   const [date, setDate] = useState(existing?.occurred_on ?? today())
   const [paidBy, setPaidBy] = useState(existing ? encodePaidBy(existing.paid_by_kind, existing.paid_by_user_id) : defaultPaidBy(me))
   const [note, setNote] = useState(existing?.note ?? '')
+  const [visibility, setVisibility] = useState<TransactionVisibility>(existing?.visibility ?? 'private')
+  // Kun ejeren kan gøre en udgift privat/fælles (en partner kan ikke skjule andres udgifter)
+  const canChangeVisibility = !existing || existing.created_by === me.userId
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [touched, setTouched] = useState(false)
 
@@ -74,7 +79,7 @@ function TransactionForm({ existing, categories }: { existing: Transaction | nul
     try {
       await save.mutateAsync({
         id: existing?.id,
-        input: { categoryId: categoryId!, amountOre: amountOre!, occurredOn: date, description, note, paidBy: decodePaidBy(paidBy) },
+        input: { categoryId: categoryId!, amountOre: amountOre!, occurredOn: date, description, note, paidBy: decodePaidBy(paidBy), ...(canChangeVisibility ? { visibility } : {}) },
       })
       goBack()
     } catch {
@@ -130,6 +135,8 @@ function TransactionForm({ existing, categories }: { existing: Transaction | nul
           <p className="mb-1.5 px-1 text-[13px] font-semibold text-secondary">Betalt af</p>
           <SegmentedControl label="Betalt af" options={paidByOptions(members)} value={paidBy} onChange={setPaidBy} />
         </div>
+
+        {canChangeVisibility && <VisibilityPicker value={visibility} onChange={setVisibility} />}
 
         <Field label="Dato" hint={formatLongDate(fromIsoDate(date))}>
           <div className="flex gap-2">

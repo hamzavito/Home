@@ -1,5 +1,7 @@
 -- Tilmelding: opret husstand, invitationer, forlad husstand, slet konto
 begin;
+-- Testene her er skrevet før private udgifter: udgifter uden synlighed er fælles (som før)
+alter table public.transactions alter column visibility set default 'shared';
 -- a1: ny Apple-bruger (skjult e-mail), a2: partner, a3: anden voksen, x9: fremmed med for mange forsøg
 -- b1: ejer af en anden husstand
 insert into auth.users (id, email, raw_user_meta_data) values

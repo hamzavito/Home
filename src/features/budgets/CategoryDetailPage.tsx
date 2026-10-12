@@ -75,7 +75,8 @@ function CategoryDetail({ category }: { category: Category }) {
   const elapsed = elapsedDays(month)
   const days = daysInMonth(month)
   const pace = elapsed > 0 && elapsed < days ? elapsed / days : undefined
-  const txs = (transactions.data ?? []).filter((t) => t.category_id === category.id)
+  // Budgettet tæller kun fælles udgifter – samme liste her
+  const txs = (transactions.data ?? []).filter((t) => t.category_id === category.id && t.visibility === 'shared')
   const archived = Boolean(category.archived_at)
   const currentMonth = monthKey(new Date())
   const currentDefault = defaults.data?.find((d) => d.valid_from <= currentMonth)

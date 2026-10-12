@@ -1,4 +1,4 @@
-import { CalendarClock, Landmark, Receipt } from 'lucide-react'
+import { CalendarClock, Landmark, Lock, Receipt } from 'lucide-react'
 import { Link } from 'react-router'
 import { sections } from '@/app/sections'
 import { SpendingChart } from '@/components/charts/SpendingChart'
@@ -32,7 +32,9 @@ export function OverviewPage() {
   const q = month === monthKey(new Date()) ? '' : `?m=${month.slice(0, 7)}`
 
   const loading = budget.isPending || txs.isPending || plan.isPending
-  const list = txs.data ?? []
+  // Kun fælles udgifter indgår i husstandens oversigt; private står for sig
+  const list = (txs.data ?? []).filter((t) => t.visibility === 'shared')
+  const privateOre = (txs.data ?? []).filter((t) => t.visibility === 'private').reduce((s, t) => s + t.amount_ore, 0)
   const lines = budget.data ?? []
   // Variable budgetter = forbrugskategorier (reserver vises i vandfaldet)
   const spending = lines.filter((l) => l.kind === 'spending')
@@ -140,6 +142,19 @@ export function OverviewPage() {
                 <ShareList items={byPerson} total={allSpent} />
               </Card>
             </>
+          )}
+
+          {privateOre > 0 && (
+            <Link to={`/okonomi/transaktioner${q}`} className="pressable mt-3 flex items-center gap-3 rounded-card bg-surface-primary p-4 shadow-card">
+              <span className="flex size-10 items-center justify-center rounded-[13px] bg-surface-secondary">
+                <Lock className="size-5 text-secondary" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-semibold">Dine private udgifter</span>
+                <span className="block text-[13px] text-secondary">Kun du kan se dem · tæller ikke i fælles budgetter</span>
+              </span>
+              <span className="tabular text-[15px] font-semibold">{formatAmount(privateOre)} kr.</span>
+            </Link>
           )}
 
           <div className="mt-8 grid grid-cols-2 gap-3">

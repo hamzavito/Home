@@ -11,9 +11,10 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { Skeleton } from '@/components/ui/Spinner'
 import { useCategories, useTransaction } from '@/features/finance/api'
 import { CategoryPicker } from '@/features/finance/CategoryPicker'
+import { VisibilityPicker } from '@/features/finance/Visibility'
 import { useEnsureDefaultGroups, useFixedGroups, useFixedItems } from '@/features/fixed/api'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
-import type { Frequency } from '@/types/database'
+import type { Frequency, TransactionVisibility } from '@/types/database'
 import { formatLongDate, formatShortDate, fromIsoDate } from '@/lib/dates'
 import { cn } from '@/lib/cn'
 import { bankErrorMessage, syncMessage, useAutoSync, useIncomeSources, useBankConnections, useBankInbox, useBankPending, useIgnoreAll, useImportBankTransaction, useImportSuggested, useLinkBankTransaction, useMarkFixed, useSetIgnored, useSyncBank, type BankTransaction } from './api'
@@ -149,7 +150,7 @@ export function BankInboxPage() {
 
       <BottomSheet open={confirmAll === 'suggested'} onClose={() => setConfirmAll(null)} title={`Godkend ${withSuggestion.length} udgifter?`}>
         <p className="text-[15px] text-secondary">
-          De gemmes som udgifter i den foreslåede kategori (ud fra tidligere køb eller butikker, du har valgt før). Mulige dubletter og indtægter skal du stadig se på selv.
+          De gemmes som udgifter i den foreslåede kategori (ud fra tidligere køb eller butikker, du har valgt før) – som private, medmindre du tidligere har gjort butikken fælles. Mulige dubletter og indtægter skal du stadig se på selv.
         </p>
         {importSuggested.isError && <p role="alert" className="mt-3 text-[14px] text-danger">{bankErrorMessage(importSuggested.error)}</p>}
         <div className="mt-5 grid grid-cols-2 gap-3">
@@ -202,6 +203,7 @@ function ReviewSheet({ row, onDone }: { row: BankTransaction; onDone: () => void
   const fixedName = row.fixed_item_id ? fixedItems.data?.find((i) => i.id === row.fixed_item_id)?.name : undefined
   const incomeSources = useIncomeSources()
   const [sourceId, setSourceId] = useState<string>('')
+  const [visibility, setVisibility] = useState<TransactionVisibility>('private')
 
   return (
     <>
@@ -270,6 +272,11 @@ function ReviewSheet({ row, onDone }: { row: BankTransaction; onDone: () => void
               </p>
             </div>
           )}
+          {!income && (
+            <div className="mt-4">
+              <VisibilityPicker value={visibility} onChange={setVisibility} />
+            </div>
+          )}
           {error && <p role="alert" className="mt-3 rounded-2xl bg-danger-soft px-4 py-3 text-[14px] font-medium text-danger">{bankErrorMessage(error)}</p>}
           <div className="mt-5 grid grid-cols-2 gap-3">
             <Button variant="secondary" disabled={busy} loading={ignore.isPending} onClick={() => ignore.mutate({ id: row.id, ignored: true }, { onSuccess: onDone })}>
@@ -278,7 +285,7 @@ function ReviewSheet({ row, onDone }: { row: BankTransaction; onDone: () => void
             <Button
               disabled={busy || (!income && !categoryId) || !description.trim()}
               loading={imp.isPending}
-              onClick={() => imp.mutate({ id: row.id, categoryId: income ? null : categoryId, description, incomeSourceId: income ? sourceId || null : null }, { onSuccess: onDone })}
+              onClick={() => imp.mutate({ id: row.id, categoryId: income ? null : categoryId, description, incomeSourceId: income ? sourceId || null : null, visibility: income ? undefined : visibility }, { onSuccess: onDone })}
             >
               {income ? 'Gem indtægt' : 'Gem udgift'}
             </Button>

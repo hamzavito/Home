@@ -13,6 +13,7 @@ import { dayLabel, formatMonth, fromIsoDate } from '@/lib/dates'
 import { formatAmount } from '@/lib/money'
 import { useCategories, useMonthTransactions, type Transaction } from './api'
 import { paidByLabel } from './paidBy'
+import { PrivateBadge } from './Visibility'
 import { useMonthParam } from './useMonthParam'
 
 export function TransactionsPage() {
@@ -86,7 +87,17 @@ export function TransactionsPage() {
                     <TransactionRow
                       key={t.id}
                       title={t.description}
-                      subtitle={`${c?.name ?? 'Kategori'} · ${paidByLabel(t.paid_by_kind, t.paid_by_user_id, members)}${t.source === 'receipt' ? ' · Kvittering' : ''}`}
+                      subtitle={
+                        <>
+                          {`${c?.name ?? 'Kategori'} · ${paidByLabel(t.paid_by_kind, t.paid_by_user_id, members)}${t.source === 'receipt' ? ' · Kvittering' : ''}`}
+                          {t.visibility === 'private' && (
+                            <>
+                              {' · '}
+                              <PrivateBadge />
+                            </>
+                          )}
+                        </>
+                      }
                       amountOre={t.amount_ore}
                       icon={c?.icon ?? null}
                       color={c?.color ?? null}

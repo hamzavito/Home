@@ -3,7 +3,7 @@ import { useHousehold } from '@/features/household/HouseholdProvider'
 import { fromIsoDate, monthKey, toIsoDate } from '@/lib/dates'
 import { deleteTransactionWithReceipt } from '@/features/receipts/api'
 import { supabase } from '@/lib/supabase'
-import type { BudgetMode, CategoryKind, Database, PaidByKind, Tables } from '@/types/database'
+import type { BudgetMode, CategoryKind, Database, PaidByKind, Tables, TransactionVisibility } from '@/types/database'
 import { isReadOnlyError, READ_ONLY_MESSAGE } from '@/lib/billing'
 
 export type Category = Tables<'budget_categories'>
@@ -132,6 +132,20 @@ export type TransactionInput = {
   description: string
   note: string | null
   paidBy: { kind: PaidByKind; userId: string | null }
+  /** Privat (kun mig) eller fælles. Nye udgifter er private, indtil man vælger fælles. */
+  visibility?: TransactionVisibility
+}
+
+/** Privat eller fælles for én udgift (kun ejeren kan ændre en privat udgift) */
+export function useSetVisibility() {
+  const invalidate = useInvalidateFinance()
+  return useMutation({
+    mutationFn: async (input: { id: string; visibility: TransactionVisibility }) => {
+      const { error } = await supabase.from('transactions').update({ visibility: input.visibility }).eq('id', input.id)
+      if (error) throw error
+    },
+    onSuccess: invalidate,
+  })
 }
 
 export function useSaveTransaction() {
@@ -147,6 +161,7 @@ export function useSaveTransaction() {
         note: input.note?.trim() || null,
         paid_by_kind: input.paidBy.kind,
         paid_by_user_id: input.paidBy.kind === 'member' ? input.paidBy.userId : null,
+        ...(input.visibility ? { visibility: input.visibility } : {}),
       }
       if (id) {
         const { error } = await supabase.from('transactions').update(values).eq('id', id)

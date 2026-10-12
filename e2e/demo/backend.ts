@@ -317,6 +317,8 @@ async function seedDemo(): Promise<Db> {
   d.receipts!.push({ id: uuid(), household_id: HID, status: 'approved', storage_path: null, transaction_id: fotex.id, retention: '30d', delete_at: delAt, image_deleted_at: delAt, uploaded_by: WIFE, approved_at: old.toISOString(), created_at: old.toISOString(), updated_at: old.toISOString() })
 
   seedHome(d, catId)
+  // Eksisterende udgifter er fælles (som efter migrationen)
+  for (const t of d.transactions!) t.visibility ??= 'shared'
   return d
 }
 
@@ -461,13 +463,21 @@ const isDisabled = (uid: string) => {
   const m = activeMember(uid)
   return !m || Boolean(m.disabled_at)
 }
+// Private udgifter ses kun af ejeren (ældre demodata uden synlighed er fælles)
+const isShared = (t: Row) => (t.visibility ?? 'shared') === 'shared'
+const txVisible = (t: Row) => isShared(t) || t.created_by === CUR
+const receiptVisible = (r: Row) => !r.transaction_id || r.uploaded_by === CUR || db.transactions!.some((t) => t.id === r.transaction_id && txVisible(t))
 // Deaktiverede medlemmer ser intet (som i databasen)
 const visibleRows = (table: string, rows: Row[]) =>
   isDisabled(CUR)
     ? table === 'profiles' ? rows.filter((r) => r.id === CUR) : []
     : table === 'bank_transactions' // kun egne bankposteringer
       ? isAdult() ? rows.filter((r) => r.user_id === CUR) : []
-      : isAdult() ? rows : rows.filter((r) => CHILD_READ[table]?.(r) ?? false)
+      : table === 'transactions'
+        ? isAdult() ? rows.filter(txVisible) : []
+        : table === 'receipts'
+          ? isAdult() ? rows.filter(receiptVisible) : []
+          : isAdult() ? rows : rows.filter((r) => CHILD_READ[table]?.(r) ?? false)
 
 // ------------------------------------------------------------------ barnelogin (spejler child_login_verify m.fl.)
 async function pinHash(pin: string): Promise<string> {
@@ -640,7 +650,9 @@ function demoAutoIncome() {
   return n
 }
 function demoImportExpense(b: Row, category: string, descr: string | null) {
-  const t = insertTransaction({ category_id: category, amount_ore: -b.amount_ore, occurred_on: b.booked_on, description: descr || b.counterparty || b.description, note: null, paid_by_kind: 'member', paid_by_user_id: b.user_id, source: 'bank' })
+  // Privat, medmindre butikken er gjort fælles før
+  const shared = bankRules().some((r) => r.user_id === b.user_id && r.active && r.key === merchantKey(b) && r.shared)
+  const t = insertTransaction({ visibility: shared ? 'shared' : 'private', category_id: category, amount_ore: -b.amount_ore, occurred_on: b.booked_on, description: descr || b.counterparty || b.description, note: null, paid_by_kind: 'member', paid_by_user_id: b.user_id, source: 'bank' })
   Object.assign(b, { state: 'imported', transaction_id: t.id })
   return t
 }
@@ -811,7 +823,7 @@ function budgetMonthSummary(month: string) {
   return db
     .budget_categories!.map((c) => {
       const b = cb.get(c.id)!
-      const t = db.transactions!.filter((x) => x.category_id === c.id && x.occurred_on >= m && x.occurred_on < next)
+      const t = db.transactions!.filter((x) => x.category_id === c.id && x.occurred_on >= m && x.occurred_on < next && isShared(x))
       const include = (!c.archived_at || c.archived_at.slice(0, 10) >= m || t.length > 0) && (c.created_at.slice(0, 10) < next || b.budget_source !== 'none' || t.length > 0)
       return {
         include,
@@ -958,7 +970,7 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
     return [{ receipt_id: id, storage_path: path }]
   },
   suggest_category: (a) => {
-    const m = db.transactions!.filter((t) => t.description.toLowerCase().trim() === String(a.p_merchant).toLowerCase().trim() && !db.budget_categories!.find((c) => c.id === t.category_id)?.archived_at)
+    const m = db.transactions!.filter(txVisible).filter((t) => t.description.toLowerCase().trim() === String(a.p_merchant).toLowerCase().trim() && !db.budget_categories!.find((c) => c.id === t.category_id)?.archived_at)
     const counts = new Map<string, number>()
     for (const t of m) counts.set(t.category_id, (counts.get(t.category_id) ?? 0) + 1)
     return [...counts.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? null
@@ -1139,7 +1151,7 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
       throw new PgError('Kvitteringen er allerede brugt', '23514')
     }
     if (!files.has(r.storage_path)) throw new PgError('Billedet er ikke uploadet endnu', '23514')
-    if (!db.transactions!.some((t) => t.id === a.p_transaction_id)) throw new PgError('Udgiften findes ikke', 'P0002')
+    if (!db.transactions!.some((t) => t.id === a.p_transaction_id && txVisible(t))) throw new PgError('Udgiften findes ikke', 'P0002')
     const old = db.receipts!.find((x) => x.transaction_id === a.p_transaction_id)
     db.receipts = db.receipts!.filter((x) => x !== old)
     Object.assign(r, { status: 'approved', transaction_id: a.p_transaction_id, retention: a.p_retention, delete_at: deleteAtFor(a.p_retention, a.p_custom_date, new Date()), approved_at: nowIso() })
@@ -1155,6 +1167,7 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
     return path
   },
   delete_transaction: (a) => {
+    if (!db.transactions!.some((t) => t.id === a.p_transaction_id && txVisible(t))) return null
     const r = db.receipts!.find((x) => x.transaction_id === a.p_transaction_id)
     db.receipts = db.receipts!.filter((x) => x !== r)
     for (const u of db.upcoming_expenses!) if (u.transaction_id === a.p_transaction_id) Object.assign(u, { transaction_id: null })
@@ -1439,7 +1452,9 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
 
 function insertTransaction(v: Row): Row {
   if (db.budget_categories!.find((c) => c.id === v.category_id)?.archived_at) throw new PgError('Kategorien er arkiveret', '23514')
-  const t = { id: uuid(), household_id: HID, note: null, paid_by_user_id: null, created_by: CUR, created_at: nowIso(), updated_at: nowIso(), ...v }
+  const t: Row = { id: uuid(), household_id: HID, note: null, paid_by_user_id: null, created_by: CUR, created_at: nowIso(), updated_at: nowIso(), ...v }
+  // Som triggeren transactions_visibility_default: betalte kommende udgifter er fælles, resten privat
+  t.visibility ??= t.source === 'upcoming' ? 'shared' : 'private'
   db.transactions!.push(t)
   return t
 }
@@ -1818,6 +1833,7 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
           if (table === 'income_entries') incomeEntryDefaults(row, null, row)
           if ((table === 'income_types' || table === 'income_sources') && rows.some((x) => !x.archived_at && x.name.toLowerCase() === String(row.name).trim().toLowerCase())) throw new PgError('duplicate', '23505', 409)
           if (table === 'transactions' && db.budget_categories!.find((c) => c.id === row.category_id)?.archived_at) throw new PgError('Kategorien er arkiveret', '23514')
+          if (table === 'transactions') row.visibility ??= row.source === 'upcoming' ? 'shared' : 'private'
           if (table === 'fixed_groups' && db.fixed_groups!.some((g) => !g.archived_at && g.name.toLowerCase() === String(row.name).toLowerCase())) throw new PgError('duplicate', '23505', 409)
           if (table === 'savings_movements' && row.kind === 'withdrawal') {
             const bal = db.savings_movements!.filter((m) => m.goal_id === row.goal_id).reduce((s2, m) => s2 + (m.kind === 'deposit' ? m.amount_ore : -m.amount_ore), 0)
@@ -1830,13 +1846,20 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
         return json(accept.includes('object') ? list[0] : list, 201)
       }
       if (method === 'PATCH') {
-        const hit = filterRows(rows, url.searchParams)
+        const hit = filterRows(table === 'transactions' ? rows.filter(txVisible) : rows, url.searchParams)
+        // RLS: ingen kan gøre en andens udgift privat
+        if (table === 'transactions' && body?.visibility === 'private' && hit.some((r) => r.created_by !== CUR)) throw rlsError()
         for (const r of hit) {
           const old = { ...r }
           if (table === 'shopping_items' && body && 'is_checked' in body && body.is_checked !== r.is_checked)
             Object.assign(r, body.is_checked ? { checked_by: CUR, checked_at: nowIso() } : { checked_by: null, checked_at: null })
           Object.assign(r, body, { updated_at: nowIso() })
           if (table === 'household_tasks') rewardStatus(r, old)
+          // Som transactions_learn_visibility: butikken husker fælles/privat
+          if (table === 'transactions' && r.source === 'bank' && (old.visibility ?? 'shared') !== r.visibility) {
+            const b = db.bank_transactions!.find((x) => x.transaction_id === r.id)
+            if (b) for (const rule of bankRules()) if (rule.user_id === b.user_id && rule.key === merchantKey(b)) rule.shared = r.visibility === 'shared'
+          }
           if (table === 'income_entries') incomeEntryDefaults(r, old, body ?? {})
           if (table === 'calendar_events') {
             // Ældre app-versioner sender kun for_user_id
@@ -1848,7 +1871,7 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
         return prefer.includes('return=representation') ? json(accept.includes('object') ? hit[0] : hit) : empty()
       }
       if (method === 'DELETE') {
-        let hit = filterRows(rows, url.searchParams)
+        let hit = filterRows(visibleRows(table, rows), url.searchParams)
         // RLS-lignende regler
         if (table === 'receipts') hit = hit.filter((r) => r.status === 'pending')
         if (table === 'fixed_items') hit = hit.filter((r) => r.start_month >= curMonth())

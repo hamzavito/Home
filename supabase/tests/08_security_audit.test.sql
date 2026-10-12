@@ -1,6 +1,8 @@
 -- Sikkerhedsrevision baseret på systemkatalogerne. Gælder automatisk også for
 -- fremtidige tabeller og funktioner, så intet glemmes.
 begin;
+-- Testene her er skrevet før private udgifter: udgifter uden synlighed er fælles (som før)
+alter table public.transactions alter column visibility set default 'shared';
 
 -- 1) Alle tabeller i public har RLS slået til
 do $$

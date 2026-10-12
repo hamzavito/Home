@@ -11,6 +11,9 @@ import { Toggle } from '@/components/ui/Toggle'
 import { useCategories, useSaveTransaction } from '@/features/finance/api'
 import { CategoryPicker } from '@/features/finance/CategoryPicker'
 import { decodePaidBy, defaultPaidBy, paidByOptions } from '@/features/finance/paidBy'
+import { VisibilityPicker } from '@/features/finance/Visibility'
+import { useSetVisibility } from '@/features/finance/api'
+import type { TransactionVisibility } from '@/types/database'
 import { useHousehold } from '@/features/household/HouseholdProvider'
 import { cn } from '@/lib/cn'
 import { formatLongDate, fromIsoDate, toIsoDate } from '@/lib/dates'
@@ -40,6 +43,8 @@ export function ScanPage() {
   const { me, members, defaultRetention: householdRetention } = useHousehold()
   const categories = useCategories()
   const approve = useApproveReceipt()
+  const setVisibilityMut = useSetVisibility()
+  const [visibility, setVisibility] = useState<TransactionVisibility>('private')
   const saveTransaction = useSaveTransaction()
 
   const [phase, setPhase] = useState<Phase>('pick')
@@ -212,7 +217,7 @@ export function ScanPage() {
     setError(null)
     try {
       await p.upload
-      await approve.mutateAsync({
+      const tid = await approve.mutateAsync({
         receiptId: p.receiptId,
         categoryId,
         amountOre,
@@ -224,6 +229,8 @@ export function ScanPage() {
         customDate,
       })
       approved.current = true
+      // Kvitteringen gemmes som privat udgift; fælles vælges aktivt
+      if (visibility === 'shared' && tid) await setVisibilityMut.mutateAsync({ id: tid, visibility })
       const cat = activeCategories.find((c) => c.id === categoryId)
       setResult({ amountOre, merchant: merchant.trim(), category: cat?.name ?? '', imageKept: true })
       setPhase('done')
@@ -241,7 +248,7 @@ export function ScanPage() {
     setError(null)
     try {
       await saveTransaction.mutateAsync({
-        input: { categoryId, amountOre, occurredOn: date, description: merchant, note: null, paidBy: decodePaidBy(paidBy) },
+        input: { categoryId, amountOre, occurredOn: date, description: merchant, note: null, paidBy: decodePaidBy(paidBy), visibility },
       })
       // Udgiften er gemt: fjern billedet. Fejler det, rydder den daglige oprydning op.
       await discard()
@@ -477,6 +484,8 @@ export function ScanPage() {
               <p className="mb-1.5 px-1 text-[13px] font-semibold text-secondary">Betalt af</p>
               <SegmentedControl label="Betalt af" options={paidByOptions(members)} value={paidBy} onChange={setPaidBy} />
             </div>
+
+            <VisibilityPicker value={visibility} onChange={setVisibility} />
 
             <div>
               <div className="mb-3 overflow-hidden rounded-2xl bg-surface-primary shadow-card ring-1 ring-subtle">

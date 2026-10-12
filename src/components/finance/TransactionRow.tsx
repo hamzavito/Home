@@ -1,10 +1,11 @@
+import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { Money } from '@/components/ui/Money'
 import { CategoryIcon } from './CategoryIcon'
 
 type Props = {
   title: string
-  subtitle: string
+  subtitle: ReactNode
   amountOre: number
   icon: string | null
   color: string | null

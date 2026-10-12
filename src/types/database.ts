@@ -8,6 +8,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 /** 'member' er den gamle betegnelse for voksen */
 export type HouseholdRole = 'owner' | 'adult' | 'child' | 'member'
 export type PaidByKind = 'member' | 'shared'
+export type TransactionVisibility = 'shared' | 'private'
 export type TransactionSource = 'manual' | 'receipt' | 'upcoming' | 'bank'
 export type BudgetSource = 'override' | 'default' | 'none'
 export type BudgetMode = 'amount' | 'percent'
@@ -149,6 +150,7 @@ export type Database = {
           paid_by_kind: PaidByKind
           paid_by_user_id: string | null
           source: TransactionSource
+          visibility: TransactionVisibility
           created_by: string
           created_at: string
           updated_at: string
@@ -163,6 +165,7 @@ export type Database = {
           paid_by_kind?: PaidByKind
           paid_by_user_id?: string | null
           source?: TransactionSource
+          visibility?: TransactionVisibility
         }
         Update: {
           category_id?: string
@@ -172,6 +175,7 @@ export type Database = {
           note?: string | null
           paid_by_kind?: PaidByKind
           paid_by_user_id?: string | null
+          visibility?: TransactionVisibility
         }
         Relationships: []
       }

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useHousehold } from '@/features/household/HouseholdProvider'
 import { isReadOnlyError, READ_ONLY_MESSAGE } from '@/lib/billing'
 import { supabase } from '@/lib/supabase'
-import type { Database, Frequency, Tables } from '@/types/database'
+import type { Database, Frequency, Tables, TransactionVisibility } from '@/types/database'
 
 export type BankTransaction = Tables<'bank_transactions'>
 export type IncomeEntry = Tables<'income_entries'>
@@ -182,9 +182,14 @@ function useRefresh() {
 export function useImportBankTransaction() {
   const refresh = useRefresh()
   return useMutation({
-    mutationFn: async (input: { id: string; categoryId: string | null; description: string; incomeSourceId?: string | null }) => {
+    mutationFn: async (input: { id: string; categoryId: string | null; description: string; incomeSourceId?: string | null; visibility?: TransactionVisibility }) => {
       const { data, error } = await supabase.rpc('bank_import', { p_id: input.id, p_category_id: input.categoryId, p_description: input.description.trim() || null })
       if (error) throw error
+      // Udgift: privat eller fælles (appen husker valget for butikken til næste gang)
+      if (input.visibility && input.categoryId && data) {
+        const { error: e2 } = await supabase.from('transactions').update({ visibility: input.visibility }).eq('id', data)
+        if (e2) throw e2
+      }
       // Indtægt: brugerens valg af kilde (appen husker afsenderen til næste gang)
       if (input.incomeSourceId && data) {
         const { error: e2 } = await supabase.from('income_entries').update({ source_id: input.incomeSourceId, matched_by_user: true }).eq('id', data)
