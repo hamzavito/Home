@@ -560,7 +560,7 @@ as $$
   left join pct_final pf on pf.id = b.id;
 $$;
 
-drop function public.month_plan(date);
+drop function if exists public.month_plan(date);
 create function public.month_plan(p_month date)
 returns table (
   income_ore bigint,
