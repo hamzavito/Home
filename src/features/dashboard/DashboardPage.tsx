@@ -101,14 +101,14 @@ export function DashboardPage() {
       </div>
 
       {hasPlan && plan && (
-        <Link to="/okonomi" className="pressable mt-3 block rounded-card bg-surface-primary p-4 shadow-card">
+        <Link to="/okonomi/plan" className="pressable mt-3 block rounded-card bg-surface-primary p-4 shadow-card">
           <div className="flex items-center justify-between">
             <p className="text-[13px] font-semibold text-secondary">Månedens plan</p>
             <ChevronRight className="size-4 text-muted" />
           </div>
           <div className="mt-2 grid grid-cols-3 gap-2">
             <div>
-              <p className="text-[12px] text-secondary">Indkomst</p>
+              <p className="text-[12px] text-secondary">Indtægter</p>
               <p className="tabular text-[15px] font-semibold">{formatAmount(plan.income_ore, { decimals: 'never' })} kr.</p>
             </div>
             <div>

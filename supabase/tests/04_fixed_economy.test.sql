@@ -139,15 +139,30 @@ begin
   perform public.set_monthly_budget(mad, cur, null);
 end $$;
 
--- Over 100 %: skaleres, så der aldrig fordeles mere end der er
+-- Over 100 %: afvises (også fremtidige måneder)
 do $$
-declare cur date := date_trunc('month', now())::date; p record;
+declare cur date := date_trunc('month', now())::date; ok boolean;
 begin
-  perform public.set_category_default((select id from public.budget_categories where name = 'Hygge'), cur, null, 'percent', 5000);
-  select * into p from public.month_plan(cur);
-  assert p.percent_total_bp = 11500, '115 % registreret';
-  assert (select sum(budget_ore) from public.budget_month_summary(cur) where name in ('Mad', 'Hygge')) = p.distributable_ore, 'aldrig mere end til fordeling';
-  perform public.set_category_default((select id from public.budget_categories where name = 'Hygge'), cur, null, 'percent', 3500);
+  begin
+    perform public.set_category_default((select id from public.budget_categories where name = 'Hygge'), cur, null, 'percent', 5000);
+    ok := false;
+  exception when check_violation then ok := true;
+  end;
+  assert ok, '115 % afvises';
+  assert (select percent_total_bp from public.month_plan(cur)) = 10000, 'stadig 100 %';
+  begin
+    perform public.set_category_default((select id from public.budget_categories where name = 'Hygge'), (cur + interval '2 month')::date, null, 'percent', 3501);
+    ok := false;
+  exception when check_violation then ok := true;
+  end;
+  assert ok, '100,01 % afvises også i en kommende måned';
+  -- Lavere procent er fint: resten vises som ufordelt
+  perform public.set_category_default((select id from public.budget_categories where name = 'Hygge'), (cur + interval '1 month')::date, null, 'percent', 1500);
+  assert (select percent_total_bp from public.month_plan((cur + interval '1 month')::date)) = 8000, '80 %';
+  assert (select unallocated_ore from public.month_plan((cur + interval '1 month')::date))
+       = (select distributable_ore - (select sum(budget_ore) from public.budget_month_summary((cur + interval '1 month')::date) where name in ('Mad', 'Hygge'))
+          from public.month_plan((cur + interval '1 month')::date)), '20 % vises som ufordelt';
+  assert (select percent_total_bp from public.month_plan(cur)) = 10000, 'denne måned uændret';
 end $$;
 
 -- Stop/genoptag: kun fra forrige måned og frem

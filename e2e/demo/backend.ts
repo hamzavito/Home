@@ -10,6 +10,7 @@ import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 import { authStorage } from '@/lib/session-storage'
 import { isDueOn, periodKey } from '@/lib/allowance'
+import { computePlan, MAX_PERCENT_BP, type PlanCategory } from '@/lib/plan'
 import { isValidName, isValidPin, normalizeUsername, USERNAME_RE } from '../../supabase/functions/_shared/child-rules'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -71,6 +72,8 @@ const TABLES = [
   'child_allowance_schedules',
   'child_allowance_payouts',
   'income_entries',
+  'income_types',
+  'income_sources',
   'bank_transactions',
 ] as const
 
@@ -425,6 +428,12 @@ const ready: Promise<void> = (async () => {
   }
   // Som det daglige udbetalingsjob (pg_cron) i rigtig drift (efter at modulet er indlæst)
   await Promise.resolve()
+  // Indtægtstyper og -kilder (også for gemte demodata fra før de fandtes)
+  if (db.households!.some((h) => h.id === HID)) {
+    seedIncomeTypes(db)
+    ensureIncomeSources()
+    save()
+  }
   runAllowances()
   save()
 })()
@@ -492,15 +501,140 @@ const readOnlyError = () => new PgError('Abonnementet er udløbet. I kan se og e
 const bankConnections = () => (db['private.bank_connections'] ??= [])
 const bankRules = () => (db['private.bank_rules'] ??= [])
 const merchantKey = (b: Row) => String(b.counterparty || b.description).toLowerCase().replace(/[0-9#*/.,:-]+/g, ' ').replace(/\s+/g, ' ').trim()
+// ------------------------------------------------------------------ indtægtskilder (spejler income_plan.sql)
+const INCOME_TYPES = ['Løn', 'Børnepenge', 'Barsel', 'SU', 'Bonus', 'Refusion', 'Andet']
+function seedIncomeTypes(d: Db) {
+  d.income_types ??= []
+  INCOME_TYPES.forEach((name, i) => {
+    if (!d.income_types!.some((t) => !t.archived_at && t.name.toLowerCase() === name.toLowerCase()))
+      d.income_types!.push({ id: uuid(), household_id: HID, name, sort_order: i, is_default: true, archived_at: null, created_at: nowIso() })
+  })
+}
+const typeNamed = (name: string) => db.income_types!.find((t) => !t.archived_at && t.name.toLowerCase() === name.toLowerCase())?.id ?? null
+/** En fast indtægt er en kilde med et forventet beløb */
+function ensureIncomeSources() {
+  db.income_sources ??= []
+  for (const i of db.fixed_items!.filter((x) => x.kind === 'income'))
+    if (!db.income_sources.some((s) => s.fixed_item_id === i.id)) {
+      const taken = db.income_sources.some((s) => !s.archived_at && s.name.toLowerCase() === i.name.toLowerCase())
+      db.income_sources.push({
+        id: uuid(), household_id: HID, name: taken ? `${i.name} – ${db.profiles!.find((x) => x.id === i.owner_user_id)?.display_name ?? 'fast'}` : i.name, type_id: typeNamed(/løn/i.test(i.name) ? 'Løn' : 'Andet'),
+        owner_kind: i.owner_kind ?? 'shared', owner_user_id: i.owner_user_id ?? null, fixed_item_id: i.id, sort_order: i.sort_order ?? 0,
+        archived_at: i.archived_at ?? null, created_by: i.created_by, created_at: nowIso(), updated_at: nowIso(),
+      })
+    }
+}
+const incomeRules = () => (db['private.income_rules'] ??= [])
+const expectedFor = (sourceId: string, month: string) => {
+  const s = db.income_sources!.find((x) => x.id === sourceId)
+  return s?.fixed_item_id ? ((fixedItemsMonth(month) as any[]).find((f) => f.item_id === s.fixed_item_id && f.kind === 'income')?.amount_ore ?? null) : null
+}
+/** Forslag til kilde: husket afsender (90/70/60) eller kontoejerens kilde med lignende forventet beløb (40) */
+function suggestIncomeSource(b: Row, month: string): { source_id: string | null; confidence: number | null } {
+  const rule = incomeRules().find((r) => r.user_id === b.user_id && r.key === merchantKey(b) && db.income_sources!.some((s) => s.id === r.source_id && !s.archived_at))
+  if (rule) {
+    const c = !rule.last ? 70 : Math.abs(b.amount_ore - rule.last) / Math.abs(rule.last) <= 0.25 ? 90 : 60
+    return { source_id: rule.source_id, confidence: c }
+  }
+  const cands = db.income_sources!
+    .filter((s) => !s.archived_at && s.owner_kind === 'member' && s.owner_user_id === b.user_id && !db.income_entries!.some((e) => e.source_id === s.id && e.period_month === month))
+    .map((s) => ({ s, exp: expectedFor(s.id, month) as number | null }))
+    .filter((x) => x.exp && x.exp > 0 && Math.abs(b.amount_ore - x.exp) / x.exp <= 0.35)
+    .sort((a, b2) => Math.abs(b.amount_ore - a.exp!) - Math.abs(b.amount_ore - b2.exp!))
+  return cands[0] ? { source_id: cands[0].s.id, confidence: 40 } : { source_id: null, confidence: null }
+}
+function learnIncomeRule(e: Row) {
+  const b = db.bank_transactions!.find((x) => x.id === e.bank_transaction_id)
+  if (!b || !e.source_id) return
+  const rules = incomeRules()
+  const r = rules.find((x) => x.user_id === b.user_id && x.key === merchantKey(b))
+  if (r) Object.assign(r, { source_id: e.source_id, last: e.amount_ore })
+  else rules.push({ user_id: b.user_id, key: merchantKey(b), source_id: e.source_id, last: e.amount_ore })
+}
+/** Banktransaktion → indtægt (højst én pr. banktransaktion) */
+function demoImportIncome(b: Row, descr?: string) {
+  const existing = db.income_entries!.find((e) => e.bank_transaction_id === b.id)
+  if (existing) return existing.id
+  const month = b.booked_on.slice(0, 8) + '01'
+  const sug = suggestIncomeSource(b, month)
+  const src = db.income_sources!.find((s) => s.id === sug.source_id)
+  const id = uuid()
+  db.income_entries!.push({
+    id, household_id: HID, amount_ore: b.amount_ore, received_on: b.booked_on, description: descr || b.counterparty || b.description, note: null,
+    received_by_kind: 'member', received_by_user_id: b.user_id, source: 'bank', created_by: b.user_id, created_at: nowIso(), updated_at: nowIso(),
+    period_month: month, bank_transaction_id: b.id, source_id: sug.source_id, match_confidence: sug.confidence, matched_by_user: false,
+    type_id: src?.type_id ?? typeNamed('Andet'),
+  })
+  Object.assign(b, { state: 'imported', income_id: id })
+  return id
+}
+/** Som income_entries_defaults-triggeren */
+function incomeEntryDefaults(row: Row, old: Row | null, body: Row) {
+  const monthOf = (d: string) => d.slice(0, 8) + '01'
+  if (!old) {
+    row.period_month = row.period_month ? monthOf(row.period_month) : monthOf(row.received_on)
+    row.matched_by_user = Boolean(row.source_id)
+    row.match_confidence = row.source_id ? 100 : null
+    row.bank_transaction_id = null
+    row.source ??= 'manual'
+  } else {
+    row.bank_transaction_id = old.bank_transaction_id
+    if (body.received_on && !('period_month' in body) && old.period_month === monthOf(old.received_on)) row.period_month = monthOf(row.received_on)
+    row.period_month = monthOf(row.period_month ?? row.received_on)
+    if (('source_id' in body && body.source_id !== old.source_id) || (body.matched_by_user && !old.matched_by_user)) {
+      row.matched_by_user = Boolean(row.source_id)
+      row.match_confidence = row.source_id ? 100 : null
+      if (row.matched_by_user && row.bank_transaction_id) learnIncomeRule(row)
+    } else Object.assign(row, { matched_by_user: old.matched_by_user, match_confidence: old.match_confidence })
+  }
+  const srcType = db.income_sources!.find((s) => s.id === row.source_id)?.type_id
+  if (!row.type_id || (old && 'source_id' in body && body.source_id !== old.source_id && !('type_id' in body && body.type_id !== old.type_id))) row.type_id = srcType ?? row.type_id ?? typeNamed('Andet')
+}
+
+function monthIncome(month: string) {
+  const m = month.slice(0, 8) + '01'
+  const entries = db.income_entries!.filter((e) => e.period_month === m)
+  const expected = new Map((fixedItemsMonth(m) as any[]).filter((f) => f.kind === 'income').map((f) => [f.item_id, f.monthly_ore]))
+  const typeName = (id: string) => db.income_types!.find((t) => t.id === id)?.name ?? null
+  const rows: Row[] = []
+  for (const s of db.income_sources ?? []) {
+    const act = entries.filter((e) => e.source_id === s.id)
+    const exp = s.fixed_item_id ? (expected.get(s.fixed_item_id) ?? null) : null
+    if (!act.length && exp === null) continue
+    const actual = act.reduce((x, e) => x + e.amount_ore, 0)
+    rows.push({
+      source_id: s.id, name: s.name, type_name: typeName(s.type_id), owner_kind: s.owner_kind, owner_user_id: s.owner_user_id,
+      actual_ore: actual, expected_ore: exp, used_ore: act.length ? actual : (exp ?? 0), status: act.length ? 'actual' : 'expected',
+      entry_count: act.length, unconfirmed_count: act.filter((e) => !e.matched_by_user).length,
+    })
+  }
+  const none = entries.filter((e) => !e.source_id)
+  if (none.length) {
+    const t = none.reduce((x, e) => x + e.amount_ore, 0)
+    rows.push({ source_id: null, name: 'Uden kilde', type_name: null, owner_kind: null, owner_user_id: null, actual_ore: t, expected_ore: null, used_ore: t, status: 'actual', entry_count: none.length, unconfirmed_count: 0 })
+  }
+  return rows.sort((a, b) => a.status.localeCompare(b.status) || a.name.localeCompare(b.name))
+}
+
+/** Procentfordelingen må højst være 100 % (fra måneden og frem) */
+function checkPercentTotal(from: string) {
+  const months = [from, ...new Set(db.budget_category_defaults!.filter((d) => d.valid_from > from).map((d) => d.valid_from))]
+  for (const m of months) {
+    const bp = db.budget_categories!.filter((c) => !c.archived_at).reduce((sum, c) => {
+      const d = db.budget_category_defaults!.filter((x) => x.category_id === c.id && x.valid_from <= m).sort((a, b) => b.valid_from.localeCompare(a.valid_from))[0]
+      return sum + (d?.mode === 'percent' ? (d.percent_bp ?? 0) : 0)
+    }, 0)
+    if (bp > MAX_PERCENT_BP) throw new PgError(`Procentfordelingen må højst være 100 % (er nu ${(bp / 100).toFixed(2)})`, '23514')
+  }
+}
+
 /** Som bank_auto_income: indtægter (undtagen MobilePay) godkendes automatisk efter hentningen */
 function demoAutoIncome() {
   if (!writeAccess()) return 0
   let n = 0
   for (const b of db.bank_transactions!)
     if (b.user_id === CUR && b.state === 'new' && b.amount_ore > 0 && !/mobile ?pay|mobilpay/.test(`${b.counterparty ?? ''} ${b.description ?? ''}`.toLowerCase())) {
-      const id = uuid()
-      db.income_entries!.push({ id, household_id: HID, amount_ore: b.amount_ore, received_on: b.booked_on, description: b.counterparty || b.description, note: null, received_by_kind: 'member', received_by_user_id: b.user_id, source: 'bank', created_by: b.user_id, created_at: nowIso(), updated_at: nowIso() })
-      Object.assign(b, { state: 'imported', income_id: id })
+      demoImportIncome(b)
       n++
     }
   return n
@@ -640,46 +774,34 @@ function fixedItemsMonth(month: string) {
     })
 }
 
-function categoryBudgets(month: string) {
+function planFor(month: string) {
   const m = month.slice(0, 8) + '01'
-  const available = fixedItemsMonth(m).reduce((s: number, f: any) => s + (f.kind === 'income' ? f.monthly_ore : -f.monthly_ore), 0)
   const base = db.budget_categories!.map((c) => {
     const archivedBefore = c.archived_at && c.archived_at.slice(0, 10) < m
     const d = db.budget_category_defaults!.filter((x) => x.category_id === c.id && x.valid_from <= m).sort((a, b) => b.valid_from.localeCompare(a.valid_from))[0]
     const o = db.monthly_budgets!.find((x) => x.category_id === c.id && x.month === m)
-    return { id: c.id, mode: archivedBefore ? 'none' : (d?.mode ?? 'none'), percent_bp: d?.percent_bp ?? null, default_ore: d?.amount_ore ?? null, override_ore: archivedBefore ? null : (o?.amount_ore ?? null) }
+    return { id: c.id, mode: (archivedBefore ? 'none' : (d?.mode ?? 'none')) as PlanCategory['mode'], percentBp: d?.percent_bp ?? null, amountOre: d?.amount_ore ?? null, overrideOre: archivedBefore ? null : (o?.amount_ore ?? null) }
   })
-  const fixedAlloc = base.filter((b) => b.mode === 'amount').reduce((s, b) => s + (b.default_ore ?? 0), 0)
-  const dist = Math.max(available - fixedAlloc, 0)
-  const pct = base.filter((b) => b.mode === 'percent')
-  const bp = pct.reduce((s, b) => s + (b.percent_bp ?? 0), 0)
-  const raw = pct.map((b) => ({ id: b.id, raw: (dist * (b.percent_bp ?? 0)) / Math.max(bp, 10000) }))
-  const floors = raw.map((x) => ({ ...x, fl: Math.floor(x.raw), frac: x.raw - Math.floor(x.raw) }))
-  const target = Math.round((dist * Math.min(bp, 10000)) / 10000)
-  let rest = target - floors.reduce((s, x) => s + x.fl, 0)
-  ;[...floors].sort((a, b) => b.frac - a.frac || a.id.localeCompare(b.id)).forEach((x) => {
-    if (rest > 0) {
-      x.fl += 1
-      rest--
-    }
-  })
-  const pctOre = new Map(floors.map((x) => [x.id, x.fl]))
+  const incomes = monthIncome(m).map((r) => ({ actualOre: r.actual_ore, entryCount: r.entry_count, expectedOre: r.expected_ore }))
+  const fixedExpensesOre = (fixedItemsMonth(m) as any[]).filter((f) => f.kind === 'expense').reduce((x, f) => x + f.monthly_ore, 0)
+  return { base, plan: computePlan({ incomes, fixedExpensesOre, categories: base }) }
+}
+
+function categoryBudgets(month: string) {
+  const { base, plan } = planFor(month)
   return base.map((b) => ({
-    category_id: b.id, mode: b.mode, percent_bp: b.percent_bp, default_ore: b.default_ore, override_ore: b.override_ore,
-    effective_ore: b.override_ore ?? (b.mode === 'amount' ? (b.default_ore ?? 0) : b.mode === 'percent' ? (pctOre.get(b.id) ?? 0) : 0),
-    budget_source: b.override_ore !== null ? 'override' : b.mode === 'amount' || b.mode === 'percent' ? 'default' : 'none',
+    category_id: b.id, mode: b.mode, percent_bp: b.percentBp, default_ore: b.amountOre, override_ore: b.overrideOre,
+    effective_ore: plan.budgets[b.id]!.ore, budget_source: plan.budgets[b.id]!.source,
   }))
 }
 
 function monthPlan(month: string) {
-  const f = fixedItemsMonth(month) as any[]
-  const inc = f.filter((x) => x.kind === 'income').reduce((s, x) => s + x.monthly_ore, 0)
-  const exp = f.filter((x) => x.kind === 'expense').reduce((s, x) => s + x.monthly_ore, 0)
-  const cb = categoryBudgets(month)
-  const fixedAlloc = cb.filter((x) => x.mode === 'amount').reduce((s, x) => s + (x.default_ore ?? 0), 0)
-  const bp = cb.filter((x) => x.mode === 'percent').reduce((s, x) => s + (x.percent_bp ?? 0), 0)
-  const allocated = cb.reduce((s, x) => s + x.effective_ore, 0)
-  return [{ income_ore: inc, fixed_expenses_ore: exp, available_ore: inc - exp, fixed_allocations_ore: fixedAlloc, distributable_ore: Math.max(inc - exp - fixedAlloc, 0), percent_total_bp: bp, allocated_ore: allocated, unallocated_ore: inc - exp - allocated }]
+  const p = planFor(month).plan
+  return [{
+    income_ore: p.incomeOre, actual_income_ore: p.actualIncomeOre, expected_income_ore: p.expectedIncomeOre, fixed_expenses_ore: p.fixedExpensesOre,
+    available_ore: p.availableOre, fixed_allocations_ore: p.fixedAllocationsOre, distributable_ore: p.distributableOre, percent_total_bp: p.percentTotalBp,
+    allocated_ore: p.allocatedOre, unallocated_ore: p.unallocatedOre,
+  }]
 }
 
 function budgetMonthSummary(month: string) {
@@ -735,14 +857,41 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
   current_household_id: () => HID,
   budget_month_summary: (a) => budgetMonthSummary(a.p_month),
   month_plan: (a) => monthPlan(a.p_month),
+  month_income: (a) => (isAdult() ? monthIncome(a.p_month) : []),
+  income_source_create: (a) => {
+    if (!isAdult()) throw rlsError()
+    if (a.p_owner_kind === 'member' && !db.household_members!.some((m) => m.user_id === a.p_owner_user_id && m.role !== 'child' && !m.left_at)) throw new PgError('Vælg en voksen i husstanden', '23514')
+    if (db.income_sources!.some((x) => !x.archived_at && x.name.toLowerCase() === String(a.p_name).trim().toLowerCase())) throw new PgError('duplicate', '23505', 409)
+    if (a.p_expected_ore && a.p_expected_ore > 0) {
+      const item = rpcs.create_fixed_item!({ p_kind: 'income', p_name: a.p_name, p_amount_ore: a.p_expected_ore, p_owner_kind: a.p_owner_kind, p_owner_user_id: a.p_owner_user_id })
+      const src = db.income_sources!.find((x) => x.fixed_item_id === item)!
+      if (a.p_type_id) src.type_id = a.p_type_id
+      return src.id
+    }
+    const id = uuid()
+    db.income_sources!.push({
+      id, household_id: HID, name: String(a.p_name).trim(), type_id: a.p_type_id ?? typeNamed('Andet'), owner_kind: a.p_owner_kind ?? 'shared',
+      owner_user_id: a.p_owner_kind === 'member' ? a.p_owner_user_id : null, fixed_item_id: null, sort_order: db.income_sources!.length, archived_at: null,
+      created_by: CUR, created_at: nowIso(), updated_at: nowIso(),
+    })
+    return id
+  },
   fixed_items_month: (a) => fixedItemsMonth(a.p_month),
   create_budget_category: (a) => {
     if (db.budget_categories!.some((c) => !c.archived_at && c.name.toLowerCase() === String(a.p_name).toLowerCase())) throw new PgError('duplicate', '23505', 409)
     const c = { id: uuid(), household_id: HID, name: a.p_name, icon: a.p_icon, color: a.p_color, kind: a.p_kind ?? 'spending', sort_order: db.budget_categories!.length, archived_at: null, created_by: CUR, created_at: nowIso(), updated_at: nowIso() }
     db.budget_categories!.push(c)
     const vf = a.p_valid_from ? a.p_valid_from.slice(0, 8) + '01' : curMonth()
-    if (a.p_mode === 'percent' && a.p_percent_bp != null)
+    if (a.p_mode === 'percent' && a.p_percent_bp != null) {
       db.budget_category_defaults!.push({ id: uuid(), household_id: HID, category_id: c.id, valid_from: vf, mode: 'percent', amount_ore: null, percent_bp: a.p_percent_bp, created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
+      try {
+        checkPercentTotal(vf)
+      } catch (e) {
+        db.budget_category_defaults!.pop()
+        db.budget_categories!.pop()
+        throw e
+      }
+    }
     else if (a.p_default_amount_ore != null)
       db.budget_category_defaults!.push({ id: uuid(), household_id: HID, category_id: c.id, valid_from: vf, mode: 'amount', amount_ore: a.p_default_amount_ore, percent_bp: null, created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
     return c.id
@@ -753,8 +902,17 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
     const mode = a.p_mode ?? 'amount'
     const values = { mode, amount_ore: mode === 'amount' ? a.p_amount_ore : null, percent_bp: mode === 'percent' ? a.p_percent_bp : null }
     const ex = db.budget_category_defaults!.find((x) => x.category_id === a.p_category_id && x.valid_from === vf)
+    const before = ex ? { ...ex } : null
     if (ex) Object.assign(ex, values)
     else db.budget_category_defaults!.push({ id: uuid(), household_id: HID, category_id: a.p_category_id, valid_from: vf, ...values, created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
+    if (mode === 'percent')
+      try {
+        checkPercentTotal(vf)
+      } catch (e) {
+        if (ex) Object.assign(ex, before)
+        else db.budget_category_defaults!.pop()
+        throw e
+      }
     return null
   },
   set_monthly_budget: (a) => {
@@ -781,6 +939,7 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
       created_by: CUR, created_at: nowIso(), updated_at: nowIso(),
     })
     db.fixed_item_versions!.push({ id: uuid(), household_id: HID, item_id: id, valid_from: sm, amount_ore: a.p_amount_ore, frequency: a.p_frequency ?? 'monthly', due_month: (a.p_frequency ?? 'monthly') === 'monthly' ? null : a.p_due_month, created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
+    if (a.p_kind === 'income') ensureIncomeSources()
     return id
   },
   set_fixed_item_amount: (a) => {
@@ -843,10 +1002,7 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
       for (const x of db.bank_transactions!) if (x.user_id === CUR && x.state === 'new' && x.amount_ore < 0 && !x.possible_duplicate_id && merchantKey(x) === key) demoImportExpense(x, a.p_category_id, null)
       return t.id
     }
-    const id = uuid()
-    db.income_entries!.push({ id, household_id: HID, amount_ore: b.amount_ore, received_on: b.booked_on, description: descr, note: null, received_by_kind: 'member', received_by_user_id: CUR, source: 'bank', created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
-    Object.assign(b, { state: 'imported', income_id: id })
-    return id
+    return demoImportIncome(b, descr)
   },
   bank_link_existing: (a) => {
     const b = db.bank_transactions!.find((x) => x.id === a.p_id && x.user_id === CUR)
@@ -922,6 +1078,7 @@ const rpcs: Record<string, (a: Row) => unknown | Promise<unknown>> = {
     db.households!.push({ id: HID, name, default_receipt_retention: '30d', grocery_category_id: null, created_by: CUR, created_at: nowIso(), updated_at: nowIso() })
     db.household_members!.push({ household_id: HID, user_id: CUR, role: 'owner', child_username: null, disabled_at: null, left_at: null, created_at: nowIso() })
     db['private.login_codes'] = [{ household_id: HID, code: DEMO_LOGIN_CODE }]
+    seedIncomeTypes(db)
     return HID
   },
   invite_create: () => {
@@ -1658,6 +1815,8 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
         for (const row of list) {
           if (table === 'calendar_events') syncParticipants(row)
           if (table === 'household_tasks') rewardStatus(row)
+          if (table === 'income_entries') incomeEntryDefaults(row, null, row)
+          if ((table === 'income_types' || table === 'income_sources') && rows.some((x) => !x.archived_at && x.name.toLowerCase() === String(row.name).trim().toLowerCase())) throw new PgError('duplicate', '23505', 409)
           if (table === 'transactions' && db.budget_categories!.find((c) => c.id === row.category_id)?.archived_at) throw new PgError('Kategorien er arkiveret', '23514')
           if (table === 'fixed_groups' && db.fixed_groups!.some((g) => !g.archived_at && g.name.toLowerCase() === String(row.name).toLowerCase())) throw new PgError('duplicate', '23505', 409)
           if (table === 'savings_movements' && row.kind === 'withdrawal') {
@@ -1678,6 +1837,7 @@ async function demoFetch(input: RequestInfo | URL, init: RequestInit = {}): Prom
             Object.assign(r, body.is_checked ? { checked_by: CUR, checked_at: nowIso() } : { checked_by: null, checked_at: null })
           Object.assign(r, body, { updated_at: nowIso() })
           if (table === 'household_tasks') rewardStatus(r, old)
+          if (table === 'income_entries') incomeEntryDefaults(r, old, body ?? {})
           if (table === 'calendar_events') {
             // Ældre app-versioner sender kun for_user_id
             if (body && !('participant_ids' in body) && 'for_user_id' in body) r.participant_ids = body.for_user_id ? [body.for_user_id] : []

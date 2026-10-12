@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useHousehold } from '@/features/household/HouseholdProvider'
 import { isReadOnlyError, READ_ONLY_MESSAGE } from '@/lib/billing'
 import { supabase } from '@/lib/supabase'
-import type { Frequency, Tables } from '@/types/database'
+import type { Database, Frequency, Tables } from '@/types/database'
 
 export type BankTransaction = Tables<'bank_transactions'>
 export type IncomeEntry = Tables<'income_entries'>
@@ -182,9 +182,14 @@ function useRefresh() {
 export function useImportBankTransaction() {
   const refresh = useRefresh()
   return useMutation({
-    mutationFn: async (input: { id: string; categoryId: string | null; description: string }) => {
+    mutationFn: async (input: { id: string; categoryId: string | null; description: string; incomeSourceId?: string | null }) => {
       const { data, error } = await supabase.rpc('bank_import', { p_id: input.id, p_category_id: input.categoryId, p_description: input.description.trim() || null })
       if (error) throw error
+      // Indtægt: brugerens valg af kilde (appen husker afsenderen til næste gang)
+      if (input.incomeSourceId && data) {
+        const { error: e2 } = await supabase.from('income_entries').update({ source_id: input.incomeSourceId, matched_by_user: true }).eq('id', data)
+        if (e2) throw e2
+      }
       return data
     },
     onSuccess: refresh,
@@ -284,16 +289,26 @@ export function useDisableRule() {
 
 // ---------------------------------------------------------------- indtægter
 
-export function useMonthIncome(month: string, next: string) {
+export type IncomeType = Tables<'income_types'>
+export type IncomeSource = Tables<'income_sources'>
+export type MonthIncomeRow = Database['public']['Functions']['month_income']['Returns'][number]
+
+/** Indtægter ændrer månedens plan og budgetter – opdatér begge */
+function useRefreshIncome() {
+  const qc = useQueryClient()
+  return () => Promise.all([qc.invalidateQueries({ queryKey: ['income'] }), qc.invalidateQueries({ queryKey: ['finance'] })])
+}
+
+/** Indtægter, der hører til måneden (period_month) */
+export function useMonthIncome(month: string) {
   const { id } = useHousehold()
   return useQuery({
-    queryKey: ['income', id, month],
+    queryKey: ['income', id, 'entries', month],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('income_entries')
         .select('*')
-        .gte('received_on', month)
-        .lt('received_on', next)
+        .eq('period_month', month)
         .order('received_on', { ascending: false })
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -302,34 +317,146 @@ export function useMonthIncome(month: string, next: string) {
   })
 }
 
+/** Månedens indtægt pr. kilde: faktisk, ellers forventet */
+export function useMonthIncomeBySource(month: string) {
+  const { id } = useHousehold()
+  return useQuery({
+    queryKey: ['income', id, 'by-source', month],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('month_income', { p_month: month })
+      if (error) throw error
+      return data
+    },
+  })
+}
+
+export function useIncomeTypes() {
+  const { id } = useHousehold()
+  return useQuery({
+    queryKey: ['income', id, 'types'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('income_types').select('*').is('archived_at', null).order('sort_order').order('name')
+      if (error) throw error
+      return data
+    },
+  })
+}
+
+export function useIncomeSources() {
+  const { id } = useHousehold()
+  return useQuery({
+    queryKey: ['income', id, 'sources'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('income_sources').select('*').order('sort_order').order('name')
+      if (error) throw error
+      return data
+    },
+  })
+}
+
+export function useCreateIncomeType() {
+  const { id: hid } = useHousehold()
+  const refresh = useRefreshIncome()
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const { data, error } = await supabase.from('income_types').insert({ household_id: hid, name: name.trim(), sort_order: 50 }).select('id').single()
+      if (error) throw error
+      return data.id
+    },
+    onSuccess: refresh,
+  })
+}
+
+export function useCreateIncomeSource() {
+  const refresh = useRefreshIncome()
+  return useMutation({
+    mutationFn: async (input: { name: string; typeId: string | null; owner: { kind: 'member' | 'shared'; userId: string | null }; expectedOre: number | null }) => {
+      const { data, error } = await supabase.rpc('income_source_create', {
+        p_name: input.name.trim(),
+        p_type_id: input.typeId,
+        p_owner_kind: input.owner.kind,
+        p_owner_user_id: input.owner.kind === 'member' ? input.owner.userId : null,
+        p_expected_ore: input.expectedOre,
+      })
+      if (error) throw error
+      return data
+    },
+    onSuccess: refresh,
+  })
+}
+
+export function useUpdateIncomeSource() {
+  const refresh = useRefreshIncome()
+  return useMutation({
+    mutationFn: async (input: { id: string; name?: string; typeId?: string; archived?: boolean }) => {
+      const { error } = await supabase
+        .from('income_sources')
+        .update({
+          ...(input.name !== undefined ? { name: input.name.trim() } : {}),
+          ...(input.typeId !== undefined ? { type_id: input.typeId } : {}),
+          ...(input.archived !== undefined ? { archived_at: input.archived ? new Date().toISOString() : null } : {}),
+        })
+        .eq('id', input.id)
+      if (error) throw error
+    },
+    onSuccess: refresh,
+  })
+}
+
+export type IncomeInput = {
+  id?: string
+  amountOre: number
+  receivedOn: string
+  description: string
+  paidBy: { kind: 'member' | 'shared'; userId: string | null }
+  sourceId: string | null
+  typeId: string | null
+  periodMonth: string
+}
+
 export function useSaveIncome() {
   const { id: hid } = useHousehold()
-  const qc = useQueryClient()
+  const refresh = useRefreshIncome()
   return useMutation({
-    mutationFn: async (input: { id?: string; amountOre: number; receivedOn: string; description: string; paidBy: { kind: 'member' | 'shared'; userId: string | null } }) => {
+    mutationFn: async (input: IncomeInput) => {
       const values = {
         amount_ore: input.amountOre,
         received_on: input.receivedOn,
         description: input.description.trim(),
         received_by_kind: input.paidBy.kind,
         received_by_user_id: input.paidBy.kind === 'member' ? input.paidBy.userId : null,
+        source_id: input.sourceId,
+        type_id: input.typeId,
+        period_month: input.periodMonth,
       }
       const { error } = input.id
         ? await supabase.from('income_entries').update(values).eq('id', input.id)
         : await supabase.from('income_entries').insert({ household_id: hid, ...values })
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['income'] }),
+    onSuccess: refresh,
+  })
+}
+
+/** Bekræft appens forslag til kilde (lærer modparten, hvis indtægten kom fra banken) */
+export function useConfirmIncomeSource() {
+  const refresh = useRefreshIncome()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('income_entries').update({ matched_by_user: true }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: refresh,
   })
 }
 
 export function useDeleteIncome() {
-  const qc = useQueryClient()
+  const refresh = useRefreshIncome()
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('income_entries').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['income'] }),
+    onSuccess: refresh,
   })
 }

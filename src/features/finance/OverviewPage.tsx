@@ -88,17 +88,22 @@ export function OverviewPage() {
         </div>
       ) : (
         <>
-          <SectionHeader title="Månedens plan" to={`/okonomi/faste${q}`} linkLabel="Faste poster" />
+          <SectionHeader title="Månedens plan" to={`/okonomi/plan${q}`} linkLabel="Hele planen" />
           {hasPlan && plan.data ? (
             <Card className="p-5">
               <PlanWaterfall plan={plan.data} lines={lines} q={q} />
             </Card>
           ) : (
             <Card variant="tonal">
-              <EmptyState compact icon={Landmark} title="Ingen fast økonomi endnu" text="Tilføj jeres faste indtægter og udgifter, så beregner appen rådighedsbeløbet.">
-                <Link to="/okonomi/faste">
-                  <Button size="sm">Tilføj faste poster</Button>
-                </Link>
+              <EmptyState compact icon={Landmark} title="Ingen indtægter eller faste udgifter endnu" text="Tilføj jeres indtægter og faste udgifter, så beregner appen, hvad der er tilbage at fordele.">
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Link to="/okonomi/indtaegter">
+                    <Button size="sm">Tilføj indtægt</Button>
+                  </Link>
+                  <Link to="/okonomi/faste">
+                    <Button size="sm" variant="secondary">Faste udgifter</Button>
+                  </Link>
+                </div>
               </EmptyState>
             </Card>
           )}

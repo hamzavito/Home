@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { Field, TextInput } from '@/components/ui/Field'
+import { Field, SelectInput, TextInput } from '@/components/ui/Field'
 import { ListGroup } from '@/components/ui/ListRow'
 import { Money } from '@/components/ui/Money'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -16,7 +16,7 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import type { Frequency } from '@/types/database'
 import { formatLongDate, formatShortDate, fromIsoDate } from '@/lib/dates'
 import { cn } from '@/lib/cn'
-import { bankErrorMessage, syncMessage, useAutoSync, useBankConnections, useBankInbox, useBankPending, useIgnoreAll, useImportBankTransaction, useImportSuggested, useLinkBankTransaction, useMarkFixed, useSetIgnored, useSyncBank, type BankTransaction } from './api'
+import { bankErrorMessage, syncMessage, useAutoSync, useIncomeSources, useBankConnections, useBankInbox, useBankPending, useIgnoreAll, useImportBankTransaction, useImportSuggested, useLinkBankTransaction, useMarkFixed, useSetIgnored, useSyncBank, type BankTransaction } from './api'
 
 /** Posteringer fra banken, der venter på at blive godkendt som udgift eller indtægt. Kun egne. */
 export function BankInboxPage() {
@@ -76,7 +76,7 @@ export function BankInboxPage() {
           <p className="mb-2 px-1 text-[13px] font-semibold text-secondary">
             {fresh.length} {fresh.length === 1 ? 'ny postering' : 'nye posteringer'} · kun du kan se dem
           </p>
-          <p className="mb-3 px-1 text-[13px] text-secondary">Indtægter kommer automatisk med under Økonomi → Indtægter – undtagen MobilePay, som du selv godkender.</p>
+          <p className="mb-3 px-1 text-[13px] text-secondary">Indtægter kommer automatisk med under Økonomi → Indtægter med et forslag til kilde – undtagen MobilePay, som du selv godkender.</p>
           <div className="mb-3 flex flex-wrap gap-2">
             {withSuggestion.length > 0 && (
               <Button size="sm" onClick={() => setConfirmAll('suggested')}>
@@ -200,6 +200,8 @@ function ReviewSheet({ row, onDone }: { row: BankTransaction; onDone: () => void
   const [fixedMode, setFixedMode] = useState(false)
   const fixedItems = useFixedItems()
   const fixedName = row.fixed_item_id ? fixedItems.data?.find((i) => i.id === row.fixed_item_id)?.name : undefined
+  const incomeSources = useIncomeSources()
+  const [sourceId, setSourceId] = useState<string>('')
 
   return (
     <>
@@ -243,6 +245,22 @@ function ReviewSheet({ row, onDone }: { row: BankTransaction; onDone: () => void
               <TextInput value={description} maxLength={80} onChange={(e) => setDescription(e.target.value)} />
             </Field>
           </div>
+          {income && (
+            <div className="mt-4">
+              <Field label="Indtægtskilde" hint="Appen husker afsenderen og foreslår kilden næste gang – beløbet må gerne variere.">
+                <SelectInput value={sourceId} onChange={(e) => setSourceId(e.target.value)} aria-label="Indtægtskilde">
+                  <option value="">Vælg senere</option>
+                  {(incomeSources.data ?? [])
+                    .filter((s) => !s.archived_at)
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                </SelectInput>
+              </Field>
+            </div>
+          )}
           {!income && (
             <div className="mt-4">
               <p className="mb-1.5 px-1 text-[13px] font-semibold text-secondary">Kategori{row.suggested_category_id ? ' (foreslået ud fra tidligere køb)' : ''}</p>
@@ -260,7 +278,7 @@ function ReviewSheet({ row, onDone }: { row: BankTransaction; onDone: () => void
             <Button
               disabled={busy || (!income && !categoryId) || !description.trim()}
               loading={imp.isPending}
-              onClick={() => imp.mutate({ id: row.id, categoryId: income ? null : categoryId, description }, { onSuccess: onDone })}
+              onClick={() => imp.mutate({ id: row.id, categoryId: income ? null : categoryId, description, incomeSourceId: income ? sourceId || null : null }, { onSuccess: onDone })}
             >
               {income ? 'Gem indtægt' : 'Gem udgift'}
             </Button>

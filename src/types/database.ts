@@ -186,6 +186,12 @@ export type Database = {
           received_by_kind: PaidByKind
           received_by_user_id: string | null
           source: 'manual' | 'bank'
+          source_id: string | null
+          type_id: string
+          period_month: string
+          bank_transaction_id: string | null
+          match_confidence: number | null
+          matched_by_user: boolean
           created_by: string
           created_at: string
           updated_at: string
@@ -198,6 +204,9 @@ export type Database = {
           note?: string | null
           received_by_kind?: PaidByKind
           received_by_user_id?: string | null
+          source_id?: string | null
+          type_id?: string | null
+          period_month?: string | null
         }
         Update: {
           amount_ore?: number
@@ -206,7 +215,36 @@ export type Database = {
           note?: string | null
           received_by_kind?: PaidByKind
           received_by_user_id?: string | null
+          source_id?: string | null
+          type_id?: string | null
+          period_month?: string | null
+          matched_by_user?: boolean
         }
+        Relationships: []
+      }
+      income_types: {
+        Row: { id: string; household_id: string; name: string; sort_order: number; is_default: boolean; archived_at: string | null; created_at: string }
+        Insert: { household_id: string; name: string; sort_order?: number }
+        Update: { name?: string; sort_order?: number; archived_at?: string | null }
+        Relationships: []
+      }
+      income_sources: {
+        Row: {
+          id: string
+          household_id: string
+          name: string
+          type_id: string
+          owner_kind: PaidByKind
+          owner_user_id: string | null
+          fixed_item_id: string | null
+          sort_order: number
+          archived_at: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: { household_id: string; name: string; type_id: string; owner_kind?: PaidByKind; owner_user_id?: string | null; sort_order?: number }
+        Update: { name?: string; type_id?: string; owner_kind?: PaidByKind; owner_user_id?: string | null; sort_order?: number; archived_at?: string | null }
         Relationships: []
       }
       bank_transactions: {
@@ -764,6 +802,8 @@ export type Database = {
         Args: { p_month: string }
         Returns: Array<{
           income_ore: number
+          actual_income_ore: number
+          expected_income_ore: number
           fixed_expenses_ore: number
           available_ore: number
           fixed_allocations_ore: number
@@ -772,6 +812,26 @@ export type Database = {
           allocated_ore: number
           unallocated_ore: number
         }>
+      }
+      month_income: {
+        Args: { p_month: string }
+        Returns: Array<{
+          source_id: string | null
+          name: string
+          type_name: string | null
+          owner_kind: PaidByKind | null
+          owner_user_id: string | null
+          actual_ore: number
+          expected_ore: number | null
+          used_ore: number
+          status: 'actual' | 'expected'
+          entry_count: number
+          unconfirmed_count: number
+        }>
+      }
+      income_source_create: {
+        Args: { p_name: string; p_type_id: string | null; p_owner_kind?: PaidByKind; p_owner_user_id?: string | null; p_expected_ore?: number | null }
+        Returns: string
       }
       set_monthly_budget: { Args: { p_category_id: string; p_month: string; p_amount_ore: number | null }; Returns: undefined }
       create_pending_receipt: { Args: Record<PropertyKey, never>; Returns: Array<{ receipt_id: string; storage_path: string }> }

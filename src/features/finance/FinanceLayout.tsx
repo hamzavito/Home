@@ -6,6 +6,7 @@ import { cn } from '@/lib/cn'
 
 const tabs = [
   { to: '/okonomi', label: 'Overblik', end: true },
+  { to: '/okonomi/plan', label: 'Månedens plan', end: true },
   { to: '/okonomi/budgetter', label: 'Budgetter', end: true },
   { to: '/okonomi/faste', label: 'Faste poster', end: true },
   { to: '/okonomi/transaktioner', label: 'Transaktioner', end: true },

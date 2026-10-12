@@ -9,6 +9,7 @@ import { CategoryNewPage } from '@/features/budgets/CategoryNewPage'
 import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage'
 import { FinanceLayout } from '@/features/finance/FinanceLayout'
 import { OverviewPage } from '@/features/finance/OverviewPage'
+import { MonthPlanPage } from '@/features/finance/MonthPlanPage'
 import { TransactionsPage } from '@/features/finance/TransactionsPage'
 import { FixedItemPage } from '@/features/fixed/FixedItemPage'
 import { FixedNewPage } from '@/features/fixed/FixedNewPage'
@@ -67,6 +68,7 @@ export const router = createBrowserRouter([
             element: <FinanceLayout />,
             children: [
               { index: true, element: <OverviewPage /> },
+              { path: 'plan', element: <MonthPlanPage /> },
               { path: 'budgetter', element: <BudgetsPage /> },
               { path: 'faste', element: <FixedPage /> },
               { path: 'transaktioner', element: <TransactionsPage /> },

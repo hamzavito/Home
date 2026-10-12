@@ -267,6 +267,7 @@ export function errorMessage(e: unknown): string {
   if (err?.code === '23505') return 'Der findes allerede en kategori med det navn.'
   if (err?.message?.includes('arkiveret')) return 'Kategorien er arkiveret. Vælg en anden.'
   if (err?.message?.includes('indeværende måned')) return 'Standardbudgettet kan kun ændres fra denne måned og frem.'
+  if (err?.message?.includes('højst være 100 %')) return `${err.message.replace(/\s*\(er nu ([\d.,]+)\)/, (_, v: string) => ` – med denne ændring ${String(v).replace('.', ',')} %`)}. Sænk en anden procentkategori først.`
   if (err?.message?.toLowerCase().includes('fetch')) return 'Ingen forbindelse. Prøv igen.'
   return 'Noget gik galt. Prøv igen.'
 }

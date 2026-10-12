@@ -22,14 +22,20 @@ export function PlanWaterfall({ plan, lines, q = '' }: { plan: MonthPlan; lines:
   const over = plan.percent_total_bp > 10000
 
   const rows: Row[] = [
-    { label: 'Indkomst', ore: plan.income_ore, sign: '+', to: `/okonomi/faste${q}` },
+    {
+      label: 'Indtægter',
+      ore: plan.income_ore,
+      sign: '+',
+      sub: plan.expected_income_ore > 0 ? `Heraf ${money(plan.expected_income_ore)} forventet` : undefined,
+      to: `/okonomi/indtaegter${q}`,
+    },
     { label: 'Faste udgifter', ore: plan.fixed_expenses_ore, sign: '−', to: `/okonomi/faste${q}` },
     { label: 'Tilbage efter faste udgifter', ore: plan.available_ore, strong: true },
     ...fixedAmount.map((l) => ({
       label: l.name,
-      ore: l.default_ore,
+      ore: l.budget_ore,
       sign: '−' as const,
-      sub: l.kind === 'reserve' ? 'Reserve' : 'Fast beløb',
+      sub: l.budget_source === 'override' ? 'Manuel denne måned' : l.kind === 'reserve' ? 'Reserve' : 'Fast beløb',
       to: `/okonomi/budgetter/${l.category_id}${q}`,
     })),
     ...(fixedAmount.length > 0 ? [{ label: 'Til fordeling', ore: plan.distributable_ore, strong: true }] : []),
@@ -37,7 +43,7 @@ export function PlanWaterfall({ plan, lines, q = '' }: { plan: MonthPlan; lines:
       label: l.name,
       ore: l.budget_ore,
       sign: '' as const,
-      sub: `${formatPercent(l.percent_bp ?? 0)}${l.budget_source === 'override' ? ' · tilpasset' : ''}`,
+      sub: l.budget_source === 'override' ? `Manuel denne måned (standard ${formatPercent(l.percent_bp ?? 0)})` : formatPercent(l.percent_bp ?? 0),
       to: `/okonomi/budgetter/${l.category_id}${q}`,
     })),
   ]
@@ -55,7 +61,7 @@ export function PlanWaterfall({ plan, lines, q = '' }: { plan: MonthPlan; lines:
     <div>
       {plan.income_ore > 0 && (
         <>
-          <div className="flex h-3 w-full overflow-hidden rounded-full bg-track" role="img" aria-label="Fordeling af indkomsten">
+          <div className="flex h-3 w-full overflow-hidden rounded-full bg-track" role="img" aria-label="Fordeling af indtægterne">
             {seg.map((s) => (
               <div key={s.key} className="animate-grow h-full" style={{ width: `${Math.min(100, (s.ore / inc) * 100)}%`, background: s.color }} />
             ))}
@@ -112,8 +118,8 @@ export function PlanWaterfall({ plan, lines, q = '' }: { plan: MonthPlan; lines:
         <p className="mt-2 flex items-start gap-2 rounded-2xl bg-notice-soft px-3.5 py-3 text-[13px] font-medium text-notice">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
           {plan.available_ore < 0
-            ? 'De faste udgifter er større end indkomsten. Procentbudgetterne er sat til 0.'
-            : `Procentbudgetterne summer til ${formatPercent(plan.percent_total_bp)}. De er skaleret ned, så der ikke fordeles mere end der er.`}
+            ? 'De faste udgifter er større end indtægterne. Procentbudgetterne er sat til 0.'
+            : `Procentbudgetterne summer til ${formatPercent(plan.percent_total_bp)}. Ret dem, så de højst er 100 %.`}
         </p>
       )}
     </div>

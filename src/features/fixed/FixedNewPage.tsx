@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { Button } from '@/components/ui/Button'
 import { AmountInput, Field, TextArea, TextInput } from '@/components/ui/Field'
@@ -11,7 +11,7 @@ import { cn } from '@/lib/cn'
 import { monthKey } from '@/lib/dates'
 import { formatAmount, parseKr } from '@/lib/money'
 import type { FixedKind, Frequency } from '@/types/database'
-import { fixedErrorMessage, useCreateFixedItem, useFixedGroups } from './api'
+import { fixedErrorMessage, useCreateFixedItem, useEnsureDefaultGroups, useFixedGroups } from './api'
 import { FrequencyPicker, selectCls } from './FrequencyPicker'
 
 export function FixedNewPage() {
@@ -20,6 +20,15 @@ export function FixedNewPage() {
   const kind: FixedKind = params.get('type') === 'income' ? 'income' : 'expense'
   const { me, members } = useHousehold()
   const groups = useFixedGroups()
+  const ensure = useEnsureDefaultGroups()
+  const ensured = useRef(false)
+  // Åbnes siden direkte (fx fra et link), oprettes standardgrupperne her
+  useEffect(() => {
+    if (!ensured.current && groups.data && groups.data.length === 0) {
+      ensured.current = true
+      ensure.mutate()
+    }
+  }, [groups.data, ensure])
   const create = useCreateFixedItem()
 
   const [name, setName] = useState('')

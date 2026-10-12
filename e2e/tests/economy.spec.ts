@@ -68,7 +68,7 @@ test('fast økonomi, fordeling og historik med husstandens tal', async ({ page }
 
   // Vandfaldet i Overblik
   await page.goto('/okonomi')
-  await expect(page.getByText('Månedens plan')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Månedens plan' })).toBeVisible()
   const waterfall = norm(await page.locator('main').textContent())
   for (const v of ['30.000,00 kr.', '23.822,13 kr.', '6.177,87 kr.', '2.000,00 kr.', '4.177,87 kr.', '2.715,62 kr.', '1.462,25 kr.', 'Ufordelt0,00 kr.']) {
     expect(waterfall, v).toContain(v)
@@ -85,7 +85,7 @@ test('fast økonomi, fordeling og historik med husstandens tal', async ({ page }
   await expect(page.getByText('Planlagt')).toBeVisible()
 
   await page.goto('/okonomi')
-  await expect(page.getByText('Månedens plan')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Månedens plan' })).toBeVisible()
   expect(norm(await page.locator('main').textContent())).toContain('23.822,13 kr.')
   await page.getByRole('button', { name: 'Næste måned' }).click()
   await expect.poll(async () => norm(await page.locator('main').textContent())).toContain('23.843,13 kr.')

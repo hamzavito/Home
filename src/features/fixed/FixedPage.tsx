@@ -89,7 +89,7 @@ export function FixedPage() {
             <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-hero-text-secondary">{formatMonth(fromIsoDate(month))}</p>
             <div className="mt-3 space-y-1.5 text-[15px]">
               <div className="flex justify-between">
-                <span className="text-hero-text-secondary">Indkomst</span>
+                <span className="text-hero-text-secondary">Forventet indkomst</span>
                 <span className="tabular font-semibold">{formatAmount(incomeTotal, { decimals: 'always' })} kr.</span>
               </div>
               <div className="flex justify-between">
@@ -182,7 +182,7 @@ export function FixedPage() {
           <Card className="mt-6 p-5">
             <dl className="space-y-2 text-[15px]">
               <div className="flex justify-between">
-                <dt className="text-secondary">Indkomst</dt>
+                <dt className="text-secondary">Forventet indkomst</dt>
                 <dd className="tabular font-semibold">{formatAmount(incomeTotal, { decimals: 'always' })} kr.</dd>
               </div>
               <div className="flex justify-between">
