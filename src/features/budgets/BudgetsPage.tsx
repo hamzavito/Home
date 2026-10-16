@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/Spinner'
 import { errorMessage, useBudgetMonth, useCategories, useCreateSuggestedCategories, type BudgetLine } from '@/features/finance/api'
 import { useMonthParam } from '@/features/finance/useMonthParam'
 import { useMonthPlan } from '@/features/fixed/api'
+import { BudgetSuggestionButton } from './BudgetSuggestionSheet'
 import { suggestedCategoriesFor } from '@/lib/categories'
 import { useFamilyComposition } from '@/features/settings/family'
 import { monthKey } from '@/lib/dates'
@@ -65,6 +66,7 @@ export function BudgetsPage() {
   return (
     <>
       <MonthSwitcher month={month} onChange={setMonth} />
+      {!budget.isPending && !budget.isError && <BudgetSuggestionButton month={month} />}
 
       {budget.isPending ? (
         <div className="mt-4 space-y-3">

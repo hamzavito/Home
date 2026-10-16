@@ -296,3 +296,28 @@ test('uden børn i familien foreslås "Børn" ikke som budgetkategori', async ({
   await startEmpty(page, '/okonomi/budgetter')
   await expect(page.getByText('Dagligvarer · Restaurant · Shopping · Bil · Ferie · Diverse')).toBeVisible()
 })
+
+test('forslag til budget: ud fra familien, også børn uden login', async ({ page }) => {
+  await startFamily(page, '/indstillinger/familie')
+  // Familien: 2 voksne + ét lille barn uden login
+  await page.getByRole('button', { name: 'Tilføj barn' }).first().click()
+  const sheet = page.locator('dialog[open]')
+  await sheet.getByLabel('Navn').fill('Lille')
+  await sheet.getByLabel('Fødselsdato').fill('2023-05-01')
+  await sheet.getByRole('button', { name: 'Tilføj barn' }).click()
+  await expect(page.getByRole('button', { name: /Lille.*uden login i appen/ })).toBeVisible()
+
+  // Knappen er altid synlig på Budgetter – også uden kategorier
+  await page.goto('/okonomi/budgetter')
+  await page.getByRole('button', { name: 'Forslag til budget' }).click()
+  await expect(sheet.getByText(/2 voksne · 1 barn/)).toBeVisible()
+  const list = sheet.getByRole('list', { name: 'Foreslået fordeling' })
+  await expect(list.getByText('Dagligvarer')).toBeVisible()
+  await expect(list.getByText('Børn', { exact: true })).toBeVisible()
+  await sheet.getByRole('button', { name: 'Brug forslag' }).click()
+
+  // Kategorierne er oprettet med procenter, der summer til 100 %
+  await expect(page.getByRole('link', { name: /Dagligvarer/ })).toBeVisible()
+  await expect(page.getByRole('link', { name: /Børn/ })).toBeVisible()
+  await expect(page.getByText(/\d+ % af til fordeling/).first()).toBeVisible()
+})
