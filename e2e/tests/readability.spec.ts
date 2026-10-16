@@ -22,7 +22,10 @@ const PAGES: Array<[string, string, string?]> = [
   ['opskrifter', '/hjemmet/madplan?vis=opskrifter', 'Linsesuppe'],
   ['ny-opskrift', '/hjemmet/madplan/opskrift/ny', 'Fremgangsmåde'],
   ['mere', '/mere', 'Mere'],
-  ['indstillinger', '/indstillinger', 'Standardvalg'],
+  ['indstillinger', '/indstillinger', 'Husstand'],
+  ['min-profil', '/indstillinger/profil', 'Betalt af'],
+  ['notifikationer', '/indstillinger/notifikationer', 'Påmindelser om aftaler'],
+  ['kvitteringer-indstillinger', '/indstillinger/kvitteringer', 'Gem kvitteringsbilleder i'],
   ['login', '/login'],
   ['glemt-adgangskode', '/glemt-adgangskode', 'Nulstil adgangskode'],
 ]

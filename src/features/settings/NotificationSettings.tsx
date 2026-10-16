@@ -7,7 +7,7 @@ import { disablePush, enablePush, isPushEnabled, permission, PushSetupError, pus
 import { useNotificationPrefs, useSendTestNotification, useUpdateNotificationPrefs } from './api'
 
 /** `shopping` = false skjuler indkøbslisten (børn har ikke adgang til den) */
-export function NotificationSettings({ shopping = true }: { shopping?: boolean }) {
+export function NotificationSettings({ shopping = true, header = true }: { shopping?: boolean; header?: boolean }) {
   const [support] = useState(pushSupport)
   const [enabled, setEnabled] = useState<boolean | null>(null)
   const [blocked, setBlocked] = useState(() => permission() === 'denied')
@@ -53,7 +53,7 @@ export function NotificationSettings({ shopping = true }: { shopping?: boolean }
 
   return (
     <>
-      <SectionHeader title="Notifikationer" />
+      {header && <SectionHeader title="Notifikationer" />}
       {support === 'needs-install' ? (
         <div className="flex gap-3 rounded-card bg-surface-primary p-5 shadow-card">
           <Share className="mt-0.5 size-5 shrink-0 text-accent" />

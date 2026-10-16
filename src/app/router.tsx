@@ -35,6 +35,9 @@ import { RecipePage } from '@/features/mealplan/RecipePage'
 import { MorePage } from '@/features/more/MorePage'
 import { AddChildPage } from '@/features/settings/ChildLogin'
 import { FamilyPage } from '@/features/settings/FamilyPage'
+import { NotificationsPage } from '@/features/settings/NotificationsPage'
+import { ProfilePage } from '@/features/settings/ProfilePage'
+import { ReceiptSettingsPage } from '@/features/settings/ReceiptSettingsPage'
 import { MemberPage } from '@/features/settings/MemberPage'
 import { InviteLandingPage } from '@/features/onboarding/InviteLandingPage'
 import { PrivacyPage, TermsPage } from '@/features/legal/LegalPages'
@@ -98,6 +101,9 @@ export const router = createBrowserRouter([
           { path: '/indstillinger', element: <SettingsPage /> },
           { path: '/indstillinger/medlem/:id', element: <MemberPage /> },
           { path: '/indstillinger/familie', element: <FamilyPage /> },
+          { path: '/indstillinger/profil', element: <ProfilePage /> },
+          { path: '/indstillinger/notifikationer', element: <NotificationsPage /> },
+          { path: '/indstillinger/kvitteringer', element: <ReceiptSettingsPage /> },
           { path: '/indstillinger/abonnement', element: <SubscriptionPage /> },
           { path: '/indstillinger/bank', element: <BankSettingsPage /> },
           { path: '/bank/callback', element: <BankCallbackPage /> },

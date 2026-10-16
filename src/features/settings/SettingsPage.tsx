@@ -1,122 +1,54 @@
-import { ChevronRight, Download, KeyRound, Landmark, Lock, LogOut, UserPlus, Users } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { Bell, ChevronRight, Download, Landmark, Lock, LogOut, Palette, Receipt, Send, UserPlus, UserRound, Users } from 'lucide-react'
+import { useState } from 'react'
 import { Link } from 'react-router'
 import { Avatar } from '@/components/ui/Avatar'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
-import { Field, TextInput } from '@/components/ui/Field'
 import { ListGroup, ListRow } from '@/components/ui/ListRow'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { useHousehold } from '@/features/household/HouseholdProvider'
-import { authErrorMessage } from '@/lib/auth-errors'
-import { cn } from '@/lib/cn'
-import { retentionOptions } from '@/lib/retention'
-import { describeFamily } from '@/lib/family'
-import { applyTheme, getThemePreference, type ThemePreference } from '@/lib/theme'
-import type { DefaultPaidBy, DefaultRetention } from '@/types/database'
-import { LoginCodeCard } from './ChildLogin'
-import { AccountDanger, InviteRows } from './HouseholdAccess'
 import { SubscriptionRow } from '@/features/billing/SubscriptionRow'
+import { useHousehold } from '@/features/household/HouseholdProvider'
+import { describeFamily } from '@/lib/family'
+import { retentionOptions } from '@/lib/retention'
+import { applyTheme, getThemePreference, type ThemePreference } from '@/lib/theme'
+import { LoginCodeRow } from './ChildLogin'
+import { AccountDanger, InviteRows } from './HouseholdAccess'
 import { roleLabels } from './MemberPage'
-import { NotificationSettings } from './NotificationSettings'
 import { useFamilyComposition } from './family'
-import { useChangePassword, useExportData, useUpdateProfile, useUpdateRetentionDefault } from './api'
+import { useExportData } from './api'
 
-const themes: Array<{ value: ThemePreference; label: string }> = [
+export const themes: Array<{ value: ThemePreference; label: string }> = [
   { value: 'system', label: 'System' },
   { value: 'light', label: 'Lyst' },
   { value: 'dark', label: 'Mørkt' },
 ]
 
-const retentionChoices = retentionOptions.filter((o) => o.value !== 'custom') as Array<{ value: DefaultRetention; label: string }>
-
+/**
+ * Indstillinger: ét overblik med ens rækker i faste grupper –
+ * Mig · Husstand · Økonomi · App · Konto. Detaljerne ligger på undersider.
+ */
 export function SettingsPage() {
   const household = useHousehold()
   const { session, signOut } = useAuth()
   const [theme, setTheme] = useState(getThemePreference)
-  const [name, setName] = useState(household.me.displayName)
-  const [sheet, setSheet] = useState<'password' | 'logout' | null>(null)
-  const profile = useUpdateProfile()
-  const retention = useUpdateRetentionDefault()
+  const [sheet, setSheet] = useState<'theme' | 'logout' | null>(null)
   const exportData = useExportData()
-
-  const trimmed = name.trim()
-  const nameChanged = trimmed !== household.me.displayName && trimmed.length > 0 && trimmed.length <= 40
-  const shownPaidBy = profile.isPending && profile.variables?.default_paid_by ? profile.variables.default_paid_by : household.me.defaultPaidBy
-  const shownRetention = retention.isPending && retention.variables ? retention.variables : household.defaultRetention
+  const composition = useFamilyComposition()
+  const retention = retentionOptions.find((o) => o.value === household.defaultRetention)?.label ?? ''
+  const isOwner = household.me.role === 'owner'
 
   return (
     <>
       <PageHeader title="Indstillinger" back="/mere" />
 
-      <SectionHeader title="Min profil" />
-      <div className="rounded-card bg-surface-primary p-5 shadow-card">
-        <Field label="Visningsnavn" hint={session?.user.email}>
-          <div className="flex gap-2">
-            <TextInput value={name} maxLength={40} onChange={(e) => setName(e.target.value)} className="flex-1" autoCapitalize="words" />
-            <Button className="h-13 shrink-0" disabled={!nameChanged} loading={profile.isPending && profile.variables?.display_name !== undefined} onClick={() => profile.mutate({ display_name: trimmed })}>
-              Gem
-            </Button>
-          </div>
-        </Field>
-        {profile.isError && <p className="mt-2 px-1 text-[13px] text-danger">Det kunne ikke gemmes. Prøv igen.</p>}
-      </div>
-      <ListGroup className="mt-3">
-        <ListRow icon={KeyRound} title="Adgangskode" subtitle="Skift eller opret en adgangskode" onClick={() => setSheet('password')} />
-        <ListRow icon={Landmark} title="Bank" subtitle="Hent dine udgifter og indtægter automatisk" to="/indstillinger/bank" />
+      <SectionHeader title="Mig" />
+      <ListGroup>
+        <ListRow icon={UserRound} title="Min profil" subtitle={[household.me.displayName, session?.user.email].filter(Boolean).join(' · ')} to="/indstillinger/profil" />
+        <ListRow icon={Bell} title="Notifikationer" subtitle="På denne telefon og hvad du får besked om" to="/indstillinger/notifikationer" />
       </ListGroup>
-
-      <SectionHeader title="Standardvalg" />
-      <div className="space-y-5 rounded-card bg-surface-primary p-5 shadow-card">
-        <div>
-          <p className="mb-1.5 px-1 text-[13px] font-semibold text-secondary">Betalt af – forslag i nye udgifter</p>
-          <SegmentedControl<DefaultPaidBy>
-            label="Betalt af som standard"
-            value={shownPaidBy}
-            onChange={(v) => v !== household.me.defaultPaidBy && profile.mutate({ default_paid_by: v })}
-            options={[
-              { value: 'me', label: 'Mig' },
-              { value: 'shared', label: 'Fælles' },
-            ]}
-          />
-          <p className="mt-1.5 px-1 text-[13px] text-secondary">
-            Gælder kun dig. Du kan altid vælge noget andet.
-            {profile.isSuccess && profile.variables?.default_paid_by && <span className="font-semibold text-positive"> Gemt</span>}
-          </p>
-        </div>
-        <div>
-          <p className="mb-1.5 px-1 text-[13px] font-semibold text-secondary">Gem kvitteringsbilleder i</p>
-          <div role="radiogroup" aria-label="Gem kvitteringsbilleder i" className="flex flex-wrap gap-2">
-            {retentionChoices.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                role="radio"
-                aria-checked={shownRetention === o.value}
-                onClick={() => o.value !== household.defaultRetention && retention.mutate(o.value)}
-                className={cn(
-                  'pressable h-10 rounded-full px-4 text-[14px] font-semibold transition-colors',
-                  shownRetention === o.value ? 'bg-accent text-on-accent' : 'bg-surface-secondary text-primary',
-                )}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-          <p className="mt-1.5 px-1 text-[13px] text-secondary">Gælder nye kvitteringer for hele husstanden. Eksisterende kvitteringer ændres ikke, og udgifterne bevares altid.
-            {retention.isSuccess && <span className="font-semibold text-positive"> Gemt</span>}
-          </p>
-          {retention.isError && <p className="mt-1 px-1 text-[13px] text-danger">Det kunne ikke gemmes. Prøv igen.</p>}
-        </div>
-      </div>
-      <ListGroup className="mt-3">
-        <ListRow icon={Lock} iconColor="var(--text-secondary)" title="Valuta" subtitle="Alle beløb er i danske kroner" trailing={<span className="text-[15px] font-semibold text-secondary">DKK</span>} />
-      </ListGroup>
-
-      <NotificationSettings />
 
       <SectionHeader title="Husstand" />
       <ListGroup>
@@ -137,46 +69,53 @@ export function SettingsPage() {
             <ChevronRight className="size-5 shrink-0 text-muted" />
           </Link>
         ))}
-        <FamilyRow />
+      </ListGroup>
+      <ListGroup className="mt-3">
+        <InviteRows icon={Send} />
+        {isOwner && <ListRow icon={UserPlus} title="Tilføj barn" subtitle="Med eget login eller uden (små børn)" to="/indstillinger/barn/ny" />}
+        {isOwner && <LoginCodeRow />}
+        <ListRow icon={Users} title="Familieoplysninger" subtitle={composition ? describeFamily(composition) : 'Voksne, børn og deres alder'} to="/indstillinger/familie" />
         <SubscriptionRow />
-        <InviteRows />
-        {household.me.role === 'owner' && <ListRow icon={UserPlus} title="Tilføj barn" subtitle="Med eget login eller uden (små børn)" to="/indstillinger/barn/ny" />}
       </ListGroup>
 
-      {household.me.role === 'owner' && <LoginCodeCard />}
-
-      <SectionHeader title="Udseende" />
-      <SegmentedControl
-        label="Tema"
-        options={themes}
-        value={theme}
-        onChange={(v) => {
-          setTheme(v)
-          applyTheme(v)
-        }}
-      />
-
-      <SectionHeader title="Data" />
+      <SectionHeader title="Økonomi" />
       <ListGroup>
-        <ListRow icon={Download} title="Eksportér data" subtitle="Alle jeres data som JSON-fil" onClick={() => exportData.mutate()} trailing={exportData.isPending ? <span className="text-[13px] text-secondary">Henter …</span> : undefined} />
+        <ListRow icon={Landmark} title="Bank" subtitle="Hent dine udgifter og indtægter automatisk" to="/indstillinger/bank" />
+        <ListRow icon={Receipt} title="Kvitteringer" subtitle={`Gem billeder i ${retention.toLowerCase()}`} to="/indstillinger/kvitteringer" />
+        <ListRow icon={Lock} iconColor="var(--text-secondary)" title="Valuta" subtitle="Alle beløb er i danske kroner" trailing={<span className="text-[15px] font-semibold text-secondary">DKK</span>} />
       </ListGroup>
-      <p className="mt-2 px-1 text-[13px] text-secondary">
-        {exportData.isSuccess ? 'Eksporten er klar.' : exportData.isError ? 'Eksporten mislykkedes. Prøv igen.' : 'Kvitteringsbilleder er ikke med. Gem filen et sikkert sted – den indeholder jeres økonomi.'}
-      </p>
+
+      <SectionHeader title="App" />
+      <ListGroup>
+        <ListRow icon={Palette} title="Udseende" subtitle={themes.find((t) => t.value === theme)?.label} onClick={() => setSheet('theme')} />
+        <ListRow
+          icon={Download}
+          title="Eksportér data"
+          subtitle={exportData.isSuccess ? 'Eksporten er klar' : exportData.isError ? 'Eksporten mislykkedes. Prøv igen.' : 'Alle jeres data som JSON-fil'}
+          onClick={() => exportData.mutate()}
+          trailing={exportData.isPending ? <span className="text-[13px] text-secondary">Henter …</span> : undefined}
+        />
+      </ListGroup>
+      <p className="mt-2 px-1 text-[13px] text-secondary">Kvitteringsbilleder er ikke med i eksporten. Gem filen et sikkert sted – den indeholder jeres økonomi.</p>
 
       <SectionHeader title="Konto" />
-      <AccountDanger />
-
-      <ListGroup className="mt-8">
-        <ListRow icon={LogOut} iconColor="var(--danger)" title="Log ud" tone="danger" onClick={() => setSheet('logout')} />
-      </ListGroup>
+      <AccountDanger extra={<ListRow icon={LogOut} iconColor="var(--danger)" title="Log ud" tone="danger" onClick={() => setSheet('logout')} />} />
 
       <p className="mt-6 text-center text-[12px] text-secondary">
         Hjem {__APP_VERSION__} · <Link to="/privatliv" className="underline">Privatliv</Link> · <Link to="/vilkaar" className="underline">Vilkår</Link>
       </p>
 
-      <BottomSheet open={sheet === 'password'} onClose={() => setSheet(null)} title="Adgangskode">
-        {sheet === 'password' && <PasswordForm onDone={() => setSheet(null)} />}
+      <BottomSheet open={sheet === 'theme'} onClose={() => setSheet(null)} title="Udseende">
+        <SegmentedControl
+          label="Tema"
+          options={themes}
+          value={theme}
+          onChange={(v) => {
+            setTheme(v)
+            applyTheme(v)
+          }}
+        />
+        <p className="mt-3 text-[14px] text-secondary">System følger telefonens indstilling.</p>
       </BottomSheet>
       <BottomSheet open={sheet === 'logout'} onClose={() => setSheet(null)} title="Log ud?">
         <p className="text-[15px] text-secondary">Du logges kun ud på denne enhed. Data på enheden fjernes.</p>
@@ -191,53 +130,4 @@ export function SettingsPage() {
       </BottomSheet>
     </>
   )
-}
-
-function PasswordForm({ onDone }: { onDone: () => void }) {
-  const change = useChangePassword()
-  const [password, setPassword] = useState('')
-  const [password2, setPassword2] = useState('')
-  const error = password.length > 0 && password.length < 8 ? 'Mindst 8 tegn' : password2.length > 0 && password !== password2 ? 'Adgangskoderne er ikke ens' : null
-  const valid = password.length >= 8 && password === password2
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    if (!valid) return
-    try {
-      await change.mutateAsync(password)
-    } catch {
-      // vises nedenfor
-    }
-  }
-
-  if (change.isSuccess)
-    return (
-      <>
-        <p className="text-[15px] text-secondary">Din adgangskode er ændret. Brug den næste gang du logger ind.</p>
-        <Button block className="mt-5" onClick={onDone}>
-          OK
-        </Button>
-      </>
-    )
-
-  return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <Field label="Ny adgangskode">
-        <TextInput type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
-      </Field>
-      <Field label="Gentag adgangskode" error={error}>
-        <TextInput type="password" autoComplete="new-password" value={password2} onChange={(e) => setPassword2(e.target.value)} />
-      </Field>
-      {change.isError && <p className="rounded-2xl bg-danger-soft px-4 py-3 text-[14px] font-medium text-danger">{authErrorMessage(change.error as { status?: number; code?: string; message?: string })}</p>}
-      <Button type="submit" block disabled={!valid} loading={change.isPending}>
-        Gem ny adgangskode
-      </Button>
-    </form>
-  )
-}
-
-/** Familieoplysninger: hvem bor i husstanden (bruges til budgetforslag) */
-function FamilyRow() {
-  const composition = useFamilyComposition()
-  return <ListRow icon={Users} title="Familieoplysninger" subtitle={composition ? describeFamily(composition) : 'Voksne, børn og deres alder'} to="/indstillinger/familie" />
 }

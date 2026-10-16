@@ -136,6 +136,26 @@ export function LoginCodeCard() {
   );
 }
 
+/** Samme kode som række i Indstillinger → Husstand (kun ejere) */
+export function LoginCodeRow() {
+  const code = useLoginCode(true);
+  return (
+    <ListRow
+      icon={KeyRound}
+      title="Husstandskode til børns login"
+      subtitle="Bruges sammen med barnets brugernavn og PIN"
+      trailing={
+        <span
+          className="tabular font-mono text-[17px] font-bold tracking-[0.12em]"
+          aria-label="Husstandskode"
+        >
+          {code.isPending ? "······" : code.isError ? "–" : code.data}
+        </span>
+      }
+    />
+  );
+}
+
 // ------------------------------------------------------------------ Tilføj barn
 export function AddChildPage() {
   const navigate = useNavigate();

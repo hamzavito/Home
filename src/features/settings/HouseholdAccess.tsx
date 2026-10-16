@@ -1,5 +1,5 @@
-import { Copy, DoorOpen, Send, Share, Trash2, UserMinus, X } from 'lucide-react'
-import { useState } from 'react'
+import { Copy, DoorOpen, Send, Share, Trash2, UserMinus, X, type LucideIcon } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Button } from '@/components/ui/Button'
 import { Field, TextInput } from '@/components/ui/Field'
@@ -10,14 +10,14 @@ import { formatInviteCode, inviteLink } from '@/lib/invite'
 import { memberError, useCreateInvite, useDeleteAccount, useExportData, useInvites, useLeaveHousehold, useRemoveMember, useRevokeInvite } from './api'
 
 /** "Inviter voksen" + aktive invitationer. Alle voksne må invitere. */
-export function InviteRows() {
+export function InviteRows({ icon = Send }: { icon?: LucideIcon }) {
   const household = useHousehold()
   const invites = useInvites()
   const revoke = useRevokeInvite()
   const [open, setOpen] = useState(false)
   return (
     <>
-      <ListRow icon={Send} title="Inviter voksen" subtitle="Send et link eller en kode" onClick={() => setOpen(true)} />
+      <ListRow icon={icon} title="Inviter voksen" subtitle="Send et link eller en kode" onClick={() => setOpen(true)} />
       {(invites.data ?? []).map((i) => (
         <div key={i.invite_id} className="flex min-h-[56px] items-center gap-3 px-4 py-2">
           <span className="flex min-w-0 flex-1 flex-col">
@@ -124,7 +124,7 @@ export function RemoveMember({ member }: { member: HouseholdMember }) {
 }
 
 /** Forlad husstanden og slet kontoen */
-export function AccountDanger() {
+export function AccountDanger({ extra }: { extra?: ReactNode }) {
   const household = useHousehold()
   const leave = useLeaveHousehold()
   const del = useDeleteAccount()
@@ -139,6 +139,7 @@ export function AccountDanger() {
       <ListGroup>
         {!last && <ListRow icon={DoorOpen} iconColor="var(--danger)" tone="danger" title="Forlad husstanden" onClick={() => setSheet('leave')} />}
         <ListRow icon={Trash2} iconColor="var(--danger)" tone="danger" title="Slet min konto" onClick={() => setSheet('delete')} />
+        {extra}
       </ListGroup>
 
       <BottomSheet open={sheet === 'leave'} onClose={() => setSheet(null)} title="Forlad husstanden?">

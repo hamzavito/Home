@@ -5,7 +5,7 @@ test('standard "betalt af" bruges i nye udgifter', async ({ page }) => {
   await startEmpty(page, '/okonomi/budgetter')
   await page.getByRole('button', { name: 'Opret forslag' }).click()
   await expect(page.getByRole('link', { name: /Diverse/ })).toBeVisible()
-  await page.goto('/indstillinger')
+  await page.goto('/indstillinger/profil')
   await page.getByRole('radiogroup', { name: 'Betalt af som standard' }).getByRole('radio', { name: 'Fælles' }).click()
   await expect(page.getByText('Gemt')).toBeVisible()
   await page.goto('/okonomi/ny')
@@ -13,12 +13,14 @@ test('standard "betalt af" bruges i nye udgifter', async ({ page }) => {
 })
 
 test('standard opbevaring af kvitteringer gemmes og valuta er låst til DKK', async ({ page }) => {
-  await startEmpty(page, '/indstillinger')
+  await startEmpty(page, '/indstillinger/kvitteringer')
   const group = page.getByRole('radiogroup', { name: 'Gem kvitteringsbilleder i' })
   await group.getByRole('radio', { name: '6 måneder' }).click()
   await expect(page.getByText('Gemt')).toBeVisible()
   await page.reload()
   await expect(page.getByRole('radiogroup', { name: 'Gem kvitteringsbilleder i' }).getByRole('radio', { name: '6 måneder' })).toHaveAttribute('aria-checked', 'true')
+  await page.goto('/indstillinger')
+  await expect(page.getByRole('link', { name: /Kvitteringer/ })).toContainText('6 måneder')
   await expect(page.getByText('DKK', { exact: true })).toBeVisible()
 })
 
@@ -31,7 +33,7 @@ test('eksport giver en JSON-fil med husstandens data', async ({ page }) => {
 })
 
 test('skift adgangskode validerer og bekræfter', async ({ page }) => {
-  await startEmpty(page, '/indstillinger')
+  await startEmpty(page, '/indstillinger/profil')
   await page.getByRole('button', { name: /^Adgangskode/ }).click()
   const sheet = page.locator('dialog[open]')
   await sheet.getByLabel('Ny adgangskode').fill('kort')

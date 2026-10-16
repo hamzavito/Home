@@ -47,7 +47,7 @@ async function fakePush(page: Page, answer: NotificationPermission = 'granted') 
 
 test('notifikationer: slå til på telefonen, testbesked og valg af hvad man får besked om', async ({ page }) => {
   await fakePush(page)
-  await startEmpty(page, '/indstillinger')
+  await startEmpty(page, '/indstillinger/notifikationer')
   const device = page.getByRole('switch', { name: /På denne telefon/ })
   await expect(device).toHaveAttribute('aria-checked', 'false')
   await device.click()
@@ -77,7 +77,7 @@ test('notifikationer: slå til på telefonen, testbesked og valg af hvad man få
 
 test('notifikationer: afvist tilladelse forklares', async ({ page }) => {
   await fakePush(page, 'denied')
-  await startEmpty(page, '/indstillinger')
+  await startEmpty(page, '/indstillinger/notifikationer')
   await page.getByRole('switch', { name: /På denne telefon/ }).click()
   await expect(page.getByText(/Blokeret\. Slå dem til i iPhonens Indstillinger/)).toBeVisible()
   await expect(page.getByRole('switch', { name: /På denne telefon/ })).toHaveAttribute('aria-checked', 'false')
@@ -86,7 +86,7 @@ test('notifikationer: afvist tilladelse forklares', async ({ page }) => {
 test.describe('iPhone i Safari (ikke føjet til hjemmeskærmen)', () => {
   test.use({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' })
   test('forklarer at appen skal føjes til hjemmeskærmen', async ({ page }) => {
-    await startEmpty(page, '/indstillinger')
+    await startEmpty(page, '/indstillinger/notifikationer')
     await expect(page.getByText(/Notifikationer virker kun, når Hjem er føjet til hjemmeskærmen/)).toBeVisible()
     await expect(page.getByRole('switch', { name: /På denne telefon/ })).toHaveCount(0)
     // Valgene kan stadig sættes (gælder alle ens telefoner)
