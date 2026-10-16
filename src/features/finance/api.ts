@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useHousehold } from '@/features/household/HouseholdProvider'
 import { fromIsoDate, monthKey, toIsoDate } from '@/lib/dates'
+import { averageSpending } from '@/lib/spending'
 import { deleteTransactionWithReceipt } from '@/features/receipts/api'
 import { supabase } from '@/lib/supabase'
 import type { BudgetMode, CategoryKind, Database, PaidByKind, Tables, TransactionVisibility } from '@/types/database'
@@ -70,6 +71,28 @@ export function useMonthTransactions(month: string) {
       if (error) throw error
       return data
     },
+  })
+}
+
+/** Hvor meget bruger I ca. pr. måned (gennemsnit af de seneste hele måneder, kun fælles udgifter) */
+export function useAverageSpending() {
+  const { id: hid } = useHousehold()
+  const current = monthKey(new Date())
+  return useQuery({
+    queryKey: ['finance', hid, 'average-spending', current],
+    queryFn: async () => {
+      const from = fromIsoDate(current)
+      const start = monthKey(new Date(from.getFullYear(), from.getMonth() - 3, 1, 12))
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('category_id, amount_ore, occurred_on, visibility')
+        .gte('occurred_on', start)
+        .lt('occurred_on', nextMonth(current))
+        .limit(5000)
+      if (error) throw error
+      return averageSpending(data, current)
+    },
+    staleTime: 5 * 60_000,
   })
 }
 

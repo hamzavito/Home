@@ -16,6 +16,9 @@ export type SuggestionCategory = {
   mode: 'amount' | 'percent' | 'none'
   percentBp: number | null
   archived: boolean
+  icon?: string
+  color?: string
+  kind?: 'spending' | 'reserve'
 }
 
 export type SuggestionItem = {
@@ -27,6 +30,8 @@ export type SuggestionItem = {
   percentBp: number
   /** Nuværende standardprocent (0 hvis ingen) */
   currentBp: number
+  /** Gennemsnitligt forbrug pr. måned (kun i forslag ud fra forbrug) */
+  avgOre?: number
 }
 
 export type BudgetSuggestion = {
@@ -104,5 +109,42 @@ export function suggestBudget(family: FamilyComposition, categories: SuggestionC
     .filter((it) => it.percentBp > 0)
     .sort((a, b) => b.percentBp - a.percentBp || a.name.localeCompare(b.name, 'da'))
 
+  return { items, keptBp, totalBp: items.reduce((s, it) => s + it.percentBp, 0) }
+}
+
+/**
+ * Forslag ud fra det, I faktisk bruger: gennemsnit pr. måned pr. kategori.
+ * Hver kategori får så meget af det, der er til fordeling, som forbruget kræver (rundet op til hele procent).
+ * Kræver forbruget mere, end der er, skaleres det ned (største-rest); kræver det mindre, står resten ufordelt.
+ * Uden kendt "til fordeling" fordeles hele det ledige efter forbrugets størrelse.
+ */
+export function suggestFromSpending(categories: SuggestionCategory[], avgByCategory: Map<string, number>, distributableOre: number): BudgetSuggestion {
+  const active = categories.filter((c) => !c.archived)
+  const candidates = active.filter((c) => (c.kind ?? 'spending') === 'spending' && c.mode !== 'amount' && (avgByCategory.get(c.id) ?? 0) > 0)
+  const touched = new Set(candidates.map((c) => c.id))
+  const keptBp = active.filter((c) => c.mode === 'percent' && !touched.has(c.id)).reduce((s, c) => s + (c.percentBp ?? 0), 0)
+  const freeUnits = Math.floor(Math.max(MAX_PERCENT_BP - keptBp, 0) / GRAIN_BP)
+  const avgs = candidates.map((c) => avgByCategory.get(c.id) ?? 0)
+
+  let units: number[]
+  if (distributableOre > 0) {
+    const need = avgs.map((a) => Math.max(1, Math.ceil((a / distributableOre) * 100)))
+    units = need.reduce((s, n) => s + n, 0) <= freeUnits ? need : allocate(freeUnits, avgs)
+  } else {
+    units = allocate(freeUnits, avgs)
+  }
+
+  const items: SuggestionItem[] = candidates
+    .map((c, i) => ({
+      name: c.name,
+      icon: c.icon ?? 'sparkles',
+      color: c.color ?? '#6d5cff',
+      categoryId: c.id,
+      percentBp: units[i]! * GRAIN_BP,
+      currentBp: c.mode === 'percent' ? (c.percentBp ?? 0) : 0,
+      avgOre: avgs[i]!,
+    }))
+    .filter((it) => it.percentBp > 0)
+    .sort((a, b) => b.percentBp - a.percentBp || a.name.localeCompare(b.name, 'da'))
   return { items, keptBp, totalBp: items.reduce((s, it) => s + it.percentBp, 0) }
 }

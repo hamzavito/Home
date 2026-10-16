@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { expectReadable, startEmpty } from './helpers'
+import { expectReadable, startDemo, startEmpty } from './helpers'
 
 const NOAH = '00000000-0000-4000-8000-0000000000b1'
 const LINA = '00000000-0000-4000-8000-0000000000b2'
@@ -310,6 +310,8 @@ test('forslag til budget: ud fra familien, også børn uden login', async ({ pag
   // Knappen er altid synlig på Budgetter – også uden kategorier
   await page.goto('/okonomi/budgetter')
   await page.getByRole('button', { name: 'Forslag til budget' }).click()
+  // Uden udgifter kan forbruget ikke beregnes endnu – forslaget bygger på familien
+  await expect(sheet.getByText('Ikke nok udgifter endnu')).toBeVisible()
   await expect(sheet.getByText(/2 voksne · 1 barn/)).toBeVisible()
   const list = sheet.getByRole('list', { name: 'Foreslået fordeling' })
   await expect(list.getByText('Dagligvarer')).toBeVisible()
@@ -320,4 +322,20 @@ test('forslag til budget: ud fra familien, også børn uden login', async ({ pag
   await expect(page.getByRole('link', { name: /Dagligvarer/ })).toBeVisible()
   await expect(page.getByRole('link', { name: /Børn/ })).toBeVisible()
   await expect(page.getByText(/\d+ % af til fordeling/).first()).toBeVisible()
+})
+
+test('forslag til budget: beregner hvor meget I ca. bruger og bygger forslaget på det', async ({ page }) => {
+  await startDemo(page, '/okonomi/budgetter')
+  await page.getByRole('button', { name: 'Forslag til budget' }).click()
+  const sheet = page.locator('dialog[open]')
+  await expect(sheet.getByText('Jeres forbrug pr. måned (ca.)')).toBeVisible()
+  await expect(sheet.getByText(/Gennemsnit af de seneste \d+ måneder?, fælles udgifter/)).toBeVisible()
+  // Forbruget er standard; hver kategori viser, hvad der plejer at blive brugt
+  await expect(sheet.getByRole('radio', { name: 'Jeres forbrug' })).toHaveAttribute('aria-checked', 'true')
+  const list = sheet.getByRole('list', { name: 'Foreslået fordeling' })
+  await expect(list.getByText(/Bruger ca\. [\d.]+ kr\.\/md\./).first()).toBeVisible()
+  // Skift til familien
+  await sheet.getByRole('radio', { name: 'Familien' }).click()
+  await expect(sheet.getByText(/Børn tæller med, også uden login/)).toBeVisible()
+  await expect(list.getByText(/Bruger ca\./)).toHaveCount(0)
 })

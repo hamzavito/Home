@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { categoryPoints, suggestBudget, type SuggestionCategory } from './budgetSuggestion'
+import { categoryPoints, suggestBudget, suggestFromSpending, type SuggestionCategory } from './budgetSuggestion'
 
 const two = { adults: 2, children: [] }
 const family = { adults: 2, children: [{ age: 3 }, { age: 10 }] }
@@ -46,5 +46,33 @@ describe('budgetforslag', () => {
   })
   it('point afhænger af alder', () => {
     expect(categoryPoints({ adults: 2, children: [{ age: 1 }] }).Dagligvarer).toBeLessThan(categoryPoints({ adults: 2, children: [{ age: 14 }] }).Dagligvarer)
+  })
+})
+
+describe('budgetforslag ud fra forbrug', () => {
+  const mad = cat('mad', 'Mad', 'percent', 5000)
+  const hygge = cat('hygge', 'Hygge')
+  const avg = (o: Record<string, number>) => new Map(Object.entries(o))
+  it('hver kategori får så meget, som forbruget kræver (op til hele procent)', () => {
+    const s = suggestFromSpending([mad, hygge], avg({ mad: 400000, hygge: 150000 }), 1000000)
+    expect(share(s, 'Mad')).toBe(4000) // 4.000 af 10.000 kr.
+    expect(share(s, 'Hygge')).toBe(1500)
+    expect(s.totalBp).toBe(5500) // resten står ufordelt
+  })
+  it('kræver forbruget mere end der er, skaleres det ned til højst 100 %', () => {
+    const s = suggestFromSpending([mad, hygge], avg({ mad: 900000, hygge: 300000 }), 1000000)
+    expect(s.totalBp).toBe(10000)
+    expect(share(s, 'Mad')).toBe(7500)
+  })
+  it('uden kendt til-fordeling fordeles det ledige efter forbrugets størrelse', () => {
+    const s = suggestFromSpending([mad, hygge], avg({ mad: 300000, hygge: 100000 }), 0)
+    expect(s.totalBp).toBe(10000)
+    expect(share(s, 'Mad')).toBe(7500)
+  })
+  it('rører ikke fast beløb, reserver eller kategorier uden forbrug, og husker gennemsnittet', () => {
+    const s = suggestFromSpending([cat('b', 'Bil', 'amount'), { ...cat('r', 'Buffer'), kind: 'reserve' }, cat('x', 'Rejse', 'percent', 1000), hygge], avg({ b: 50000, r: 50000, hygge: 100000 }), 1000000)
+    expect(s.items.map((i) => i.name)).toEqual(['Hygge'])
+    expect(s.items[0]!.avgOre).toBe(100000)
+    expect(s.keptBp).toBe(1000)
   })
 })
