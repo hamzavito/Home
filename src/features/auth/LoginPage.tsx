@@ -12,9 +12,12 @@ import { useAuth } from './AuthProvider'
 type AdultStep = 'password' | 'code-email' | 'code-verify'
 
 export function LoginPage() {
-  const { session, signIn, childSignIn, sendEmailCode, verifyEmailCode, idTokenSignIn } = useAuth()
   const { pathname } = useLocation()
-  const isSignup = pathname === '/opret-konto'
+  return <LoginFlow key={pathname} isSignup={pathname === '/opret-konto'} />
+}
+
+function LoginFlow({ isSignup }: { isSignup: boolean }) {
+  const { session, signIn, childSignIn, sendEmailCode, verifyEmailCode, idTokenSignIn } = useAuth()
   const [mode, setMode] = useState<'adult' | 'child'>('adult')
   const [step, setStep] = useState<AdultStep>(isSignup ? 'code-email' : 'password')
   const [otp, setOtp] = useState('')
@@ -29,12 +32,6 @@ export function LoginPage() {
   const [remember, setRemember] = useState(getRememberMe)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    if (isSignup) { setMode('adult'); setStep('code-email') }
-    else setStep('password')
-    setError(null)
-  }, [isSignup])
 
   const cooldown = Math.max(0, Math.ceil((sentAt + 60_000 - now) / 1000))
   useEffect(() => {
