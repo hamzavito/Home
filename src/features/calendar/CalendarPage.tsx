@@ -1,5 +1,5 @@
-import { CalendarDays, Plus } from 'lucide-react'
-import { useNavigate, useSearchParams } from 'react-router'
+import { CalendarDays, Plus, Monitor } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -14,6 +14,7 @@ import { cn } from '@/lib/cn'
 import { dayLabel, fromIsoDate, toIsoDate } from '@/lib/dates'
 import { addDaysIso, compareEvents, eventCovers, monthGrid } from '@/lib/home'
 import { EventRow } from './EventRow'
+import { weekDays } from './calendarWeek'
 
 const WEEKDAYS = [
   ['M', 'mandag'],
@@ -57,6 +58,7 @@ export function CalendarPage() {
 
   const all = [...(monthEvents.data ?? [])].sort(compareEvents)
   const dayEvents = all.filter((e) => eventCovers(e, selected))
+  const week = weekDays(selected)
   const nextEvents = [...(upcoming.data ?? [])].sort(compareEvents).slice(0, 8)
 
   return (
@@ -71,6 +73,20 @@ export function CalendarPage() {
         }
       />
       <MonthSwitcher month={month} onChange={changeMonth} />
+      <div className="mt-4 flex items-center justify-between gap-2">
+        <h2 className="text-lg font-bold">Ugeoversigt</h2>
+        <Link to="/tavle" className="inline-flex items-center gap-2 rounded-xl bg-surface-secondary px-3 py-2 text-sm font-semibold"><Monitor className="size-4" /> Familietavle</Link>
+      </div>
+      <div className="mt-2 grid grid-cols-7 gap-1" role="group" aria-label="Vælg dag i ugen">
+        {week.map((iso) => {
+          const count = all.filter((e) => eventCovers(e, iso)).length
+          return <button key={iso} type="button" onClick={() => selectDay(iso)} aria-pressed={selected === iso} aria-label={dayAria.format(fromIsoDate(iso)) + (count ? `, ${count} aftaler` : '')} className={cn('flex flex-col items-center gap-1 rounded-xl py-3 text-sm', selected === iso ? 'bg-accent text-on-accent' : 'bg-surface-secondary text-primary')}>
+            <span className="text-xs opacity-80">{['Man','Tir','Ons','Tor','Fre','Lør','Søn'][week.indexOf(iso)]}</span>
+            <span className="font-bold tabular-nums">{fromIsoDate(iso).getDate()}</span>
+            <span className={cn('size-1.5 rounded-full', count ? 'bg-current' : 'bg-transparent')} />
+          </button>
+        })}
+      </div>
 
       <Card className="mt-3 px-3 pb-3 pt-4">
         <div className="grid grid-cols-7 text-center" aria-hidden>

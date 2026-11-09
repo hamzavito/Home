@@ -28,6 +28,7 @@ import { TaskFormPage } from '@/features/home/TaskFormPage'
 import { ChildDashboardPage } from '@/features/child/ChildDashboardPage'
 import { ShoppingPage } from '@/features/shopping/ShoppingPage'
 import { CalendarPage } from '@/features/calendar/CalendarPage'
+import { BoardPage } from '@/features/board/BoardPage'
 import { EventFormPage } from '@/features/calendar/EventFormPage'
 import { MealPlanPage } from '@/features/mealplan/MealPlanPage'
 import { RecipeFormPage } from '@/features/mealplan/RecipeFormPage'
@@ -59,6 +60,7 @@ export const router = createBrowserRouter([
   {
     element: <RequireHousehold />,
     children: [
+      { path: '/tavle', element: <BoardPage /> },
       {
         element: <FocusLayout />,
         children: [{ path: '/kvitteringer/scan', element: <ScanPage /> }],
