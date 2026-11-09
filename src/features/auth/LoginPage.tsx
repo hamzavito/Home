@@ -1,6 +1,6 @@
 import { Mail } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link, Navigate } from 'react-router'
+import { Link, Navigate, useLocation } from 'react-router'
 import { Button } from '@/components/ui/Button'
 import { Field, TextInput } from '@/components/ui/Field'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
@@ -13,8 +13,10 @@ type AdultStep = 'password' | 'code-email' | 'code-verify'
 
 export function LoginPage() {
   const { session, signIn, childSignIn, sendEmailCode, verifyEmailCode, idTokenSignIn } = useAuth()
+  const { pathname } = useLocation()
+  const isSignup = pathname === '/opret-konto'
   const [mode, setMode] = useState<'adult' | 'child'>('adult')
-  const [step, setStep] = useState<AdultStep>('password')
+  const [step, setStep] = useState<AdultStep>(isSignup ? 'code-email' : 'password')
   const [otp, setOtp] = useState('')
   const [sentAt, setSentAt] = useState(0)
   const [now, setNow] = useState(() => Date.now())
@@ -27,6 +29,12 @@ export function LoginPage() {
   const [remember, setRemember] = useState(getRememberMe)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (isSignup) { setMode('adult'); setStep('code-email') }
+    else setStep('password')
+    setError(null)
+  }, [isSignup])
 
   const cooldown = Math.max(0, Math.ceil((sentAt + 60_000 - now) / 1000))
   useEffect(() => {
@@ -88,15 +96,15 @@ export function LoginPage() {
     <div className="flex min-h-dvh flex-col justify-center px-safe pb-safe pt-safe">
       <div className="mx-auto w-full max-w-sm">
         <img src="/icons/icon-192.png" alt="" className="mb-8 size-16 rounded-[20px] shadow-raised" />
-        <h1 className="text-[34px] font-bold leading-[1.05] tracking-[-0.03em]">Velkommen hjem</h1>
-        <p className="mb-8 mt-2 text-[16px] text-secondary">Log ind, eller opret dig på et øjeblik.</p>
+        <h1 className="text-[34px] font-bold leading-[1.05] tracking-[-0.03em]">{isSignup ? 'Opret gratis konto' : 'Velkommen hjem'}</h1>
+        <p className="mb-8 mt-2 text-[16px] text-secondary">{isSignup ? 'Prøv Home App gratis i 30 dage, når du opretter din husstand. Intet betalingskort nødvendigt.' : 'Log ind, eller opret dig på et øjeblik.'}</p>
         {invited && (
           <p className="mb-5 rounded-2xl bg-surface-accent px-4 py-3 text-[15px] font-medium text-accent-text">
             Du er inviteret til en husstand. Log ind eller opret dig for at fortsætte.
           </p>
         )}
 
-        <div className="mb-5">
+        {!isSignup && <div className="mb-5">
           <SegmentedControl
             label="Log ind som"
             value={mode}
@@ -109,7 +117,7 @@ export function LoginPage() {
               { value: 'child', label: 'Barn' },
             ]}
           />
-        </div>
+        </div>}
 
         {mode === 'adult' && step === 'password' && (appleEnabled() || googleEnabled()) && (
           <div className="mb-5 space-y-3">
@@ -257,7 +265,7 @@ export function LoginPage() {
             </Link>
           </>
         )}
-        {mode === 'adult' && step !== 'password' && (
+        {mode === 'adult' && step !== 'password' && !isSignup && (
           <div className="mt-5 flex flex-col items-center gap-4">
             {step === 'code-verify' && (
               <button type="button" disabled={cooldown > 0 || busy} onClick={() => void sendCode()} className="text-[15px] font-semibold text-accent-text active:opacity-60 disabled:text-muted">
@@ -278,10 +286,15 @@ export function LoginPage() {
         )}
         {mode === 'child' && <p className="mt-5 text-center text-[14px] text-secondary">Har du glemt din PIN? Spørg en voksen.</p>}
 
-        {mode === 'adult' && (
+        {mode === 'adult' && !isSignup && (
           <p className="mt-8 text-center text-[13px] text-secondary">
             Ny her? Fortsæt med {appleEnabled() || googleEnabled() ? 'Apple, Google eller ' : ''}en kode på mail. Så oprettes din konto, og du kan oprette jeres husstand eller tage imod en invitation.
           </p>
+        )}
+        {isSignup ? (
+          <p className="mt-6 text-center text-[15px] text-secondary">Har du allerede en konto? <Link to="/login" className="font-semibold text-accent-text underline">Log ind</Link></p>
+        ) : (
+          <p className="mt-6 text-center text-[15px] text-secondary">Ny bruger? <Link to="/opret-konto" className="font-semibold text-accent-text underline">Opret gratis konto · 30 dage</Link></p>
         )}
         <p className="mt-4 text-center text-[13px] text-secondary">
           <Link to="/privatliv" className="font-semibold underline">Privatlivspolitik</Link> · <Link to="/vilkaar" className="font-semibold underline">Vilkår</Link>
