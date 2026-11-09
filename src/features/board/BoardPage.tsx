@@ -4,7 +4,7 @@ import { ArrowLeft, CalendarDays, CheckCircle2, ShoppingBasket } from 'lucide-re
 import { useQueryClient } from '@tanstack/react-query'
 import { useEvents, useShopping, useShoppingRealtime, useTasks } from '@/features/home/api'
 import { useHousehold } from '@/features/household/HouseholdProvider'
-import { addDaysIso, eventCovers, eventTimeLabel } from '@/lib/home'
+import { eventCovers, eventTimeLabel } from '@/lib/home'
 import { fromIsoDate, toIsoDate } from '@/lib/dates'
 import { weekDays } from '@/features/calendar/calendarWeek'
 
