@@ -20,8 +20,8 @@ describe('iCalendar one-way export', () => {
     const malicious = 'Familieaftale\u2028BEGIN:VEVENT\u2029ATTENDEE:mailto:outside@example.com'
     const data = serializeIcs([{ ...example, title: malicious }])
     expect(data).toContain('SUMMARY:Familieaftale\\nBEGIN:VEVENT\\nATTENDEE:mailto:outside@example.com')
-    expect(data.match(/BEGIN:VEVENT\\r\\n/g)).toHaveLength(1)
-    expect(data).not.toContain('\\r\\nATTENDEE:')
+    expect(data.match(/BEGIN:VEVENT\r\n/g)).toHaveLength(1)
+    expect(data).not.toContain('\r\nATTENDEE:')
   })
   it('uses local Danish times and a stable UID for timed events', () => {
     const data = serializeIcs([example], new Date('2026-11-10T05:00:00Z'))
