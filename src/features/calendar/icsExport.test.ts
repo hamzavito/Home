@@ -16,6 +16,13 @@ describe('iCalendar one-way export', () => {
   it('escapes title punctuation and newline characters', () => {
     expect(escapeIcsText('A\\B,C;D\nE')).toBe('A\\\\B\\,C\\;D\\nE')
   })
+  it('keeps Unicode line separators inside the title instead of creating new ICS fields', () => {
+    const malicious = 'Familieaftale\u2028BEGIN:VEVENT\u2029ATTENDEE:mailto:outside@example.com'
+    const data = serializeIcs([{ ...example, title: malicious }])
+    expect(data).toContain('SUMMARY:Familieaftale\\nBEGIN:VEVENT\\nATTENDEE:mailto:outside@example.com')
+    expect(data.match(/BEGIN:VEVENT\r\n/g)).toHaveLength(1)
+    expect(data).not.toContain('\r\nATTENDEE:')
+  })
   it('uses local Danish times and a stable UID for timed events', () => {
     const data = serializeIcs([example], new Date('2026-11-10T05:00:00Z'))
     expect(data).toContain('UID:a7427618-7867-4d3c-b880-3fb771db761b@home-app\r\n')
