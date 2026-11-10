@@ -166,3 +166,23 @@ test('privatlivspolitik og vilkår kan læses uden login', async ({ page }) => {
   await page.getByRole('button', { name: 'Tilbage' }).click()
   await expect(page.getByRole('heading', { name: 'Velkommen hjem' })).toBeVisible()
 })
+
+test('ny besøgende kan starte gratis prøveperiode via registreringssiden', async ({ page }) => {
+  await page.addInitScript(() => {
+    try { localStorage.setItem('hjem-demo-mode', 'fresh') } catch { /* ignorér */ }
+  })
+  await page.goto('/opret-konto')
+  await expect(page.getByRole('heading', { name: 'Opret gratis konto' })).toBeVisible()
+  await expect(page.getByText(/30 dage/)).toBeVisible()
+  await page.getByPlaceholder('E-mail').fill('trial@demo.dk')
+  await page.getByRole('button', { name: 'Send kode' }).click()
+  await expect(page.getByText('Vi har sendt en kode til trial@demo.dk')).toBeVisible()
+  await page.getByLabel('Kode fra e-mail').fill('123456')
+  await page.getByRole('button', { name: 'Fortsæt' }).click()
+  await page.getByRole('button', { name: /Opret husstand/ }).click()
+  await expect(page.getByText(/30 dages gratis prøveperiode/)).toBeVisible()
+  await page.getByLabel('Husstandens navn').fill('Familien Prøve')
+  await page.getByLabel('Dit navn').fill('Nora')
+  await page.getByRole('button', { name: 'Opret husstand' }).click()
+  await expect(page.getByRole('navigation', { name: 'Hovednavigation' })).toBeVisible()
+})

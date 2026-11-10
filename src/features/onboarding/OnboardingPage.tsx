@@ -82,7 +82,7 @@ export function OnboardingPage() {
                 </span>
                 <span>
                   <span className="block text-[17px] font-semibold">Opret husstand</span>
-                  <span className="block text-[14px] text-secondary">Du bliver ejer og kan invitere de andre.</span>
+                  <span className="block text-[14px] text-secondary">30 dage gratis uden betalingskort. Du bliver ejer og kan invitere de andre.</span>
                 </span>
               </button>
               <button type="button" onClick={() => setStep('code')} className="pressable flex w-full items-center gap-4 rounded-card bg-surface-primary p-5 text-left shadow-card">
@@ -107,6 +107,7 @@ export function OnboardingPage() {
             className="space-y-4"
           >
             <h1 className="text-[28px] font-bold tracking-[-0.02em]">Opret husstand</h1>
+            <p className="text-[15px] text-secondary">Din husstand starter med 30 dages gratis prøveperiode uden betalingskort. Perioden begynder, når du opretter husstanden.</p>
             <Field label="Husstandens navn" hint="Fx Familien Jensen eller Vores hjem">
               <TextInput value={householdName} maxLength={80} onChange={(e) => setHouseholdName(e.target.value)} autoCapitalize="words" autoFocus />
             </Field>

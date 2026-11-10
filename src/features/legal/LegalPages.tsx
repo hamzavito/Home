@@ -112,7 +112,7 @@ export function TermsPage() {
       <section>
         <h2>Abonnement</h2>
         <p>
-          Hvis og når der tages betaling, gælder det pris og den periode, der vises i appen, før du betaler. Betaling sker via Stripe, og du kan opsige når som helst;
+          Nye husstande får 30 dages gratis prøveperiode fra oprettelsen uden krav om betalingskort. Der opkræves ikke automatisk betaling ved udløb. Hvis og når der tages betaling, gælder det pris og den periode, der vises i appen, før du betaler. Betaling sker via Stripe, og du kan opsige når som helst;
           abonnementet løber så perioden ud. Uden gyldigt abonnement kan husstandens data stadig ses og eksporteres, men ikke ændres.
         </p>
       </section>

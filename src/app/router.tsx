@@ -53,6 +53,7 @@ import { FocusLayout } from './FocusLayout'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
+  { path: '/opret-konto', element: <LoginPage /> },
   { path: '/glemt-adgangskode', element: <ForgotPasswordPage /> },
   { path: '/invitation/:code', element: <InviteLandingPage /> },
   { path: '/privatliv', element: <PrivacyPage /> },
