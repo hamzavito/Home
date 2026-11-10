@@ -233,14 +233,16 @@ end $$;
 set local role authenticated;
 set local request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000a1';
 do $$
-declare path text; ok boolean;
+declare path text;
 begin
-  begin
-    delete from public.transactions where id = 'd0000000-0000-0000-0000-000000000001';
-    ok := false;
-  exception when foreign_key_violation then ok := true;
-  end;
-  assert ok, 'direkte sletning af transaktion med kvittering blokeres';
+  -- Bekræft at FK stadig er ON DELETE RESTRICT. Direkte DELETE ville give
+  -- en FK-fejl ved statement-grænsen uden for DO-blokkens exception-handler.
+  assert exists (
+    select 1 from pg_constraint
+    where conname = 'receipts_household_id_transaction_id_fkey'
+      and conrelid = 'public.receipts'::regclass
+      and confdeltype = 'r'
+  ), 'direkte sletning af transaktion med kvittering blokeres';
 
   path := public.delete_transaction('d0000000-0000-0000-0000-000000000001');
   assert path like '%e0000000-0000-0000-0000-000000000001.jpg', 'returnerer billedsti til oprydning';
