@@ -1,4 +1,4 @@
-import { CalendarDays, Plus, Monitor } from 'lucide-react'
+import { CalendarDays, Plus, Monitor, Download } from 'lucide-react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -12,9 +12,10 @@ import { useEvents } from '@/features/home/api'
 import { eventTypes } from '@/features/home/meta'
 import { cn } from '@/lib/cn'
 import { dayLabel, fromIsoDate, toIsoDate } from '@/lib/dates'
-import { addDaysIso, compareEvents, eventCovers, monthGrid } from '@/lib/home'
+import { addDaysIso, addMonthsIso, compareEvents, eventCovers, monthGrid } from '@/lib/home'
 import { EventRow } from './EventRow'
 import { weekDays } from './calendarWeek'
+import { downloadIcsFile, serializeIcs } from './icsExport'
 
 const WEEKDAYS = [
   ['M', 'mandag'],
@@ -60,6 +61,12 @@ export function CalendarPage() {
   const dayEvents = all.filter((e) => eventCovers(e, selected))
   const week = weekDays(selected)
   const nextEvents = [...(upcoming.data ?? [])].sort(compareEvents).slice(0, 8)
+  const lastOfMonth = addDaysIso(addMonthsIso(month, 1), -1)
+  const exportEvents = all.filter(e => e.event_date <= lastOfMonth && (e.end_date ?? e.event_date) >= month)
+  const exportMonth = () => {
+    // Browserfilen oprettes kun efter et aktivt klik. Ingen personlige data sendes til en tredjepart.
+    downloadIcsFile(serializeIcs(exportEvents), `home-kalender-${month.slice(0, 7)}.ics`)
+  }
 
   return (
     <>
@@ -73,6 +80,12 @@ export function CalendarPage() {
         }
       />
       <MonthSwitcher month={month} onChange={changeMonth} />
+      <div className="mt-3 flex flex-col gap-1.5">
+        <Button size="sm" variant="secondary" className="self-start" onClick={exportMonth} disabled={monthEvents.isPending || monthEvents.isError || exportEvents.length === 0}>
+          <Download className="size-4" /> Eksportér måneden (.ics)
+        </Button>
+        <p className="text-[12px] text-secondary">Gem en kopi af månedens aftaler til Apple Kalender eller Google Kalender. Ingen automatisk synkronisering; filen kan indeholde private aftaletitler.</p>
+      </div>
       <div className="mt-4 flex items-center justify-between gap-2">
         <h2 className="text-lg font-bold">Ugeoversigt</h2>
         <Link to="/tavle" className="inline-flex items-center gap-2 rounded-xl bg-surface-secondary px-3 py-2 text-sm font-semibold"><Monitor className="size-4" /> Familietavle</Link>
