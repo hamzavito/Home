@@ -13,6 +13,7 @@ export type ExportableEvent = {
 
 /** RFC 5545 text escaping: backslash must be escaped before punctuation. */
 export function escapeIcsText(value: string): string {
+  // eslint-disable-next-line no-control-regex -- Deliberately sanitize VT and FF from untrusted event titles.
   return value.replace(/\\/g, '\\\\').replace(/\r\n|[\n\r\u000b\u000c\u0085\u2028\u2029]/g, '\\n').replace(/;/g, '\\;').replace(/,/g, '\\,')
 }
 
