@@ -13,7 +13,7 @@ export type ExportableEvent = {
 
 /** RFC 5545 text escaping: backslash must be escaped before punctuation. */
 export function escapeIcsText(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/\r\n|[\n\r\u2028\u2029]/g, '\\n').replace(/;/g, '\\;').replace(/,/g, '\\,')
+  return value.replace(/\\/g, '\\\\').replace(/\r\n|[\n\r\u000b\u000c\u0085\u2028\u2029]/g, '\\n').replace(/;/g, '\\;').replace(/,/g, '\\,')
 }
 
 /** RFC 5545 requires max 75 octets per physical line, folded with CRLF + space. */
