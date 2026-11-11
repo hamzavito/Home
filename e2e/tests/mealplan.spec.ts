@@ -206,7 +206,9 @@ test('madbudget: vælg kategori og se hvad der er tilbage; madplan på Hjemmet',
 
   // I aften på Hjemmet
   const names = ['mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag', 'søndag']
-  const todayIndex = (new Date().getDay() + 6) % 7
+  // Playwright-browseren bruger Europe/Copenhagen, mens Node i CI kan bruge UTC.
+  // Beregn ugedagen i samme tidszone som appen (især vigtigt omkring midnat).
+  const todayIndex = await page.evaluate(() => (new Date().getDay() + 6) % 7)
   await page.getByRole('button', { name: `Tilføj ret ${names[todayIndex]}` }).click()
   await sheet(page).getByRole('radio', { name: 'Uden opskrift' }).click()
   await sheet(page).getByPlaceholder('Fx Pasta bolognese').fill('Fiskefrikadeller')
