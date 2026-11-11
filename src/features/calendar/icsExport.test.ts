@@ -23,6 +23,16 @@ describe('iCalendar one-way export', () => {
     expect(data.match(/BEGIN:VEVENT\r\n/g)).toHaveLength(1)
     expect(data).not.toContain('\r\nATTENDEE:')
   })
+  it('normalizes NEL, vertical tab and form feed without introducing calendar fields', () => {
+    const malicious = 'Familie\u0085ATTENDEE:mailto:outside@example.com\u000bBEGIN:VEVENT\u000cEND:VEVENT'
+    const data = serializeIcs([{ ...example, title: malicious }])
+    // RFC 5545 folds long physical lines with CRLF + space; unfold before checking the logical value.
+    expect(data.replace(/\r\n /g, '')).toContain('SUMMARY:Familie\\nATTENDEE:mailto:outside@example.com\\nBEGIN:VEVENT\\nEND:VEVENT')
+    expect(data.match(/BEGIN:VEVENT\r\n/g)).toHaveLength(1)
+    expect(data).not.toContain('\r\nATTENDEE:')
+    // eslint-disable-next-line no-control-regex -- Assert that forbidden control characters were removed.
+    expect(data).not.toMatch(/[\u000b\u000c\u0085]/)
+  })
   it('uses local Danish times and a stable UID for timed events', () => {
     const data = serializeIcs([example], new Date('2026-11-10T05:00:00Z'))
     expect(data).toContain('UID:a7427618-7867-4d3c-b880-3fb771db761b@home-app\r\n')
