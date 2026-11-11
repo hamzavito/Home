@@ -24,12 +24,12 @@ describe('iCalendar one-way export', () => {
     expect(data).not.toContain('\r\nATTENDEE:')
   })
   it('normalizes NEL, vertical tab and form feed without introducing calendar fields', () => {
-    const malicious = 'Familie\\u0085ATTENDEE:mailto:outside@example.com\\u000bBEGIN:VEVENT\\u000cEND:VEVENT'
+    const malicious = 'Familie\u0085ATTENDEE:mailto:outside@example.com\u000bBEGIN:VEVENT\u000cEND:VEVENT'
     const data = serializeIcs([{ ...example, title: malicious }])
     expect(data).toContain('SUMMARY:Familie\\nATTENDEE:mailto:outside@example.com\\nBEGIN:VEVENT\\nEND:VEVENT')
-    expect(data.match(/BEGIN:VEVENT\\r\\n/g)).toHaveLength(1)
-    expect(data).not.toContain('\\r\\nATTENDEE:')
-    expect(data).not.toMatch(/[\\u000b\\u000c\\u0085]/)
+    expect(data.match(/BEGIN:VEVENT\r\n/g)).toHaveLength(1)
+    expect(data).not.toContain('\r\nATTENDEE:')
+    expect(data).not.toMatch(/[\u000b\u000c\u0085]/)
   })
   it('uses local Danish times and a stable UID for timed events', () => {
     const data = serializeIcs([example], new Date('2026-11-10T05:00:00Z'))
