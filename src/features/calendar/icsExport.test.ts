@@ -26,7 +26,8 @@ describe('iCalendar one-way export', () => {
   it('normalizes NEL, vertical tab and form feed without introducing calendar fields', () => {
     const malicious = 'Familie\u0085ATTENDEE:mailto:outside@example.com\u000bBEGIN:VEVENT\u000cEND:VEVENT'
     const data = serializeIcs([{ ...example, title: malicious }])
-    expect(data).toContain('SUMMARY:Familie\\nATTENDEE:mailto:outside@example.com\\nBEGIN:VEVENT\\nEND:VEVENT')
+    // RFC 5545 folds long physical lines with CRLF + space; unfold before checking the logical value.
+    expect(data.replace(/\r\n /g, '')).toContain('SUMMARY:Familie\\nATTENDEE:mailto:outside@example.com\\nBEGIN:VEVENT\\nEND:VEVENT')
     expect(data.match(/BEGIN:VEVENT\r\n/g)).toHaveLength(1)
     expect(data).not.toContain('\r\nATTENDEE:')
     // eslint-disable-next-line no-control-regex -- Assert that forbidden control characters were removed.
