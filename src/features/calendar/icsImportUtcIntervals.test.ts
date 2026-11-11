@@ -27,7 +27,14 @@ describe('UTC ICS interval projection', () => {
     event('one').replace('DTEND:20261112T150000Z\r\n', ''),
     event(''),
     event('one') + '\r\n' + event('one'),
-  ])('rejects ambiguous, invalid or duplicate intervals', (events) => {
+    event('one').replace('DTSTART:', 'DTSTART;TZID=Europe/Copenhagen:'),
+    event('one').replace('DTEND:', 'DTEND;VALUE=DATE-TIME:'),
+    event('one').replace('END:VEVENT', 'RRULE:FREQ=DAILY;COUNT=3\r\nEND:VEVENT'),
+    event('one').replace('END:VEVENT', 'EXDATE:20261113T070000Z\r\nEND:VEVENT'),
+    event('one').replace('END:VEVENT', 'RDATE:20261114T070000Z\r\nEND:VEVENT'),
+    event('one').replace('END:VEVENT', 'RECURRENCE-ID:20261112T070000Z\r\nEND:VEVENT'),
+    event('one').replace('END:VEVENT', 'DURATION:PT8H\r\nEND:VEVENT'),
+  ])('rejects ambiguous, invalid or unsupported intervals', (events) => {
     expect(() => extractIcsUtcIntervals(calendar(events))).toThrow()
   })
 })
