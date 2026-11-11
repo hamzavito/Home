@@ -27,7 +27,9 @@ export function parseCalendarSubscriptionUrl(input: string): URL {
     url.hash ||
     url.hostname.endsWith('.') ||
     !url.hostname.includes('.') ||
-    /[\[\]:]/.test(url.hostname) ||
+    url.hostname.includes('[') ||
+    url.hostname.includes(']') ||
+    url.hostname.includes(':') ||
     /^\d+(?:\.\d+){0,3}$/.test(url.hostname) ||
     /(?:^|\.)(?:localhost|local|internal|test|invalid|example)$/.test(url.hostname.toLowerCase())
   ) {
