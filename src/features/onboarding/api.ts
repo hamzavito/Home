@@ -21,7 +21,11 @@ export function onboardingError(e: unknown): string {
 function useReloadHousehold() {
   const { session } = useAuth()
   const qc = useQueryClient()
-  return () => qc.invalidateQueries({ queryKey: householdQueryKey(session?.user.id) })
+  return async () => {
+    // Keep onboarding pending until the household query has refreshed.
+    // Otherwise navigation can render members from a stale query cache.
+    await qc.invalidateQueries({ queryKey: householdQueryKey(session?.user.id) })
+  }
 }
 
 export function useCreateHousehold() {
