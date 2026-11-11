@@ -29,6 +29,7 @@ describe('iCalendar one-way export', () => {
     expect(data).toContain('SUMMARY:Familie\\nATTENDEE:mailto:outside@example.com\\nBEGIN:VEVENT\\nEND:VEVENT')
     expect(data.match(/BEGIN:VEVENT\r\n/g)).toHaveLength(1)
     expect(data).not.toContain('\r\nATTENDEE:')
+    // eslint-disable-next-line no-control-regex -- Assert that forbidden control characters were removed.
     expect(data).not.toMatch(/[\u000b\u000c\u0085]/)
   })
   it('uses local Danish times and a stable UID for timed events', () => {
